@@ -1,108 +1,160 @@
-# ⚙️ Sistema de Delivery — Back-end
+# EntregaFood — Backend
 
-## 📌 Sobre o projeto
+API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115**, seguindo a arquitetura **MVC**, com persistência em **PostgreSQL 16**.
 
-O **Sistema de Delivery** é um projeto acadêmico desenvolvido para a disciplina de **Desenvolvimento de Sistemas de Informação**.
+**Sprint 1** — CRUD de Usuário e autenticação por e-mail/senha com JWT.
+**Grupo:** Amigos do Gilberto · Turma A · Faculdade Impacta
 
-O sistema tem como referência o funcionamento de plataformas de delivery, como o **iFood**, utilizando seus conceitos e funcionalidades como base para o desenvolvimento de uma solução própria.
+---
 
-O Back-end será responsável pelo processamento das regras de negócio, gerenciamento dos dados e disponibilização das APIs utilizadas pelo Front-end.
+## Arquitetura MVC
 
-> 🚧 **Status:** Em desenvolvimento
+O padrão MVC separa a aplicação em três responsabilidades, e a estrutura de pastas reflete isso diretamente:
 
-## 🎯 Objetivo
-
-Desenvolver uma API para o Sistema de Delivery, aplicando conceitos de desenvolvimento de sistemas, banco de dados, APIs, autenticação e arquitetura de software.
-
-## 🏗️ Arquitetura
-
-O projeto seguirá a arquitetura **MVC (Model-View-Controller)**, conforme requisito da disciplina.
-
-A aplicação será organizada de forma a separar as responsabilidades entre:
-
-* **Model:** representação e manipulação dos dados;
-* **View:** camada responsável pela apresentação/retorno das informações;
-* **Controller:** responsável pelo processamento das requisições e regras de negócio.
-
-## 🛠️ Tecnologias
-
-As tecnologias previstas para o desenvolvimento do Back-end são:
-
-* Python
-* SQLite
-* SQL
-* JWT ou OAuth
-* Postman
-
-> A lista de tecnologias poderá ser atualizada conforme as decisões técnicas do grupo.
-
-## 📋 Funcionalidades previstas
-
-### 👤 Usuário
-
-* CRUD de usuário
-* Cadastro de usuário
-* Autenticação
-* Login
-* Utilização de JWT ou OAuth
-* Integração com serviços externos de autenticação
-* Testes das APIs utilizando Postman
-
-### 📍 Local
-
-* CRUD de local
-* Cadastro e gerenciamento de locais
-* Integração com Google Maps API
-
-### 🔄 API
-
-O Back-end disponibilizará APIs para comunicação com o Front-end e processamento das funcionalidades do sistema.
-
-> Novas funcionalidades serão adicionadas conforme a evolução das Sprints.
-
-## 🗄️ Banco de dados
-
-O projeto utilizará **SQLite** como banco de dados relacional.
-
-A modelagem e estrutura do banco serão desenvolvidas conforme os requisitos e regras de negócio definidos para o sistema.
-
-> **Observação:** a disciplina determina que não seja utilizado banco de dados NoSQL.
-
-## 📁 Estrutura do projeto
-
-A estrutura de diretórios será definida conforme a implementação do Back-end.
-
-```text
-Sistema-de-Delivery-Back/
-├── app/
-│   ├── models/
-│   ├── controllers/
-│   ├── ...
-├── tests/
-├── database/
-├── ...
-└── README.md
+```
+app/
+├── models/          MODEL      → SQLAlchemy + regras de negócio
+│   └── usuario.py              (mapeia a tabela usuario, valida e-mail único, tipo de perfil)
+├── schemas/         VIEW       → Pydantic: formato do JSON de entrada e saída
+│   └── usuario.py              (define o que entra e — importante — o que NÃO sai)
+├── controllers/     CONTROLLER → routers FastAPI: recebem HTTP e orquestram
+│   ├── usuario_controller.py   (as 4 operações do CRUD)
+│   └── auth_controller.py      (login e rota protegida)
+└── core/            Infraestrutura de apoio
+    ├── config.py               (lê o .env)
+    ├── database.py             (engine e sessão do SQLAlchemy)
+    └── security.py             (hash de senha, JWT, middleware)
 ```
 
-> A estrutura acima é apenas uma organização inicial e poderá ser alterada conforme a implementação do projeto.
+**A regra que mantém o padrão honesto:** se aparecer `status_code` dentro de `models/`, a regra de negócio vazou para o lugar errado. Se aparecer `db.commit()` dentro de `controllers/`, a persistência vazou. O Controller conversa com o Model; o Model conversa com o banco.
 
-## 🚀 Execução
+---
 
-As instruções para instalação, configuração do ambiente, banco de dados e execução da API serão adicionadas após a configuração inicial do projeto.
+## Como rodar
 
-## 🧪 Testes
+### 1. Subir o banco (Docker)
 
-Os endpoints da API serão testados inicialmente utilizando o **Postman**, conforme o planejamento das Sprints.
+```bash
+docker compose up -d
+docker compose ps          # confirmar que o container está saudável
+```
 
-## 👥 Equipe
+O `docker-compose.yml` monta a pasta `sql/` em `/docker-entrypoint-initdb.d`, então as 11 tabelas são criadas automaticamente na primeira subida.
 
-* Leticia da Silva Macedo
-* Anna Julia Higa Farincho
-* Geovane Soares da Silva
-* Richard Ferreira do Nascimento Santos
+### 2. Criar o ambiente virtual e instalar as dependências
 
-## 📚 Contexto acadêmico
+```bash
+python -m venv .venv
 
-Projeto desenvolvido para a disciplina de **Desenvolvimento de Sistemas de Informação — Sistemas de Informação**, utilizando metodologia baseada em **Scrum e Sprints**.
+# Windows
+.venv\Scripts\activate
+# macOS / Linux
+source .venv/bin/activate
 
-O desenvolvimento contempla implementação, documentação, testes, modelagem de banco de dados e integração entre os componentes do sistema.
+pip install -r requirements.txt
+```
+
+### 3. Configurar as variáveis de ambiente
+
+```bash
+cp .env.example .env        # no Windows: copy .env.example .env
+```
+
+Abra o `.env` e troque o `JWT_SECRET` por um valor aleatório e longo. O `.env` está no `.gitignore` e **nunca deve ser commitado**.
+
+### 4. Subir a API
+
+```bash
+uvicorn app.main:app --reload
+```
+
+| Endereço | O que é |
+|---|---|
+| http://localhost:8000 | Verificação de saúde |
+| http://localhost:8000/docs | Swagger (documentação interativa) |
+| http://localhost:8000/redoc | ReDoc |
+
+---
+
+## Endpoints da Sprint 1
+
+| Método | Rota | Operação | Requisito | Retorno |
+|---|---|---|---|---|
+| `POST` | `/usuarios` | **CREATE** | RF01 | `201` · `409` se e-mail duplicado |
+| `GET` | `/usuarios` | **READ** (lista) | — | `200` |
+| `GET` | `/usuarios/{id}` | **READ** (por id) | — | `200` · `404` |
+| `PUT` | `/usuarios/{id}` | **UPDATE** | — | `200` · `404` · `409` |
+| `DELETE` | `/usuarios/{id}` | **DELETE** | RF06 | `204` · `404` |
+| `POST` | `/auth/login` | Autenticação | RF02 | `200` · `401` |
+| `GET` | `/auth/eu` | Rota protegida | RF02 | `200` · `401` |
+
+### Exemplo de cadastro
+
+```bash
+curl -X POST http://localhost:8000/usuarios \
+  -H "Content-Type: application/json" \
+  -d '{"nome":"Geovane Soares","email":"geovane@entregafood.com","senha":"senha123","telefone":"11999998888","tipo":"cliente"}'
+```
+
+### Exemplo de login
+
+```bash
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"geovane@entregafood.com","senha":"senha123"}'
+```
+
+---
+
+## Casos de teste cobertos
+
+| ID | Caso | Verificação |
+|---|---|---|
+| **CT01** | Cadastro com e-mail válido | `POST /usuarios` → `201` e registro na tabela |
+| **CT02** | Login com credenciais inválidas | `POST /auth/login` → `401` |
+| **CT04** | Cadastro com e-mail já existente | `POST /usuarios` → `409` |
+
+Execute a bateria completa. **Ela roda contra o PostgreSQL real**, o mesmo banco da aplicação — cada verificação consulta a tabela `usuario` diretamente com `SELECT` para provar que o efeito chegou ao banco:
+
+```bash
+python testes/teste_crud_sprint1.py
+```
+
+São 20 verificações cobrindo as 4 operações do CRUD, o login válido e inválido, o middleware de sessão e a gravação do hash bcrypt.
+
+---
+
+## Segurança
+
+- Senhas armazenadas com **bcrypt**, nunca em texto puro (RNF03).
+- `senha_hash` **não aparece em nenhuma resposta da API** — o schema `UsuarioOut` simplesmente não tem esse campo.
+- Autenticação por **JWT Bearer**, com expiração configurável.
+- O login devolve mensagem genérica ("E-mail ou senha incorretos") de propósito, para não revelar quais e-mails existem na base.
+- CORS restrito às origens listadas no `.env`.
+
+---
+
+## Divisão de responsabilidades — Sprint 1
+
+| Arquivo | Responsável |
+|---|---|
+| `app/core/config.py`, `database.py`, `main.py` | Geovane |
+| `app/models/usuario.py` | Geovane |
+| `app/schemas/usuario.py` | Geovane |
+| `app/controllers/usuario_controller.py` | Geovane |
+| `app/core/security.py` | Letícia |
+| `app/controllers/auth_controller.py` | Letícia |
+| `docker-compose.yml`, `sql/` | Richard |
+| `testes/` e coleção Postman | Anna |
+
+---
+
+## Convenção de branches
+
+```
+main                    ← protegida, entra só via Pull Request
+sprint1/crud-usuario    ← Geovane
+sprint1/autenticacao    ← Letícia
+sprint1/infra-banco     ← Richard
+sprint1/testes-api      ← Anna
+```

@@ -1,0 +1,19 @@
+# Tarefa do Richard (Bloco 2) - subir o PostgreSQL 16.
+# Comando: docker compose up -d
+services:
+  db:
+    image: postgres:16
+    container_name: entregafood-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: entregafood
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+
+volumes:
+  pgdata:
