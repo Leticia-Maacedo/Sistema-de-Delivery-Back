@@ -164,7 +164,7 @@ Todas essas rotas (exceto `POST /usuarios` e `POST /auth/login`) exigem `Authori
 
 ### Painel de administração
 
-Um `admin` logado consegue listar, consultar, editar e excluir a conta de **qualquer** usuário — é o que sustenta a tela "Usuários" do front-end. Como não existe autocadastro de admin, pra testar isso localmente você precisa provisionar um direto no banco:
+Um `admin` logado consegue listar, consultar, editar e excluir a conta de **qualquer** usuário — é o que sustenta a aba "Usuários" do front-end (`src/views/admin/UsuariosView.jsx` no repo do front), com CRUD completo: buscar, criar, editar e excluir qualquer conta. Como não existe autocadastro de admin, pra testar isso localmente você precisa provisionar um direto no banco:
 
 ```sql
 -- depois de gerar um hash bcrypt (veja abaixo), rode algo assim:
@@ -257,10 +257,6 @@ python testes/teste_crud_produto.py
 ```
 
 ---
-
-## Painel de administração
-
-Contas do tipo `admin` (provisionadas manualmente no banco, veja abaixo) ganham no front-end uma aba **Usuários** com CRUD completo — criar, listar/buscar, editar e excluir qualquer conta cadastrada, usando os mesmos endpoints `/usuarios` descritos acima. Fica em `src/views/admin/UsuariosView.jsx` no repo do front.
 
 ## Segurança
 
