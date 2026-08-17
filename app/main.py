@@ -11,7 +11,13 @@ Swagger:   http://localhost:8000/docs
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.controllers import auth_controller, usuario_controller
+from app.controllers import (
+    auth_controller,
+    local_controller,
+    produto_controller,
+    restaurante_controller,
+    usuario_controller,
+)
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -20,7 +26,8 @@ app = FastAPI(
     title="EntregaFood API",
     description=(
         "API REST da plataforma EntregaFood. "
-        "Sprint 1 — CRUD de Usuário e autenticação por e-mail/senha."
+        "Sprint 1 — CRUD de Usuário e autenticação por e-mail/senha. "
+        "Extra — CRUD de Restaurante e Produto."
     ),
     version="1.0.0",
 )
@@ -36,6 +43,9 @@ app.add_middleware(
 
 app.include_router(usuario_controller.router)
 app.include_router(auth_controller.router)
+app.include_router(local_controller.router)
+app.include_router(restaurante_controller.router)
+app.include_router(produto_controller.router)
 
 
 @app.get("/", tags=["Status"], summary="Verificação de saúde da API")

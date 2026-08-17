@@ -3,6 +3,7 @@
 API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115**, seguindo a arquitetura **MVC**, com persistência em **PostgreSQL 16**.
 
 **Sprint 1** — CRUD de Usuário e autenticação por e-mail/senha com JWT.
+**Extra** — CRUD de Restaurante e Produto (Local só com criação, pré-requisito da cadeia).
 **Grupo:** Amigos do Gilberto · Turma A · Faculdade Impacta
 
 ---
@@ -14,12 +15,21 @@ O padrão MVC separa a aplicação em três responsabilidades, e a estrutura de 
 ```
 app/
 ├── models/          MODEL      → SQLAlchemy + regras de negócio
-│   └── usuario.py              (mapeia a tabela usuario, valida e-mail único, tipo de perfil)
+│   ├── usuario.py              (mapeia a tabela usuario, valida e-mail único, tipo de perfil)
+│   ├── local.py                (mapeia a tabela local — só criação, pré-requisito de Restaurante)
+│   ├── restaurante.py          (mapeia a tabela restaurante, valida CNPJ único)
+│   └── produto.py              (mapeia a tabela produto, vinculado a um restaurante)
 ├── schemas/         VIEW       → Pydantic: formato do JSON de entrada e saída
-│   └── usuario.py              (define o que entra e — importante — o que NÃO sai)
+│   ├── usuario.py              (define o que entra e — importante — o que NÃO sai)
+│   ├── local.py
+│   ├── restaurante.py
+│   └── produto.py
 ├── controllers/     CONTROLLER → routers FastAPI: recebem HTTP e orquestram
 │   ├── usuario_controller.py   (as 4 operações do CRUD)
-│   └── auth_controller.py      (login e rota protegida)
+│   ├── auth_controller.py      (login e rota protegida)
+│   ├── local_controller.py     (só CREATE)
+│   ├── restaurante_controller.py (as 4 operações do CRUD)
+│   └── produto_controller.py   (as 4 operações do CRUD)
 └── core/            Infraestrutura de apoio
     ├── config.py               (lê o .env)
     ├── database.py             (engine e sessão do SQLAlchemy)
@@ -110,7 +120,7 @@ Fica em http://localhost:5173 — já vem configurado pra falar com a API em `ht
 
 ## Endpoints da Sprint 1
 
-O escopo da Sprint 1 é só o domínio **Usuário**: cadastro, CRUD e autenticação. As outras 10 tabelas do `sql/` (restaurante, produto, pedido, entrega...) já existem no banco, mas não têm model/controller/endpoint ainda — ficam para as próximas sprints.
+O escopo da Sprint 1 é o domínio **Usuário**: cadastro, CRUD e autenticação.
 
 | Método | Rota | Operação | Requisito | Retorno |
 |---|---|---|---|---|
@@ -140,6 +150,44 @@ curl -X POST http://localhost:8000/auth/login \
 
 ---
 
+## Endpoints extras — Restaurante e Produto
+
+Além do escopo mínimo da Sprint 1, o CRUD de **Produto** foi implementado por completo (com tela no front-end). Como `produto` exige um `restaurante_id`, e `restaurante` exige um `local_id`, a cadeia de pré-requisitos ficou assim:
+
+**Usuário** (Sprint 1) → **Local** (só `POST`, o suficiente pra existir um endereço) → **Restaurante** (CRUD completo) → **Produto** (CRUD completo)
+
+| Método | Rota | Operação | Retorno |
+|---|---|---|---|
+| `POST` | `/locais` | CREATE | `201` |
+| `POST` | `/restaurantes` | CREATE | `201` · `409` se CNPJ duplicado |
+| `GET` | `/restaurantes` | READ (lista) | `200` |
+| `GET` | `/restaurantes/{id}` | READ (por id) | `200` · `404` |
+| `PUT` | `/restaurantes/{id}` | UPDATE | `200` · `404` · `409` |
+| `DELETE` | `/restaurantes/{id}` | DELETE | `204` · `404` |
+| `POST` | `/produtos` | CREATE | `201` · `422` se restaurante não existe |
+| `GET` | `/produtos` | READ (lista, filtra por `?restaurante_id=`) | `200` |
+| `GET` | `/produtos/{id}` | READ (por id) | `200` · `404` |
+| `PUT` | `/produtos/{id}` | UPDATE | `200` · `404` |
+| `DELETE` | `/produtos/{id}` | DELETE | `204` · `404` |
+
+### Exemplo: cadastrar a cadeia inteira
+
+```bash
+# 1. Local (usuario_id precisa existir)
+curl -X POST http://localhost:8000/locais -H "Content-Type: application/json" \
+  -d '{"usuario_id":1,"endereco":"Rua das Flores, 123","tipo":"restaurante","latitude":"-23.550520","longitude":"-46.633308"}'
+
+# 2. Restaurante (local_id = id devolvido acima)
+curl -X POST http://localhost:8000/restaurantes -H "Content-Type: application/json" \
+  -d '{"local_id":1,"nome_fantasia":"Cantinho do Chef","cnpj":"12.345.678/0001-90","taxa_entrega_km":"2.50"}'
+
+# 3. Produto (restaurante_id = id devolvido acima)
+curl -X POST http://localhost:8000/produtos -H "Content-Type: application/json" \
+  -d '{"restaurante_id":1,"nome":"X-Salada","preco":"24.90"}'
+```
+
+---
+
 ## Casos de teste cobertos
 
 | ID | Caso | Verificação |
@@ -155,6 +203,12 @@ python testes/teste_crud_sprint1.py
 ```
 
 São 20 verificações cobrindo as 4 operações do CRUD, o login válido e inválido, o middleware de sessão e a gravação do hash bcrypt.
+
+Da mesma forma, o CRUD de **Produto** tem sua própria bateria (cria a cadeia Local → Restaurante → Produto e verifica cada operação direto na tabela `produto`):
+
+```bash
+python testes/teste_crud_produto.py
+```
 
 ---
 
@@ -172,8 +226,9 @@ São 20 verificações cobrindo as 4 operações do CRUD, o login válido e inv�
 
 - **Login social (Google/Facebook)**: chegou a ser implementado (`/auth/{provedor}/login` + callback via Authlib), mas foi removido. Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Login continua só por e-mail/senha.
 - **Verificação por SMS**: a etapa de celular no cadastro (front-end) usa um código de 4 dígitos **simulado** — não envia SMS de verdade. Integração real com Twilio foi avaliada, mas a conta trial não permite nem buscar números disponíveis sem upgrade (cartão de crédito).
-- **Endereço de entrega**: ainda não existe endpoint pra tabela `local`.
-- **Autorização por dono do recurso**: `PUT /usuarios/{id}` e `DELETE /usuarios/{id}` não checam se quem está chamando é o dono da conta (não exigem o JWT). Funciona porque o front só deixa o usuário editar/excluir a própria conta, mas a API em si confiaria em qualquer `id` — vale endurecer isso numa próxima sprint.
+- **Local**: só tem `POST` — não há edição/exclusão de endereço, pois não era o foco desta entrega (é só pré-requisito da cadeia até Produto).
+- **Autorização por dono do recurso**: `PUT`/`DELETE` de `/usuarios/{id}`, `/restaurantes/{id}` e `/produtos/{id}` não checam se quem está chamando tem permissão (não exigem o JWT) — qualquer requisição altera qualquer registro pelo `id`. Funciona porque o front só expõe editar/excluir o que faz sentido, mas a API em si confiaria em qualquer chamada — vale endurecer isso numa próxima sprint.
+- **Sacola, Pedido, Pagamento, Entrega, Avaliação**: as demais tabelas do schema continuam só no `sql/`, sem model/controller/endpoint.
 
 ---
 
