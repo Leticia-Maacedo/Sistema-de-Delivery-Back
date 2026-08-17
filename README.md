@@ -134,6 +134,13 @@ São 20 verificações cobrindo as 4 operações do CRUD, o login válido e inv�
 
 ---
 
+## Limitações conhecidas
+
+- **Verificação por SMS**: a etapa de celular no cadastro (front-end) usa um código de 4 dígitos **simulado** — não envia SMS de verdade. Integração real com Twilio foi avaliada, mas a conta trial não permite nem buscar números disponíveis sem upgrade (cartão de crédito). Fica pendente para quando o grupo decidir assinar um plano pago.
+- **Login social (Google/Facebook)**: os botões existem na UI mas ainda não estão funcionais — dependem de credenciais OAuth (Client ID/Secret) que precisam ser criadas no Google Cloud Console e no Meta for Developers.
+
+---
+
 ## Divisão de responsabilidades — Sprint 1
 
 | Arquivo | Responsável |

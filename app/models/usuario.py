@@ -126,6 +126,25 @@ class Usuario(Base):
         db.refresh(self)
         return self
 
+    @classmethod
+    def buscar_ou_criar_por_oauth(
+        cls, db: Session, *, nome: str, email: str, provider: str
+    ) -> "Usuario":
+        """Login social (Google/Facebook): reaproveita a conta se o e-mail
+        ja existir, ou cria uma nova sem senha (login so por OAuth)."""
+        usuario = cls.buscar_por_email(db, email)
+        if usuario is not None:
+            return usuario
+        return cls.criar(
+            db,
+            nome=nome,
+            email=email,
+            senha_hash=None,
+            telefone=None,
+            tipo="cliente",
+            oauth_provider=provider,
+        )
+
     def remover(self, db: Session) -> None:
         """Encerramento de conta (RF06)."""
         db.delete(self)
