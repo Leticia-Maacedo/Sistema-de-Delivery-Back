@@ -17,13 +17,6 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "http://localhost:5173"
 
-    FRONTEND_URL: str = "http://localhost:5173"
-
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
-    FACEBOOK_APP_ID: str = ""
-    FACEBOOK_APP_SECRET: str = ""
-
     @property
     def cors_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

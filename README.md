@@ -2,7 +2,7 @@
 
 API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115**, seguindo a arquitetura **MVC**, com persistência em **PostgreSQL 16**.
 
-**Sprint 1** — CRUD de Usuário e autenticação por e-mail/senha com JWT (+ login social com Google/Facebook como extra).
+**Sprint 1** — CRUD de Usuário e autenticação por e-mail/senha com JWT.
 **Grupo:** Amigos do Gilberto · Turma A · Faculdade Impacta
 
 ---
@@ -19,8 +19,7 @@ app/
 │   └── usuario.py              (define o que entra e — importante — o que NÃO sai)
 ├── controllers/     CONTROLLER → routers FastAPI: recebem HTTP e orquestram
 │   ├── usuario_controller.py   (as 4 operações do CRUD)
-│   ├── auth_controller.py      (login e rota protegida)
-│   └── oauth_controller.py     (login social — Google e Facebook)
+│   └── auth_controller.py      (login e rota protegida)
 └── core/            Infraestrutura de apoio
     ├── config.py               (lê o .env)
     ├── database.py             (engine e sessão do SQLAlchemy)
@@ -82,8 +81,6 @@ cp .env.example .env        # no Windows: copy .env.example .env
 
 Abra o `.env` e troque o `JWT_SECRET` por um valor aleatório e longo. O `.env` está no `.gitignore` e **nunca deve ser commitado**.
 
-As variáveis `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET` são **opcionais** — só são necessárias se você for testar o login social (veja [Login social](#login-social-google-e-facebook) abaixo). Sem elas, o resto da API funciona normalmente.
-
 ### 4. Subir a API
 
 ```bash
@@ -124,10 +121,6 @@ O escopo da Sprint 1 é só o domínio **Usuário**: cadastro, CRUD e autentica�
 | `DELETE` | `/usuarios/{id}` | **DELETE** | RF06 | `204` · `404` |
 | `POST` | `/auth/login` | Autenticação e-mail/senha | RF02 | `200` · `401` |
 | `GET` | `/auth/eu` | Rota protegida | RF02 | `200` · `401` |
-| `GET` | `/auth/google/login` | Inicia login com Google | extra | `302` |
-| `GET` | `/auth/google/callback` | Callback do Google | extra | `302` |
-| `GET` | `/auth/facebook/login` | Inicia login com Facebook | extra | `302` |
-| `GET` | `/auth/facebook/callback` | Callback do Facebook | extra | `302` |
 
 ### Exemplo de cadastro
 
@@ -165,26 +158,6 @@ São 20 verificações cobrindo as 4 operações do CRUD, o login válido e inv�
 
 ---
 
-## Login social (Google e Facebook)
-
-O fluxo é o OAuth2 padrão via redirect (não é uma chamada `fetch`/AJAX):
-
-1. O front redireciona o navegador pra `GET /auth/google/login` (ou `/auth/facebook/login`)
-2. A API redireciona pro provedor, que autentica o usuário e chama de volta `/auth/{provedor}/callback`
-3. A API busca (ou cria) o `Usuario` pelo e-mail devolvido pelo provedor — contas OAuth não têm senha — e redireciona o navegador de volta pro front com o JWT na URL: `http://localhost:5173/?oauth_token=...`
-4. Se o provedor não devolver e-mail (o Facebook pode negar essa permissão), a API redireciona com `?oauth_erro=...` em vez de token
-
-Pra habilitar de verdade, crie as credenciais e coloque no `.env`:
-
-| Variável | Onde conseguir |
-|---|---|
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | [console.cloud.google.com](https://console.cloud.google.com) → criar projeto → "Google Auth Platform" → Clientes → Criar cliente (tipo Web, redirect URI `http://localhost:8000/auth/google/callback`) |
-| `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET` | [developers.facebook.com/apps](https://developers.facebook.com/apps) → criar app → produto "Login do Facebook" → redirect URI `http://localhost:8000/auth/facebook/callback` |
-
-Sem essas variáveis, os botões de login social no front simplesmente vão dar erro de configuração no provedor — o resto da aplicação (CRUD, login por e-mail/senha) continua funcionando normalmente.
-
----
-
 ## Segurança
 
 - Senhas armazenadas com **bcrypt**, nunca em texto puro (RNF03).
@@ -197,8 +170,9 @@ Sem essas variáveis, os botões de login social no front simplesmente vão dar 
 
 ## Limitações conhecidas
 
-- **Verificação por SMS**: a etapa de celular no cadastro (front-end) usa um código de 4 dígitos **simulado** — não envia SMS de verdade. Integração real com Twilio foi avaliada, mas a conta trial não permite nem buscar números disponíveis sem upgrade (cartão de crédito). Fica pendente para quando o grupo decidir assinar um plano pago.
-- **Endereço de entrega**: a etapa de endereço no cadastro (front-end) é só visual — ainda não existe endpoint pra tabela `local`.
+- **Login social (Google/Facebook)**: chegou a ser implementado (`/auth/{provedor}/login` + callback via Authlib), mas foi removido. Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Login continua só por e-mail/senha.
+- **Verificação por SMS**: a etapa de celular no cadastro (front-end) usa um código de 4 dígitos **simulado** — não envia SMS de verdade. Integração real com Twilio foi avaliada, mas a conta trial não permite nem buscar números disponíveis sem upgrade (cartão de crédito).
+- **Endereço de entrega**: ainda não existe endpoint pra tabela `local`.
 - **Autorização por dono do recurso**: `PUT /usuarios/{id}` e `DELETE /usuarios/{id}` não checam se quem está chamando é o dono da conta (não exigem o JWT). Funciona porque o front só deixa o usuário editar/excluir a própria conta, mas a API em si confiaria em qualquer `id` — vale endurecer isso numa próxima sprint.
 
 ---

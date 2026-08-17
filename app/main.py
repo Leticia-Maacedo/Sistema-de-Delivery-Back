@@ -10,9 +10,8 @@ Swagger:   http://localhost:8000/docs
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 
-from app.controllers import auth_controller, oauth_controller, usuario_controller
+from app.controllers import auth_controller, usuario_controller
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -35,13 +34,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Exigido pelo Authlib para guardar o "state" do OAuth entre o redirect
-# de ida e o de volta (login social do Google/Facebook).
-app.add_middleware(SessionMiddleware, secret_key=settings.JWT_SECRET)
-
 app.include_router(usuario_controller.router)
 app.include_router(auth_controller.router)
-app.include_router(oauth_controller.router)
 
 
 @app.get("/", tags=["Status"], summary="Verificação de saúde da API")
