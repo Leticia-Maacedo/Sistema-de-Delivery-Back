@@ -148,15 +148,35 @@ O escopo da Sprint 1 é o domínio **Usuário**: cadastro, CRUD e autenticação
 
 A coluna `tipo` do `usuario` aceita quatro valores: `cliente`, `entregador` (motoboy), `restaurante` e `admin`. Os três primeiros podem se autocadastrar via `POST /usuarios` — **`admin` não pode**: o controller devolve `403` se alguém tentar criar uma conta admin por esse endpoint. Conta admin é provisionada manualmente (direto no banco, por enquanto), exatamente pra evitar que qualquer autocadastro vire admin da plataforma.
 
-| Método | Rota | Operação | Requisito | Retorno |
-|---|---|---|---|---|
-| `POST` | `/usuarios` | **CREATE** | RF01 | `201` · `409` se e-mail duplicado |
-| `GET` | `/usuarios` | **READ** (lista) | — | `200` |
-| `GET` | `/usuarios/{id}` | **READ** (por id) | — | `200` · `404` |
-| `PUT` | `/usuarios/{id}` | **UPDATE** | — | `200` · `404` · `409` |
-| `DELETE` | `/usuarios/{id}` | **DELETE** | RF06 | `204` · `404` |
-| `POST` | `/auth/login` | Autenticação e-mail/senha | RF02 | `200` · `401` |
-| `GET` | `/auth/eu` | Rota protegida | RF02 | `200` · `401` |
+| Método | Rota | Operação | Requisito | Quem pode | Retorno |
+|---|---|---|---|---|---|
+| `POST` | `/usuarios` | **CREATE** | RF01 | qualquer um (exceto tipo `admin`) | `201` · `409` · `403` |
+| `GET` | `/usuarios` | **READ** (lista todo mundo) | — | só `admin` | `200` · `401` · `403` |
+| `GET` | `/usuarios/{id}` | **READ** (por id) | — | o dono da conta ou `admin` | `200` · `401` · `403` · `404` |
+| `PUT` | `/usuarios/{id}` | **UPDATE** | — | o dono da conta ou `admin`¹ | `200` · `401` · `403` · `404` · `409` |
+| `DELETE` | `/usuarios/{id}` | **DELETE** | RF06 | o dono da conta ou `admin` | `204` · `401` · `403` · `404` |
+| `POST` | `/auth/login` | Autenticação e-mail/senha | RF02 | qualquer um | `200` · `401` |
+| `GET` | `/auth/eu` | Rota protegida | RF02 | quem estiver logado | `200` · `401` |
+
+¹ Só um `admin` pode alterar o campo `tipo` de uma conta (promover/rebaixar um perfil) — o próprio dono pode editar nome/e-mail/telefone, mas não o próprio tipo.
+
+Todas essas rotas (exceto `POST /usuarios` e `POST /auth/login`) exigem `Authorization: Bearer <token>`. Quem não é dono da conta nem admin recebe `403` sem descobrir se o `id` existe — a checagem de permissão roda antes da checagem de existência, de propósito, pra não vazar informação.
+
+### Painel de administração
+
+Um `admin` logado consegue listar, consultar, editar e excluir a conta de **qualquer** usuário — é o que sustenta a tela "Usuários" do front-end. Como não existe autocadastro de admin, pra testar isso localmente você precisa provisionar um direto no banco:
+
+```sql
+-- depois de gerar um hash bcrypt (veja abaixo), rode algo assim:
+INSERT INTO usuario (nome, email, senha_hash, tipo)
+VALUES ('Admin', 'admin@entregafood.com', '<hash bcrypt aqui>', 'admin');
+```
+
+Gerar o hash com o próprio back-end (mesmo algoritmo que a API usa):
+
+```bash
+python -c "from app.core.security import gerar_hash_senha; print(gerar_hash_senha('sua-senha-aqui'))"
+```
 
 ### Exemplo de cadastro
 
@@ -228,7 +248,7 @@ Execute a bateria completa. **Ela roda contra o PostgreSQL real**, o mesmo banco
 python testes/teste_crud_sprint1.py
 ```
 
-São 20 verificações cobrindo as 4 operações do CRUD, o login válido e inválido, o middleware de sessão e a gravação do hash bcrypt.
+São 30 verificações cobrindo as 4 operações do CRUD, login válido e inválido, o middleware de sessão, a gravação do hash bcrypt e as regras de autorização (dono da conta vs. conta alheia vs. admin).
 
 Da mesma forma, o CRUD de **Produto** tem sua própria bateria (cria a cadeia Local → Restaurante → Produto e verifica cada operação direto na tabela `produto`):
 
@@ -257,7 +277,7 @@ Contas do tipo `admin` (provisionadas manualmente no banco, veja abaixo) ganham 
 - **Login social (Google/Facebook)**: chegou a ser implementado (`/auth/{provedor}/login` + callback via Authlib), mas foi removido. Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Login continua só por e-mail/senha.
 - **Verificação por SMS**: a etapa de celular no cadastro (front-end) usa um código de 4 dígitos **simulado** — não envia SMS de verdade. Integração real com Twilio foi avaliada, mas a conta trial não permite nem buscar números disponíveis sem upgrade (cartão de crédito).
 - **Local**: só tem `POST` — não há edição/exclusão de endereço, pois não era o foco desta entrega (é só pré-requisito da cadeia até Produto).
-- **Autorização por dono do recurso**: `PUT`/`DELETE` de `/usuarios/{id}`, `/restaurantes/{id}` e `/produtos/{id}` não checam se quem está chamando tem permissão (não exigem o JWT) — qualquer requisição altera qualquer registro pelo `id`. Funciona porque o front só expõe editar/excluir o que faz sentido, mas a API em si confiaria em qualquer chamada — vale endurecer isso numa próxima sprint.
+- **Autorização em Restaurante e Produto**: só as rotas de `/usuarios` checam dono-ou-admin. `PUT`/`DELETE` de `/restaurantes/{id}` e `/produtos/{id}` ainda não exigem login — qualquer requisição altera qualquer registro pelo `id`. Funciona porque o front só deixa quem é `restaurante` chegar na tela de Produtos, mas a API em si confiaria em qualquer chamada — vale estender a mesma checagem de `usuario_controller.py` pra esses dois controllers numa próxima sprint.
 - **Sacola, Pedido, Pagamento, Entrega, Avaliação**: as demais tabelas do schema continuam só no `sql/`, sem model/controller/endpoint.
 
 ---

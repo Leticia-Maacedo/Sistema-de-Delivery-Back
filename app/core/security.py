@@ -78,3 +78,13 @@ def obter_usuario_logado(
     if usuario is None:
         raise nao_autorizado
     return usuario
+
+
+def exigir_admin(usuario: Usuario = Depends(obter_usuario_logado)) -> Usuario:
+    """Dependencia que protege rotas administrativas (gerenciar qualquer usuario)."""
+    if usuario.tipo != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas administradores podem acessar este recurso.",
+        )
+    return usuario
