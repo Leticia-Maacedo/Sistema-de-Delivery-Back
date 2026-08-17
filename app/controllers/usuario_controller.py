@@ -8,16 +8,30 @@ As quatro operacoes do CRUD estao aqui, uma por verbo HTTP:
     READ    ->  GET    /usuarios  e  GET /usuarios/{id}
     UPDATE  ->  PUT    /usuarios/{id}
     DELETE  ->  DELETE /usuarios/{id}
+
+Autorizacao: listar todo mundo e' coisa de admin. Consultar, editar e
+excluir um usuario especifico e' permitido pro proprio dono da conta
+ou por um admin — e' o que sustenta tanto a tela "Meu Perfil" (o
+usuario mexe na propria conta) quanto o painel de administracao (o
+admin mexe na conta de qualquer um).
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import gerar_hash_senha
+from app.core.security import gerar_hash_senha, obter_usuario_logado
 from app.models.usuario import Usuario
 from app.schemas.usuario import UsuarioCreate, UsuarioOut, UsuarioUpdate
 
 router = APIRouter(prefix="/usuarios", tags=["Usuários"])
+
+
+def _exigir_dono_ou_admin(usuario_id: int, usuario_logado: Usuario) -> None:
+    if usuario_logado.tipo != "admin" and usuario_logado.id != usuario_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você só pode gerenciar a sua própria conta.",
+        )
 
 
 # ---------------------------------------------------------------- CREATE
@@ -61,18 +75,29 @@ def criar_usuario(dados: UsuarioCreate, db: Session = Depends(get_db)) -> Usuari
 
 
 # ------------------------------------------------------------------ READ
-@router.get("", response_model=list[UsuarioOut], summary="Listar usuários")
+@router.get("", response_model=list[UsuarioOut], summary="Listar usuários (admin)")
 def listar_usuarios(
     tipo: str | None = Query(default=None, description="Filtra por perfil"),
     limite: int = Query(default=100, ge=1, le=200),
     pular: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> list[Usuario]:
+    if usuario_logado.tipo != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas administradores podem listar todos os usuários.",
+        )
     return Usuario.listar(db, tipo=tipo, limite=limite, pular=pular)
 
 
 @router.get("/{usuario_id}", response_model=UsuarioOut, summary="Consultar usuário")
-def obter_usuario(usuario_id: int, db: Session = Depends(get_db)) -> Usuario:
+def obter_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> Usuario:
+    _exigir_dono_ou_admin(usuario_id, usuario_logado)
     usuario = Usuario.buscar_por_id(db, usuario_id)
     if usuario is None:
         raise HTTPException(
@@ -84,12 +109,23 @@ def obter_usuario(usuario_id: int, db: Session = Depends(get_db)) -> Usuario:
 # ---------------------------------------------------------------- UPDATE
 @router.put("/{usuario_id}", response_model=UsuarioOut, summary="Alterar usuário")
 def atualizar_usuario(
-    usuario_id: int, dados: UsuarioUpdate, db: Session = Depends(get_db)
+    usuario_id: int,
+    dados: UsuarioUpdate,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> Usuario:
+    _exigir_dono_ou_admin(usuario_id, usuario_logado)
+
     usuario = Usuario.buscar_por_id(db, usuario_id)
     if usuario is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado."
+        )
+
+    if dados.tipo and usuario_logado.tipo != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Só um administrador pode alterar o tipo de conta.",
         )
 
     if dados.email and Usuario.email_ja_cadastrado(db, dados.email, ignorar_id=usuario_id):
@@ -107,7 +143,12 @@ def atualizar_usuario(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Encerrar conta (RF06)",
 )
-def remover_usuario(usuario_id: int, db: Session = Depends(get_db)) -> None:
+def remover_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> None:
+    _exigir_dono_ou_admin(usuario_id, usuario_logado)
     usuario = Usuario.buscar_por_id(db, usuario_id)
     if usuario is None:
         raise HTTPException(
