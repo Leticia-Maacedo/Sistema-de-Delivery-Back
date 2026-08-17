@@ -122,6 +122,10 @@ Fica em http://localhost:5173 — já vem configurado pra falar com a API em `ht
 
 O escopo da Sprint 1 é o domínio **Usuário**: cadastro, CRUD e autenticação.
 
+### Tipos de conta
+
+A coluna `tipo` do `usuario` aceita quatro valores: `cliente`, `entregador` (motoboy), `restaurante` e `admin`. Os três primeiros podem se autocadastrar via `POST /usuarios` — **`admin` não pode**: o controller devolve `403` se alguém tentar criar uma conta admin por esse endpoint. Conta admin é provisionada manualmente (direto no banco, por enquanto), exatamente pra evitar que qualquer autocadastro vire admin da plataforma.
+
 | Método | Rota | Operação | Requisito | Retorno |
 |---|---|---|---|---|
 | `POST` | `/usuarios` | **CREATE** | RF01 | `201` · `409` se e-mail duplicado |

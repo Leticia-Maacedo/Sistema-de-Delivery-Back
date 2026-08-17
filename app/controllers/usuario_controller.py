@@ -44,6 +44,12 @@ def criar_usuario(dados: UsuarioCreate, db: Session = Depends(get_db)) -> Usuari
             detail="Tipo de usuário inválido.",
         )
 
+    if dados.tipo == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta admin não pode ser criada por autocadastro.",
+        )
+
     return Usuario.criar(
         db,
         nome=dados.nome,
