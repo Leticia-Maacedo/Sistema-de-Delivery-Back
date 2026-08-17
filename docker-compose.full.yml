@@ -1,0 +1,59 @@
+# Sobe o stack inteiro em containers: banco + API + front-end.
+# Pressupoe que o repo do front-end foi clonado do lado do back
+# (mesma pasta-pai), igual o README pede.
+#
+# Comando: docker compose -f docker-compose.full.yml up -d --build
+name: entregafood
+
+services:
+  db:
+    image: postgres:16
+    container_name: entregafood-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: entregafood
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: entregafood-backend
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/entregafood
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ../Sistema-de-Delivery-Front
+    container_name: entregafood-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../Sistema-de-Delivery-Front:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

@@ -42,6 +42,28 @@ app/
 
 ## Como rodar
 
+### Opção rápida — tudo em Docker (banco + API + front-end)
+
+Precisa só do [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado. Clone os dois repositórios lado a lado (mesma pasta-pai):
+
+```bash
+git clone https://github.com/Leticia-Maacedo/Sistema-de-Delivery-Back.git
+git clone https://github.com/Leticia-Maacedo/Sistema-de-Delivery-Front.git
+cd Sistema-de-Delivery-Back
+cp .env.example .env        # no Windows: copy .env.example .env
+docker compose -f docker-compose.full.yml up -d --build
+```
+
+| Endereço | O que é |
+|---|---|
+| http://localhost:5173 | Front-end |
+| http://localhost:8000/docs | Swagger da API |
+| http://localhost:5432 | PostgreSQL (`postgres`/`postgres`, banco `entregafood`) |
+
+O código de `app/` e de `src/` (front) fica montado como volume — editar os arquivos localmente recarrega os containers automaticamente (`--reload` no backend, Vite no front). Pra derrubar tudo: `docker compose -f docker-compose.full.yml down` (o `-v` no final apaga também os dados do banco).
+
+Essa opção sobe os três serviços de uma vez; é a rota mais rápida pra só usar o sistema. Quem vai mexer no código Python ou quer rodar sem Docker, siga os passos manuais abaixo — eles dão mais controle (debugger, breakpoints, ambiente Python nativo).
+
 ### 1. Subir o banco PostgreSQL
 
 Duas formas — use a que funcionar melhor na sua máquina.
@@ -216,9 +238,13 @@ python testes/teste_crud_produto.py
 
 ---
 
+## Painel de administração
+
+Contas do tipo `admin` (provisionadas manualmente no banco, veja abaixo) ganham no front-end uma aba **Usuários** com CRUD completo — criar, listar/buscar, editar e excluir qualquer conta cadastrada, usando os mesmos endpoints `/usuarios` descritos acima. Fica em `src/views/admin/UsuariosView.jsx` no repo do front.
+
 ## Segurança
 
-- Senhas armazenadas com **bcrypt**, nunca em texto puro (RNF03).
+- Senhas armazenadas com **bcrypt**, nunca em texto puro (RNF03). `requirements.txt` trava `bcrypt<4.1` de propósito — versões mais novas quebram o `passlib` 1.7.4 (projeto sem atualização desde 2020), que não reconhece o novo esquema de versionamento do bcrypt e derruba qualquer cadastro com 500.
 - `senha_hash` **não aparece em nenhuma resposta da API** — o schema `UsuarioOut` simplesmente não tem esse campo.
 - Autenticação por **JWT Bearer**, com expiração configurável.
 - O login devolve mensagem genérica ("E-mail ou senha incorretos") de propósito, para não revelar quais e-mails existem na base.
