@@ -121,7 +121,6 @@ async def google_callback(
             detail=f"Login com Google cancelado: {error}",
         )
 
-    # O Google retorna o parâmetro com o nome "state".
     state_recebido = state or state_oauth
     state_salvo = request.cookies.get("google_oauth_state")
 
@@ -209,5 +208,145 @@ async def google_callback(
     )
 
     resposta.delete_cookie("google_oauth_state")
+
+    return resposta
+
+
+@router.get("/facebook", summary="Login com Facebook")
+def login_facebook():
+    """Inicia o fluxo de autenticação OAuth com Facebook."""
+
+    state_oauth = secrets.token_urlsafe(32)
+
+    parametros = {
+        "client_id": settings.FACEBOOK_APP_ID,
+        "redirect_uri": settings.FACEBOOK_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "public_profile,email",
+        "state": state_oauth,
+    }
+
+    url_facebook = (
+        "https://www.facebook.com/dialog/oauth?"
+        + urlencode(parametros)
+    )
+
+    resposta = RedirectResponse(url=url_facebook)
+
+    resposta.set_cookie(
+        key="facebook_oauth_state",
+        value=state_oauth,
+        httponly=True,
+        samesite="lax",
+        max_age=600,
+    )
+
+    return resposta
+
+
+@router.get(
+    "/facebook/callback",
+    summary="Callback do login com Facebook",
+)
+async def facebook_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """Recebe o retorno do Facebook e gera o JWT do EntregaFood."""
+
+    if error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Login com Facebook cancelado: {error}",
+        )
+
+    state_salvo = request.cookies.get("facebook_oauth_state")
+
+    if not state_salvo or state != state_salvo:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Estado OAuth inválido.",
+        )
+
+    if not code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Código de autorização do Facebook não recebido.",
+        )
+
+    async with httpx.AsyncClient() as client:
+        resposta_token = await client.get(
+            "https://graph.facebook.com/oauth/access_token",
+            params={
+                "client_id": settings.FACEBOOK_APP_ID,
+                "client_secret": settings.FACEBOOK_APP_SECRET,
+                "redirect_uri": settings.FACEBOOK_REDIRECT_URI,
+                "code": code,
+            },
+        )
+
+        if resposta_token.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Não foi possível obter o token do Facebook.",
+            )
+
+        dados_token = resposta_token.json()
+        access_token_facebook = dados_token.get("access_token")
+
+        if not access_token_facebook:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Facebook não retornou um access token.",
+            )
+
+        resposta_usuario = await client.get(
+            "https://graph.facebook.com/me",
+            params={
+                "fields": "id,name,email",
+                "access_token": access_token_facebook,
+            },
+        )
+
+        if resposta_usuario.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Não foi possível consultar o usuário Facebook.",
+            )
+
+        dados_facebook = resposta_usuario.json()
+
+    email = dados_facebook.get("email")
+    nome = dados_facebook.get("name")
+
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A conta Facebook não forneceu um endereço de e-mail.",
+        )
+
+    usuario = Usuario.buscar_por_email(db, email)
+
+    if usuario is None:
+        usuario = Usuario.criar(
+            db,
+            nome=nome or email.split("@")[0],
+            email=email,
+            senha_hash=None,
+            telefone=None,
+            tipo="cliente",
+            oauth_provider="facebook",
+        )
+
+    token_entregafood = criar_token_acesso(usuario)
+
+    resposta = RedirectResponse(
+        url=f"{settings.FRONTEND_URL}/#oauth_token={token_entregafood}"
+    )
+
+    resposta.delete_cookie("facebook_oauth_state")
 
     return resposta

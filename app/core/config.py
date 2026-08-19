@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = "http://localhost:8000/auth/google/callback"
+
+    # Autenticacao com Facebook
+    FACEBOOK_APP_ID: str = ""
+    FACEBOOK_APP_SECRET: str = ""
+    FACEBOOK_REDIRECT_URI: str = (
+        "https://entregafood-back-dev.onrender.com/auth/facebook/callback"
+    )
+
     FRONTEND_URL: str = "http://localhost:5173"
 
     @property
