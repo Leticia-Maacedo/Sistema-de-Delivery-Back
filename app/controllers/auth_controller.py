@@ -17,11 +17,14 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import (
     criar_token_acesso,
+    gerar_hash_senha,
     obter_usuario_logado,
     verificar_senha,
 )
 from app.models.usuario import Usuario
 from app.schemas.usuario import (
+    CadastroTelefoneRequest,
+    ConfirmarCadastroTelefoneRequest,
     LoginRequest,
     OTPResponse,
     SolicitarOTPRequest,
@@ -39,6 +42,7 @@ settings = get_settings()
 # Nesta etapa academica o codigo fica em memoria.
 # Em producao, o ideal seria Redis ou banco de dados.
 _codigos_otp: dict[str, dict] = {}
+_codigos_cadastro_telefone: dict[str, dict] = {}
 
 
 def normalizar_telefone(telefone: str) -> str:
@@ -186,6 +190,149 @@ def verificar_codigo_otp(
 
     # OTP e de uso unico.
     _codigos_otp.pop(telefone, None)
+
+    return TokenResponse(
+        access_token=criar_token_acesso(usuario),
+        usuario=UsuarioOut.model_validate(usuario),
+    )
+
+
+@router.post(
+    "/telefone/cadastro/solicitar-codigo",
+    response_model=OTPResponse,
+    summary="Solicitar OTP para cadastro por telefone",
+)
+def solicitar_codigo_cadastro_telefone(
+    dados: CadastroTelefoneRequest,
+    db: Session = Depends(get_db),
+) -> OTPResponse:
+    """Gera OTP para um novo cadastro por telefone."""
+
+    telefone = normalizar_telefone(dados.telefone)
+
+    if len(telefone) < 10 or len(telefone) > 13:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Telefone invalido.",
+        )
+
+    if dados.tipo == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta admin nao pode ser criada por autocadastro.",
+        )
+
+    if not Usuario.tipo_e_valido(dados.tipo):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Tipo de usuario invalido.",
+        )
+
+    if Usuario.telefone_ja_cadastrado(db, telefone):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ja existe uma conta cadastrada com este telefone.",
+        )
+
+    codigo = f"{secrets.randbelow(1_000_000):06d}"
+
+    _codigos_cadastro_telefone[telefone] = {
+        "codigo": codigo,
+        "expira_em": datetime.now(timezone.utc) + timedelta(minutes=5),
+        "tentativas": 0,
+    }
+
+    return OTPResponse(
+        detalhe="Codigo OTP de cadastro gerado. Validade de 5 minutos.",
+        codigo_dev=codigo,
+    )
+
+
+@router.post(
+    "/telefone/cadastro/confirmar",
+    response_model=TokenResponse,
+    summary="Confirmar cadastro por telefone com OTP",
+)
+def confirmar_cadastro_telefone(
+    dados: ConfirmarCadastroTelefoneRequest,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """Valida o OTP e cria a conta usando somente o telefone."""
+
+    telefone = normalizar_telefone(dados.telefone)
+
+    if not dados.codigo.isdigit() or len(dados.codigo) != 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Codigo OTP invalido.",
+        )
+
+    registro_otp = _codigos_cadastro_telefone.get(telefone)
+
+    if registro_otp is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nenhum codigo OTP valido foi solicitado para este cadastro.",
+        )
+
+    if datetime.now(timezone.utc) > registro_otp["expira_em"]:
+        _codigos_cadastro_telefone.pop(telefone, None)
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Codigo OTP expirado. Solicite um novo codigo.",
+        )
+
+    if registro_otp["tentativas"] >= 5:
+        _codigos_cadastro_telefone.pop(telefone, None)
+
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Limite de tentativas excedido. Solicite um novo codigo.",
+        )
+
+    if not secrets.compare_digest(
+        str(registro_otp["codigo"]),
+        dados.codigo,
+    ):
+        registro_otp["tentativas"] += 1
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Codigo OTP incorreto.",
+        )
+
+    if dados.tipo == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta admin nao pode ser criada por autocadastro.",
+        )
+
+    if not Usuario.tipo_e_valido(dados.tipo):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Tipo de usuario invalido.",
+        )
+
+    if Usuario.telefone_ja_cadastrado(db, telefone):
+        _codigos_cadastro_telefone.pop(telefone, None)
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ja existe uma conta cadastrada com este telefone.",
+        )
+
+    usuario = Usuario.criar(
+        db,
+        nome=dados.nome,
+        email=None,
+        senha_hash=gerar_hash_senha(dados.senha),
+        telefone=telefone,
+        tipo=dados.tipo,
+        oauth_provider=None,
+    )
+
+    _codigos_cadastro_telefone.pop(telefone, None)
 
     return TokenResponse(
         access_token=criar_token_acesso(usuario),
