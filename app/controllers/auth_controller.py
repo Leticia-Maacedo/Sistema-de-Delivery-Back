@@ -1,10 +1,11 @@
 """CONTROLLER — Autenticacao (RF02).
 
-Tarefa da Letícia. Fica aqui porque o CRUD do Geovane depende do login
+Tarefa da Leticia. Fica aqui porque o CRUD do Geovane depende do login
 funcionando para a demonstracao ponta a ponta do video.
 """
 
 import secrets
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import httpx
@@ -20,25 +21,47 @@ from app.core.security import (
     verificar_senha,
 )
 from app.models.usuario import Usuario
-from app.schemas.usuario import LoginRequest, TokenResponse, UsuarioOut
+from app.schemas.usuario import (
+    LoginRequest,
+    OTPResponse,
+    SolicitarOTPRequest,
+    TokenResponse,
+    UsuarioOut,
+    VerificarOTPRequest,
+)
 
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 settings = get_settings()
 
 
+# Armazenamento temporario do OTP.
+# Nesta etapa academica o codigo fica em memoria.
+# Em producao, o ideal seria Redis ou banco de dados.
+_codigos_otp: dict[str, dict] = {}
+
+
+def normalizar_telefone(telefone: str) -> str:
+    """Mantem apenas os numeros do telefone."""
+
+    return "".join(filter(str.isdigit, telefone))
+
+
 @router.post(
     "/login",
     response_model=TokenResponse,
-    summary="Login por e-mail e senha",
+    summary="Login por e-mail ou telefone e senha",
 )
 def login(
     dados: LoginRequest,
     db: Session = Depends(get_db),
 ) -> TokenResponse:
-    """Autentica e devolve o JWT."""
+    """Autentica por e-mail ou telefone e devolve o JWT."""
 
-    usuario = Usuario.buscar_por_email(db, dados.email)
+    if dados.email:
+        usuario = Usuario.buscar_por_email(db, str(dados.email))
+    else:
+        usuario = Usuario.buscar_por_telefone(db, dados.telefone or "")
 
     if (
         usuario is None
@@ -47,8 +70,122 @@ def login(
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="E-mail ou senha incorretos.",
+            detail="E-mail, telefone ou senha incorretos.",
         )
+
+    return TokenResponse(
+        access_token=criar_token_acesso(usuario),
+        usuario=UsuarioOut.model_validate(usuario),
+    )
+
+
+@router.post(
+    "/telefone/solicitar-codigo",
+    response_model=OTPResponse,
+    summary="Solicitar codigo OTP por telefone",
+)
+def solicitar_codigo_otp(
+    dados: SolicitarOTPRequest,
+    db: Session = Depends(get_db),
+) -> OTPResponse:
+    """Gera um codigo OTP de 6 digitos com validade de 5 minutos."""
+
+    telefone = normalizar_telefone(dados.telefone)
+
+    if len(telefone) < 10 or len(telefone) > 13:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Telefone inválido.",
+        )
+
+    usuario = Usuario.buscar_por_telefone(db, telefone)
+
+    if usuario is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Não existe usuário cadastrado com este telefone.",
+        )
+
+    codigo = f"{secrets.randbelow(1_000_000):06d}"
+
+    _codigos_otp[telefone] = {
+        "codigo": codigo,
+        "expira_em": datetime.now(timezone.utc) + timedelta(minutes=5),
+        "tentativas": 0,
+    }
+
+    return OTPResponse(
+        detalhe="Código OTP gerado. Validade de 5 minutos.",
+        codigo_dev=codigo,
+    )
+
+
+@router.post(
+    "/telefone/verificar-codigo",
+    response_model=TokenResponse,
+    summary="Validar codigo OTP por telefone",
+)
+def verificar_codigo_otp(
+    dados: VerificarOTPRequest,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """Valida o OTP e gera o JWT do usuario."""
+
+    telefone = normalizar_telefone(dados.telefone)
+
+    if not dados.codigo.isdigit() or len(dados.codigo) != 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Código OTP inválido.",
+        )
+
+    registro_otp = _codigos_otp.get(telefone)
+
+    if registro_otp is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nenhum código OTP válido foi solicitado para este telefone.",
+        )
+
+    if datetime.now(timezone.utc) > registro_otp["expira_em"]:
+        _codigos_otp.pop(telefone, None)
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Código OTP expirado. Solicite um novo código.",
+        )
+
+    if registro_otp["tentativas"] >= 5:
+        _codigos_otp.pop(telefone, None)
+
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Limite de tentativas excedido. Solicite um novo código.",
+        )
+
+    if not secrets.compare_digest(
+        str(registro_otp["codigo"]),
+        dados.codigo,
+    ):
+        registro_otp["tentativas"] += 1
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Código OTP incorreto.",
+        )
+
+    usuario = Usuario.buscar_por_telefone(db, telefone)
+
+    if usuario is None:
+        _codigos_otp.pop(telefone, None)
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuário não encontrado.",
+        )
+
+    # OTP e de uso unico.
+    _codigos_otp.pop(telefone, None)
 
     return TokenResponse(
         access_token=criar_token_acesso(usuario),

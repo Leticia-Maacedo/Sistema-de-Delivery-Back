@@ -52,6 +52,12 @@ def criar_usuario(dados: UsuarioCreate, db: Session = Depends(get_db)) -> Usuari
             detail="Já existe uma conta cadastrada com este e-mail.",
         )
 
+    if dados.telefone and Usuario.telefone_ja_cadastrado(db, dados.telefone):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ja existe uma conta cadastrada com este telefone.",
+        )
+
     if not Usuario.tipo_e_valido(dados.tipo):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -132,6 +138,14 @@ def atualizar_usuario(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Este e-mail já pertence a outra conta.",
+        )
+
+    if dados.telefone and Usuario.telefone_ja_cadastrado(
+        db, dados.telefone, ignorar_id=usuario_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Este telefone ja pertence a outra conta.",
         )
 
     return usuario.atualizar(db, **dados.model_dump(exclude_unset=True))
