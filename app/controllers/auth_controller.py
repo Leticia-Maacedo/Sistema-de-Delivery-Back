@@ -21,6 +21,7 @@ from app.core.security import (
     obter_usuario_logado,
     verificar_senha,
 )
+from app.models.codigo_otp import CodigoOTP
 from app.models.usuario import Usuario
 from app.schemas.usuario import (
     CadastroTelefoneRequest,
@@ -38,11 +39,9 @@ router = APIRouter(prefix="/auth", tags=["Autenticação"])
 settings = get_settings()
 
 
-# Armazenamento temporario do OTP.
-# Nesta etapa academica o codigo fica em memoria.
-# Em producao, o ideal seria Redis ou banco de dados.
-_codigos_otp: dict[str, dict] = {}
-_codigos_cadastro_telefone: dict[str, dict] = {}
+# Os codigos OTP sao persistidos no PostgreSQL.
+# Isso permite que solicitacao e confirmacao funcionem
+# mesmo quando a aplicacao roda em processos diferentes.
 
 
 def normalizar_telefone(telefone: str) -> str:
@@ -112,11 +111,23 @@ def solicitar_codigo_otp(
 
     codigo = f"{secrets.randbelow(1_000_000):06d}"
 
-    _codigos_otp[telefone] = {
-        "codigo": codigo,
-        "expira_em": datetime.now(timezone.utc) + timedelta(minutes=5),
-        "tentativas": 0,
-    }
+    registro_otp = db.get(CodigoOTP, (telefone, "login"))
+
+    if registro_otp is None:
+        registro_otp = CodigoOTP(
+            telefone=telefone,
+            finalidade="login",
+            codigo=codigo,
+            expira_em=datetime.now(timezone.utc) + timedelta(minutes=5),
+            tentativas=0,
+        )
+        db.add(registro_otp)
+    else:
+        registro_otp.codigo = codigo
+        registro_otp.expira_em = datetime.now(timezone.utc) + timedelta(minutes=5)
+        registro_otp.tentativas = 0
+
+    db.commit()
 
     return OTPResponse(
         detalhe="Código OTP gerado. Validade de 5 minutos.",
@@ -143,7 +154,7 @@ def verificar_codigo_otp(
             detail="Código OTP inválido.",
         )
 
-    registro_otp = _codigos_otp.get(telefone)
+    registro_otp = db.get(CodigoOTP, (telefone, "login"))
 
     if registro_otp is None:
         raise HTTPException(
@@ -151,16 +162,18 @@ def verificar_codigo_otp(
             detail="Nenhum código OTP válido foi solicitado para este telefone.",
         )
 
-    if datetime.now(timezone.utc) > registro_otp["expira_em"]:
-        _codigos_otp.pop(telefone, None)
+    if datetime.now(timezone.utc) > registro_otp.expira_em:
+        db.delete(registro_otp)
+        db.commit()
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Código OTP expirado. Solicite um novo código.",
         )
 
-    if registro_otp["tentativas"] >= 5:
-        _codigos_otp.pop(telefone, None)
+    if registro_otp.tentativas >= 5:
+        db.delete(registro_otp)
+        db.commit()
 
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -168,10 +181,11 @@ def verificar_codigo_otp(
         )
 
     if not secrets.compare_digest(
-        str(registro_otp["codigo"]),
+        str(registro_otp.codigo),
         dados.codigo,
     ):
-        registro_otp["tentativas"] += 1
+        registro_otp.tentativas += 1
+        db.commit()
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -181,7 +195,8 @@ def verificar_codigo_otp(
     usuario = Usuario.buscar_por_telefone(db, telefone)
 
     if usuario is None:
-        _codigos_otp.pop(telefone, None)
+        db.delete(registro_otp)
+        db.commit()
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -189,7 +204,8 @@ def verificar_codigo_otp(
         )
 
     # OTP e de uso unico.
-    _codigos_otp.pop(telefone, None)
+    db.delete(registro_otp)
+    db.commit()
 
     return TokenResponse(
         access_token=criar_token_acesso(usuario),
@@ -236,11 +252,23 @@ def solicitar_codigo_cadastro_telefone(
 
     codigo = f"{secrets.randbelow(1_000_000):06d}"
 
-    _codigos_cadastro_telefone[telefone] = {
-        "codigo": codigo,
-        "expira_em": datetime.now(timezone.utc) + timedelta(minutes=5),
-        "tentativas": 0,
-    }
+    registro_otp = db.get(CodigoOTP, (telefone, "cadastro"))
+
+    if registro_otp is None:
+        registro_otp = CodigoOTP(
+            telefone=telefone,
+            finalidade="cadastro",
+            codigo=codigo,
+            expira_em=datetime.now(timezone.utc) + timedelta(minutes=5),
+            tentativas=0,
+        )
+        db.add(registro_otp)
+    else:
+        registro_otp.codigo = codigo
+        registro_otp.expira_em = datetime.now(timezone.utc) + timedelta(minutes=5)
+        registro_otp.tentativas = 0
+
+    db.commit()
 
     return OTPResponse(
         detalhe="Codigo OTP de cadastro gerado. Validade de 5 minutos.",
@@ -267,7 +295,7 @@ def confirmar_cadastro_telefone(
             detail="Codigo OTP invalido.",
         )
 
-    registro_otp = _codigos_cadastro_telefone.get(telefone)
+    registro_otp = db.get(CodigoOTP, (telefone, "cadastro"))
 
     if registro_otp is None:
         raise HTTPException(
@@ -275,16 +303,18 @@ def confirmar_cadastro_telefone(
             detail="Nenhum codigo OTP valido foi solicitado para este cadastro.",
         )
 
-    if datetime.now(timezone.utc) > registro_otp["expira_em"]:
-        _codigos_cadastro_telefone.pop(telefone, None)
+    if datetime.now(timezone.utc) > registro_otp.expira_em:
+        db.delete(registro_otp)
+        db.commit()
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Codigo OTP expirado. Solicite um novo codigo.",
         )
 
-    if registro_otp["tentativas"] >= 5:
-        _codigos_cadastro_telefone.pop(telefone, None)
+    if registro_otp.tentativas >= 5:
+        db.delete(registro_otp)
+        db.commit()
 
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -292,10 +322,11 @@ def confirmar_cadastro_telefone(
         )
 
     if not secrets.compare_digest(
-        str(registro_otp["codigo"]),
+        str(registro_otp.codigo),
         dados.codigo,
     ):
-        registro_otp["tentativas"] += 1
+        registro_otp.tentativas += 1
+        db.commit()
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -315,7 +346,8 @@ def confirmar_cadastro_telefone(
         )
 
     if Usuario.telefone_ja_cadastrado(db, telefone):
-        _codigos_cadastro_telefone.pop(telefone, None)
+        db.delete(registro_otp)
+        db.commit()
 
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -332,7 +364,8 @@ def confirmar_cadastro_telefone(
         oauth_provider=None,
     )
 
-    _codigos_cadastro_telefone.pop(telefone, None)
+    db.delete(registro_otp)
+    db.commit()
 
     return TokenResponse(
         access_token=criar_token_acesso(usuario),
