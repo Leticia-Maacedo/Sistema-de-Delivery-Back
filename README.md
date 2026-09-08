@@ -234,6 +234,35 @@ curl -X POST http://localhost:8000/produtos -H "Content-Type: application/json" 
 
 ---
 
+## Endpoints da Sprint 2 — consulta de Restaurante e Cardápio
+
+As rotas de `/restaurantes` e `/produtos` acima são de **administração**: devolvem tudo, sem filtro. A Sprint 2 adiciona a visão do **cliente** que navega no app — só o que ele pode pedir. São endpoints de leitura, agrupados sob `/consultas`.
+
+| Método | Rota | O que devolve | Retorno |
+|---|---|---|---|
+| `GET` | `/consultas/restaurantes` | Só restaurantes `status_aprovacao = 'aprovado'`, com o endereço embutido. Filtra por nome com `?busca=` | `200` |
+| `GET` | `/consultas/restaurantes/{id}` | Um restaurante aprovado + endereço (sem CNPJ) | `200` · `404` se pendente/recusado/inexistente |
+| `GET` | `/consultas/restaurantes/{id}/cardapio` | Dados do restaurante + lista dos itens com `disponivel = true` + `total_itens` | `200` · `404` |
+
+Diferenças em relação ao CRUD: a consulta **não** expõe CNPJ, **não** mostra restaurante não-aprovado e **não** lista item indisponível.
+
+### Exemplo
+
+```bash
+curl "http://localhost:8000/consultas/restaurantes?busca=burger"
+curl http://localhost:8000/consultas/restaurantes/1/cardapio
+```
+
+### Dados de exemplo
+
+O script `sql/04_seed_cardapio.sql` popula a cadeia inteira (3 restaurantes — 2 aprovados, 1 pendente — e 7 produtos, 1 indisponível) para ter o que consultar. É idempotente:
+
+```bash
+psql -h localhost -U postgres -d entregafood -f sql/04_seed_cardapio.sql
+```
+
+---
+
 ## Casos de teste cobertos
 
 | ID | Caso | Verificação |
@@ -254,6 +283,12 @@ Da mesma forma, o CRUD de **Produto** tem sua própria bateria (cria a cadeia Lo
 
 ```bash
 python testes/teste_crud_produto.py
+```
+
+A consulta da Sprint 2 tem a bateria `teste_consulta_cardapio.py` — monta um restaurante aprovado, um pendente e um item indisponível, e verifica as regras de visibilidade (só aprovado aparece na lista/detalhe; só item disponível entra no cardápio; `?busca=` filtra por nome):
+
+```bash
+python testes/teste_consulta_cardapio.py
 ```
 
 ---

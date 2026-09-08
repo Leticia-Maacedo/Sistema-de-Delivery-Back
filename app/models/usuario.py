@@ -29,7 +29,9 @@ class Usuario(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     nome: Mapped[str] = mapped_column(String(120), nullable=False)
-    email: Mapped[str] = mapped_column(String(150), nullable=False, unique=True, index=True)
+    email: Mapped[str | None] = mapped_column(
+        String(150), nullable=True, unique=True, index=True
+    )
     senha_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     telefone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     tipo: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -65,10 +67,35 @@ class Usuario(Base):
         return db.execute(consulta).scalar_one_or_none() is not None
 
     @staticmethod
+    def telefone_ja_cadastrado(
+        db: Session, telefone: str, ignorar_id: int | None = None
+    ) -> bool:
+        """Regra: o telefone deve ser unico quando informado."""
+        telefone_normalizado = "".join(filter(str.isdigit, telefone))
+
+        consulta = select(Usuario).where(
+            Usuario.telefone == telefone_normalizado
+        )
+
+        if ignorar_id is not None:
+            consulta = consulta.where(Usuario.id != ignorar_id)
+
+        return db.execute(consulta).scalar_one_or_none() is not None
+
+    @staticmethod
     def buscar_por_email(db: Session, email: str) -> "Usuario | None":
         """Usado pela autenticacao (Letícia) para validar o login."""
         return db.execute(
             select(Usuario).where(Usuario.email == email.lower().strip())
+        ).scalar_one_or_none()
+
+    @staticmethod
+    def buscar_por_telefone(db: Session, telefone: str) -> "Usuario | None":
+        """Usado pela autenticacao para localizar usuario pelo telefone."""
+        telefone_normalizado = "".join(filter(str.isdigit, telefone))
+
+        return db.execute(
+            select(Usuario).where(Usuario.telefone == telefone_normalizado)
         ).scalar_one_or_none()
 
     @staticmethod
@@ -94,7 +121,7 @@ class Usuario(Base):
         db: Session,
         *,
         nome: str,
-        email: str,
+        email: str | None,
         senha_hash: str | None,
         telefone: str | None,
         tipo: str,
@@ -102,9 +129,9 @@ class Usuario(Base):
     ) -> "Usuario":
         usuario = cls(
             nome=nome.strip(),
-            email=email.lower().strip(),
+            email=email.lower().strip() if email else None,
             senha_hash=senha_hash,
-            telefone=telefone,
+            telefone="".join(filter(str.isdigit, telefone)) if telefone else None,
             tipo=tipo,
             oauth_provider=oauth_provider,
         )
@@ -119,6 +146,8 @@ class Usuario(Base):
                 continue
             if campo == "email":
                 valor = valor.lower().strip()
+            if campo == "telefone":
+                valor = "".join(filter(str.isdigit, valor))
             if campo == "nome":
                 valor = valor.strip()
             setattr(self, campo, valor)
