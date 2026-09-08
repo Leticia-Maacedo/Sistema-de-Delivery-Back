@@ -42,6 +42,17 @@ class Produto(Base):
             consulta = consulta.where(Produto.restaurante_id == restaurante_id)
         return list(db.execute(consulta.offset(pular).limit(limite)).scalars())
 
+    @staticmethod
+    def listar_disponiveis(db: Session, restaurante_id: int) -> list["Produto"]:
+        """Itens do cardapio que o cliente pode pedir: de um restaurante e
+        com `disponivel = true`. Ordenado por nome pra montar a tela."""
+        consulta = (
+            select(Produto)
+            .where(Produto.restaurante_id == restaurante_id, Produto.disponivel.is_(True))
+            .order_by(Produto.nome)
+        )
+        return list(db.execute(consulta).scalars())
+
     # ------------------------------------------------------------------
     # Operacoes de persistencia (as 4 do CRUD)
     # ------------------------------------------------------------------

@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.controllers import (
     auth_controller,
+    consulta_controller,
     local_controller,
     produto_controller,
     restaurante_controller,
@@ -27,6 +28,7 @@ app = FastAPI(
     description=(
         "API REST da plataforma EntregaFood. "
         "Sprint 1 — CRUD de Usuário e autenticação por e-mail/senha. "
+        "Sprint 2 — consulta de Restaurante e Cardápio pelo cliente. "
         "Extra — CRUD de Restaurante e Produto."
     ),
     version="1.0.0",
@@ -46,6 +48,7 @@ app.include_router(auth_controller.router)
 app.include_router(local_controller.router)
 app.include_router(restaurante_controller.router)
 app.include_router(produto_controller.router)
+app.include_router(consulta_controller.router)
 
 
 @app.get("/", tags=["Status"], summary="Verificação de saúde da API")
