@@ -7,6 +7,8 @@ API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115
 **Extra** — CRUD de Restaurante, Produto e Local (endereço, pré-requisito da cadeia).
 **Grupo:** Amigos do Gilberto · Turma A · Faculdade Impacta
 
+**📚 Documentação detalhada:** [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) (padrão MVC, ciclo de vida da requisição, autenticação, débitos técnicos) · [`docs/BANCO_DE_DADOS.md`](docs/BANCO_DE_DADOS.md) (schema completo, diagrama ER) · [`docs/API.md`](docs/API.md) (todos os endpoints e métodos de Model por trás de cada um).
+
 ---
 
 ## Funcionalidades implementadas
