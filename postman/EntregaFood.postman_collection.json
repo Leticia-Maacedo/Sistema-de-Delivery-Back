@@ -1,0 +1,388 @@
+{
+  "info": {
+    "name": "EntregaFood API",
+    "description": "Coleção completa da API EntregaFood: autenticação (e-mail/senha + JWT), CRUD de Usuário, Local, Restaurante e Produto, e as consultas do cliente (Restaurante e Cardápio).\n\nFluxo sugerido para testar do zero: Cadastrar usuário → Login → Criar local → Criar restaurante → Criar produto → Consultar restaurante/cardápio como cliente.\n\nOs requests de CREATE guardam automaticamente o id criado numa variável de coleção (usuario_id, local_id, restaurante_id, produto_id) e o login guarda o token em `token`, então a coleção inteira roda em sequência sem precisar copiar/colar valores.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "token", "value": "" },
+    { "key": "usuario_id", "value": "" },
+    { "key": "local_id", "value": "" },
+    { "key": "restaurante_id", "value": "" },
+    { "key": "produto_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Autenticação",
+      "item": [
+        {
+          "name": "Cadastrar usuário (RF01)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/usuarios", "host": ["{{base_url}}"], "path": ["usuarios"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Geovane Soares\",\n  \"email\": \"geovane@entregafood.com\",\n  \"senha\": \"senha123\",\n  \"telefone\": \"11999998888\",\n  \"tipo\": \"cliente\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('usuario_id', pm.response.json().id);",
+                  "}",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login por e-mail e senha",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"geovane@entregafood.com\",\n  \"senha\": \"senha123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('token', pm.response.json().access_token);",
+                  "}",
+                  "pm.test('200 OK e access_token presente', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.have.property('access_token');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login inválido (credenciais erradas)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"geovane@entregafood.com\",\n  \"senha\": \"senha-errada\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": { "exec": ["pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"] }
+            }
+          ]
+        },
+        {
+          "name": "Dados do usuário logado",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/auth/eu", "host": ["{{base_url}}"], "path": ["auth", "eu"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": { "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"] }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Usuários",
+      "item": [
+        {
+          "name": "Listar usuários (admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/usuarios", "host": ["{{base_url}}"], "path": ["usuarios"] },
+            "description": "Exige token de uma conta tipo 'admin'. Se você rodar a coleção em sequência a partir de 'Cadastrar usuário', o {{token}} salvo é de um cliente comum e este request vai devolver 403 — faça login manualmente com uma conta admin antes de rodar este request isoladamente."
+          }
+        },
+        {
+          "name": "Consultar usuário por id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/usuarios/{{usuario_id}}", "host": ["{{base_url}}"], "path": ["usuarios", "{{usuario_id}}"] }
+          }
+        },
+        {
+          "name": "Atualizar usuário",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/usuarios/{{usuario_id}}", "host": ["{{base_url}}"], "path": ["usuarios", "{{usuario_id}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Geovane Soares Atualizado\"\n}" }
+          }
+        },
+        {
+          "name": "Excluir usuário (RF06)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/usuarios/{{usuario_id}}", "host": ["{{base_url}}"], "path": ["usuarios", "{{usuario_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Locais",
+      "item": [
+        {
+          "name": "Cadastrar local",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/locais", "host": ["{{base_url}}"], "path": ["locais"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario_id\": {{usuario_id}},\n  \"endereco\": \"Rua das Flores, 123\",\n  \"tipo\": \"restaurante\",\n  \"latitude\": \"-23.550520\",\n  \"longitude\": \"-46.633308\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('local_id', pm.response.json().id);",
+                  "}",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar locais",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/locais", "host": ["{{base_url}}"], "path": ["locais"] }
+          }
+        },
+        {
+          "name": "Consultar local por id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/locais/{{local_id}}", "host": ["{{base_url}}"], "path": ["locais", "{{local_id}}"] }
+          }
+        },
+        {
+          "name": "Atualizar local",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/locais/{{local_id}}", "host": ["{{base_url}}"], "path": ["locais", "{{local_id}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"endereco\": \"Rua das Flores, 456\"\n}" }
+          }
+        },
+        {
+          "name": "Excluir local",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/locais/{{local_id}}", "host": ["{{base_url}}"], "path": ["locais", "{{local_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restaurantes (CRUD administração)",
+      "item": [
+        {
+          "name": "Cadastrar restaurante",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/restaurantes", "host": ["{{base_url}}"], "path": ["restaurantes"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"local_id\": {{local_id}},\n  \"nome_fantasia\": \"Cantinho do Chef\",\n  \"cnpj\": \"12.345.678/0001-90\",\n  \"taxa_entrega_km\": \"2.50\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('restaurante_id', pm.response.json().id);",
+                  "}",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar restaurantes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/restaurantes?limite=100&pular=0",
+              "host": ["{{base_url}}"],
+              "path": ["restaurantes"],
+              "query": [
+                { "key": "limite", "value": "100" },
+                { "key": "pular", "value": "0" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consultar restaurante por id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/restaurantes/{{restaurante_id}}", "host": ["{{base_url}}"], "path": ["restaurantes", "{{restaurante_id}}"] }
+          }
+        },
+        {
+          "name": "Atualizar restaurante",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/restaurantes/{{restaurante_id}}", "host": ["{{base_url}}"], "path": ["restaurantes", "{{restaurante_id}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"status_aprovacao\": \"aprovado\"\n}" }
+          }
+        },
+        {
+          "name": "Remover restaurante",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/restaurantes/{{restaurante_id}}", "host": ["{{base_url}}"], "path": ["restaurantes", "{{restaurante_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Produtos (CRUD administração)",
+      "item": [
+        {
+          "name": "Cadastrar produto",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/produtos", "host": ["{{base_url}}"], "path": ["produtos"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurante_id\": {{restaurante_id}},\n  \"nome\": \"X-Salada\",\n  \"descricao\": \"Pão, hambúrguer, queijo e salada\",\n  \"preco\": \"24.90\",\n  \"disponivel\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('produto_id', pm.response.json().id);",
+                  "}",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar produtos (opcional ?restaurante_id=)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/produtos?restaurante_id={{restaurante_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["produtos"],
+              "query": [{ "key": "restaurante_id", "value": "{{restaurante_id}}" }]
+            }
+          }
+        },
+        {
+          "name": "Consultar produto por id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/produtos/{{produto_id}}", "host": ["{{base_url}}"], "path": ["produtos", "{{produto_id}}"] }
+          }
+        },
+        {
+          "name": "Atualizar produto",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/produtos/{{produto_id}}", "host": ["{{base_url}}"], "path": ["produtos", "{{produto_id}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"preco\": \"27.90\",\n  \"disponivel\": true\n}" }
+          }
+        },
+        {
+          "name": "Remover produto",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/produtos/{{produto_id}}", "host": ["{{base_url}}"], "path": ["produtos", "{{produto_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Consultas (Cliente)",
+      "item": [
+        {
+          "name": "Consultar restaurantes disponíveis",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/consultas/restaurantes", "host": ["{{base_url}}"], "path": ["consultas", "restaurantes"] }
+          }
+        },
+        {
+          "name": "Consultar restaurantes disponíveis (com busca)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes?busca=burger",
+              "host": ["{{base_url}}"],
+              "path": ["consultas", "restaurantes"],
+              "query": [{ "key": "busca", "value": "burger" }]
+            }
+          }
+        },
+        {
+          "name": "Consultar um restaurante",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["consultas", "restaurantes", "{{restaurante_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Consultar cardápio de um restaurante",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
+              "host": ["{{base_url}}"],
+              "path": ["consultas", "restaurantes", "{{restaurante_id}}", "cardapio"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

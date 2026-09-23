@@ -3,8 +3,30 @@
 API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115**, seguindo a arquitetura **MVC**, com persistência em **PostgreSQL 16**.
 
 **Sprint 1** — CRUD de Usuário e autenticação por e-mail/senha com JWT.
-**Extra** — CRUD de Restaurante e Produto (Local só com criação, pré-requisito da cadeia).
+**Sprint 2** — Consulta de Restaurante e Cardápio pelo cliente.
+**Extra** — CRUD de Restaurante, Produto e Local (endereço, pré-requisito da cadeia).
 **Grupo:** Amigos do Gilberto · Turma A · Faculdade Impacta
+
+---
+
+## Funcionalidades implementadas
+
+| # | Funcionalidade | Onde | Status |
+|---|---|---|---|
+| 1 | Autenticação por e-mail/senha com JWT | `POST /auth/login`, `GET /auth/eu` | ✅ |
+| 2 | CRUD de Usuário (cadastro, consulta, edição, exclusão) | `/usuarios` | ✅ |
+| 3 | CRUD de Restaurante | `/restaurantes` | ✅ |
+| 4 | CRUD de Produto | `/produtos` | ✅ |
+| 5 | Consulta de Restaurante (visão do cliente) | `GET /consultas/restaurantes`, `GET /consultas/restaurantes/{id}` | ✅ |
+| 6 | Consulta de Itens/Cardápio (visão do cliente) | `GET /consultas/restaurantes/{id}/cardapio` | ✅ |
+| 7 | Listagem e busca de Restaurantes (`?busca=`) | `GET /consultas/restaurantes?busca=` | ✅ |
+| 8 | CRUD de Local (endereço) | `/locais` | ✅ |
+| 9 | Login por telefone com código OTP + cadastro por telefone | `/auth/telefone/*` | ✅ |
+| 10 | Login social (Google/Facebook) | `/auth/google`, `/auth/facebook` | ✅ implementado (ver Limitações sobre uso em modo de teste) |
+| 11 | Coleção Postman com todos os endpoints acima | [`postman/EntregaFood.postman_collection.json`](postman/EntregaFood.postman_collection.json) | ✅ |
+| 12 | Sacola, Pedido, Pagamento, Entrega, Avaliação | — | ❌ não implementado (só tabela no `sql/`) |
+
+Essa tabela é o inventário de referência: toda vez que uma funcionalidade nova entrar no backend, adicione uma linha aqui.
 
 ---
 
@@ -16,20 +38,22 @@ O padrão MVC separa a aplicação em três responsabilidades, e a estrutura de 
 app/
 ├── models/          MODEL      → SQLAlchemy + regras de negócio
 │   ├── usuario.py              (mapeia a tabela usuario, valida e-mail único, tipo de perfil)
-│   ├── local.py                (mapeia a tabela local — só criação, pré-requisito de Restaurante)
+│   ├── local.py                (mapeia a tabela local — endereço, pré-requisito de Restaurante)
 │   ├── restaurante.py          (mapeia a tabela restaurante, valida CNPJ único)
 │   └── produto.py              (mapeia a tabela produto, vinculado a um restaurante)
 ├── schemas/         VIEW       → Pydantic: formato do JSON de entrada e saída
 │   ├── usuario.py              (define o que entra e — importante — o que NÃO sai)
 │   ├── local.py
 │   ├── restaurante.py
-│   └── produto.py
+│   ├── produto.py
+│   └── consulta.py             (formato de saída das consultas do cliente)
 ├── controllers/     CONTROLLER → routers FastAPI: recebem HTTP e orquestram
 │   ├── usuario_controller.py   (as 4 operações do CRUD)
-│   ├── auth_controller.py      (login e rota protegida)
-│   ├── local_controller.py     (só CREATE)
+│   ├── auth_controller.py      (login, OTP por telefone, login social e rota protegida)
+│   ├── local_controller.py     (as 4 operações do CRUD)
 │   ├── restaurante_controller.py (as 4 operações do CRUD)
-│   └── produto_controller.py   (as 4 operações do CRUD)
+│   ├── produto_controller.py   (as 4 operações do CRUD)
+│   └── consulta_controller.py  (leitura, visão do cliente: restaurantes aprovados e cardápio)
 └── core/            Infraestrutura de apoio
     ├── config.py               (lê o .env)
     ├── database.py             (engine e sessão do SQLAlchemy)
@@ -138,6 +162,10 @@ npm run dev
 
 Fica em http://localhost:5173 — já vem configurado pra falar com a API em `http://localhost:8000` (o CORS do back já libera essa origem por padrão).
 
+### 6. Testar com Postman
+
+O arquivo [`postman/EntregaFood.postman_collection.json`](postman/EntregaFood.postman_collection.json) tem todos os endpoints prontos para importar (Postman → Import → arraste o arquivo). Ele já vem organizado em pastas (Autenticação, Usuários, Locais, Restaurantes, Produtos, Consultas) e os requests de criação (`POST`) salvam automaticamente o `id` retornado — e o login salva o `token` — em variáveis da coleção, então dá pra rodar a coleção inteira em sequência (Cadastrar usuário → Login → Local → Restaurante → Produto → Consultas) sem copiar/colar nada manualmente. A única variável que costuma precisar de ajuste é `base_url` (padrão `http://localhost:8000`).
+
 ---
 
 ## Endpoints da Sprint 1
@@ -198,13 +226,17 @@ curl -X POST http://localhost:8000/auth/login \
 
 ## Endpoints extras — Restaurante e Produto
 
-Além do escopo mínimo da Sprint 1, o CRUD de **Produto** foi implementado por completo (com tela no front-end). Como `produto` exige um `restaurante_id`, e `restaurante` exige um `local_id`, a cadeia de pré-requisitos ficou assim:
+Além do escopo mínimo da Sprint 1, os CRUDs de **Local**, **Restaurante** e **Produto** foram implementados por completo (com telas no front-end). Como `produto` exige um `restaurante_id`, e `restaurante` exige um `local_id`, a cadeia de pré-requisitos ficou assim:
 
-**Usuário** (Sprint 1) → **Local** (só `POST`, o suficiente pra existir um endereço) → **Restaurante** (CRUD completo) → **Produto** (CRUD completo)
+**Usuário** (Sprint 1) → **Local** (CRUD completo, endereço) → **Restaurante** (CRUD completo) → **Produto** (CRUD completo)
 
 | Método | Rota | Operação | Retorno |
 |---|---|---|---|
 | `POST` | `/locais` | CREATE | `201` |
+| `GET` | `/locais` | READ (lista, filtra por `?usuario_id=`) | `200` |
+| `GET` | `/locais/{id}` | READ (por id) | `200` · `404` |
+| `PUT` | `/locais/{id}` | UPDATE | `200` · `404` |
+| `DELETE` | `/locais/{id}` | DELETE | `204` · `404` |
 | `POST` | `/restaurantes` | CREATE | `201` · `409` se CNPJ duplicado |
 | `GET` | `/restaurantes` | READ (lista) | `200` |
 | `GET` | `/restaurantes/{id}` | READ (por id) | `200` · `404` |
@@ -305,9 +337,8 @@ python testes/teste_consulta_cardapio.py
 
 ## Limitações conhecidas
 
-- **Login social (Google/Facebook)**: chegou a ser implementado (`/auth/{provedor}/login` + callback via Authlib), mas foi removido. Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Login continua só por e-mail/senha.
-- **Verificação por SMS**: a etapa de celular no cadastro (front-end) usa um código de 4 dígitos **simulado** — não envia SMS de verdade. Integração real com Twilio foi avaliada, mas a conta trial não permite nem buscar números disponíveis sem upgrade (cartão de crédito).
-- **Local**: só tem `POST` — não há edição/exclusão de endereço, pois não era o foco desta entrega (é só pré-requisito da cadeia até Produto).
+- **Login social (Google/Facebook)**: implementado (`/auth/google`, `/auth/facebook` + callback). Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Pra demonstração, o caminho garantido continua sendo e-mail/senha.
+- **Verificação por SMS**: o OTP de telefone (`/auth/telefone/*`) gera e valida o código no próprio backend, mas não envia SMS de verdade — o endpoint devolve o código em `codigo_dev` pra facilitar teste/demonstração. Integração real com Twilio foi avaliada, mas a conta trial não permite nem buscar números disponíveis sem upgrade (cartão de crédito).
 - **Autorização em Restaurante e Produto**: só as rotas de `/usuarios` checam dono-ou-admin. `PUT`/`DELETE` de `/restaurantes/{id}` e `/produtos/{id}` ainda não exigem login — qualquer requisição altera qualquer registro pelo `id`. Funciona porque o front só deixa quem é `restaurante` chegar na tela de Produtos, mas a API em si confiaria em qualquer chamada — vale estender a mesma checagem de `usuario_controller.py` pra esses dois controllers numa próxima sprint.
 - **Sacola, Pedido, Pagamento, Entrega, Avaliação**: as demais tabelas do schema continuam só no `sql/`, sem model/controller/endpoint.
 
