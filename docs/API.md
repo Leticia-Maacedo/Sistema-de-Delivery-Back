@@ -96,11 +96,21 @@ válido cria/altera/remove um local. Pré-requisito para cadastrar um
 
 | Método | Rota | Auth | Descrição | Códigos |
 |---|---|---|---|---|
-| `POST` | `/locais` | — | Cadastra um endereço vinculado a `usuario_id`. | `201`, `422` |
+| `POST` | `/locais` | — | Cadastra um endereço vinculado a `usuario_id`. | `201`, `422`, `502` |
 | `GET` | `/locais` | — | Lista, com filtro opcional `?usuario_id=`. | `200` |
 | `GET` | `/locais/{id}` | — | Consulta por id. | `200`, `404` |
-| `PUT` | `/locais/{id}` | — | Altera campos parciais. | `200`, `404` |
+| `PUT` | `/locais/{id}` | — | Altera campos parciais. | `200`, `404`, `422`, `502` |
 | `DELETE` | `/locais/{id}` | — | Remove. | `204`, `404` |
+
+**`latitude`/`longitude` são opcionais no corpo** (`LocalCreate`/`LocalUpdate`,
+`app/schemas/local.py`). Se não vierem — ou se `PUT` alterar `endereco` sem
+mandar coordenadas novas junto —, o controller chama
+`geocodificar_endereco(endereco)` (`app/core/geocoding.py`) para calculá-las
+via Nominatim antes de gravar. Isso devolve `422` se o endereço não for
+encontrado, ou `502` se o Nominatim estiver inacessível/der timeout. Na
+prática o front já manda as coordenadas prontas (calculadas no navegador —
+ver `api/geo.js` no front), então esse caminho só entra em ação para quem
+chama a API sem passar por lá (Swagger, outro cliente, testes).
 
 **Métodos de Model (`app/models/local.py`):** `buscar_por_id`, `listar(db, usuario_id=None)`,
 `criar(db, usuario_id, endereco, tipo, latitude, longitude)`,

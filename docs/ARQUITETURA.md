@@ -83,9 +83,14 @@ app/
 │   ├── security.py             Hash de senha (bcrypt), geração/validação de JWT,
 │   │                           e as dependências obter_usuario_logado / exigir_admin
 │   │                           que protegem rotas.
-│   └── geocoding.py            Placeholder (arquivo vazio) — reservado para uma futura
-│                                integração de geocodificação no backend. Hoje quem faz
-│                                geocoding é o front (ViaCEP + Nominatim, ver docs do front).
+│   └── geocoding.py            geocodificar_endereco(endereco) -> (latitude, longitude),
+│                                via Nominatim/OpenStreetMap. Rede de segurança de
+│                                POST/PUT /locais: se quem chamou não mandou lat/long
+│                                (o front normalmente já manda, calculadas no navegador —
+│                                ver api/geo.js no front), o back-end geocodifica sozinho,
+│                                com um User-Agent identificado (exigido pela política do
+│                                Nominatim, e que o navegador não deixa o JS sobrescrever —
+│                                por isso esse fallback só funciona no servidor).
 │
 ├── models/                     Um arquivo por tabela/entidade central.
 │   ├── usuario.py               tabela usuario
@@ -239,9 +244,10 @@ também o README, seção "Limitações conhecidas"):
 - `restaurante_controller.py` e `produto_controller.py` não exigem
   autenticação em nenhuma rota — qualquer requisição altera qualquer
   registro pelo `id`.
-- `app/core/geocoding.py` e `testes/teste_geocoding_local.py` existem como
-  arquivos vazios (0 bytes) — reservados para uma integração futura, ainda
-  sem código.
+- A geocodificação server-side (`app/core/geocoding.py`) depende do Nominatim
+  estar no ar; se ele estiver fora, `POST`/`PUT /locais` sem lat/long
+  explícitos devolve `502` em vez de salvar com coordenada aproximada ou
+  vazia. Não há retry nem fallback para outro provedor.
 - O login social (Google/Facebook) só autentica e-mails cadastrados como
   "tester" nos respectivos apps OAuth, que ainda estão em modo de teste.
 - As tabelas `pedido`, `item_pedido`, `pagamento`, `entrega` e `avaliacao`
