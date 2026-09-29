@@ -3,7 +3,20 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class ItemSacolaAdicionar(BaseModel):
+    """Dados necessários para adicionar um produto à cesta."""
+
+    produto_id: int
+    quantidade: int = Field(default=1, ge=1)
+
+
+class ItemSacolaQuantidade(BaseModel):
+    """Dados necessários para alterar a quantidade de um item da cesta."""
+
+    quantidade: int = Field(ge=1)
 
 
 class ItemSacolaOut(BaseModel):
