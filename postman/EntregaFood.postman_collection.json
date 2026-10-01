@@ -4,6 +4,7 @@
     "description": "Coleção completa da API EntregaFood: autenticação (e-mail/senha + JWT), CRUD de Usuário, Local, Restaurante e Produto, e as consultas do cliente (Restaurante e Cardápio).\n\nFluxo sugerido para testar do zero: Cadastrar usuário → Login → Criar local → Criar restaurante → Criar produto → Consultar restaurante/cardápio como cliente.\n\nOs requests de CREATE guardam automaticamente o id criado numa variável de coleção (usuario_id, local_id, restaurante_id, produto_id) e o login guarda o token em `token`, então a coleção inteira roda em sequência sem precisar copiar/colar valores.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+
   "variable": [
     { "key": "base_url", "value": "http://localhost:8000" },
     { "key": "token", "value": "" },
@@ -12,6 +13,7 @@
     { "key": "restaurante_id", "value": "" },
     { "key": "produto_id", "value": "" }
   ],
+
   "item": [
     {
       "name": "Autenticação",
@@ -381,6 +383,44 @@
               "path": ["consultas", "restaurantes", "{{restaurante_id}}", "cardapio"]
             }
           }
+        }
+      ]
+    },
+    {
+      "name": "Cesta",
+      "item": [
+        {
+          "name": "Consultar itens da Cesta",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": ["{{base_url}}"],
+              "path": ["cesta"]
+            },
+            "description": "Consulta a cesta do usuário autenticado e retorna os produtos, quantidades, subtotais e o valor total."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Resposta possui itens e total', () => {",
+                  "  const resposta = pm.response.json();",
+                  "  pm.expect(resposta).to.have.property('itens');",
+                  "  pm.expect(resposta).to.have.property('total');",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     }
