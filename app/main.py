@@ -1,4 +1,4 @@
-"""Ponto de entrada da API EntregaFood.
+﻿"""Ponto de entrada da API EntregaFood.
 
 Arquitetura MVC:
     app/models/       -> MODEL      (SQLAlchemy + regras de negocio)
@@ -17,6 +17,7 @@ from app.controllers import (
     local_controller,
     produto_controller,
     restaurante_controller,
+    sacola_controller,
     usuario_controller,
 )
 from app.core.config import get_settings
@@ -27,9 +28,9 @@ app = FastAPI(
     title="EntregaFood API",
     description=(
         "API REST da plataforma EntregaFood. "
-        "Sprint 1 — CRUD de Usuário e autenticação por e-mail/senha. "
-        "Sprint 2 — consulta de Restaurante e Cardápio pelo cliente. "
-        "Extra — CRUD de Restaurante e Produto."
+        "Sprint 1 â€” CRUD de UsuÃ¡rio e autenticaÃ§Ã£o por e-mail/senha. "
+        "Sprint 2 â€” consulta de Restaurante e CardÃ¡pio pelo cliente. "
+        "Extra â€” CRUD de Restaurante e Produto."
     ),
     version="1.0.0",
 )
@@ -49,8 +50,14 @@ app.include_router(local_controller.router)
 app.include_router(restaurante_controller.router)
 app.include_router(produto_controller.router)
 app.include_router(consulta_controller.router)
+app.include_router(sacola_controller.router)
 
 
-@app.get("/", tags=["Status"], summary="Verificação de saúde da API")
+@app.get("/", tags=["Status"], summary="VerificaÃ§Ã£o de saÃºde da API")
 def raiz() -> dict[str, str]:
     return {"status": "ok", "aplicacao": "EntregaFood API", "versao": "1.0.0"}
+
+
+
+
+
