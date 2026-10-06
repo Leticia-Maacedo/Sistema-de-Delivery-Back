@@ -16,6 +16,7 @@ from app.controllers import (
     consulta_controller,
     local_controller,
     pagamento_controller,
+    pedido_controller,
     produto_controller,
     restaurante_controller,
     sacola_controller,
@@ -52,6 +53,7 @@ app.include_router(restaurante_controller.router)
 app.include_router(produto_controller.router)
 app.include_router(consulta_controller.router)
 app.include_router(sacola_controller.router)
+app.include_router(pedido_controller.router)
 app.include_router(pagamento_controller.router)
 
 
