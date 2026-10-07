@@ -14,7 +14,7 @@ from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -798,6 +798,11 @@ async def facebook_callback(
     db: Session = Depends(get_db),
 ):
     """Recebe o retorno do Facebook e gera o JWT do EntregaFood."""
+
+    user_agent = request.headers.get("user-agent", "")
+
+    if "facebookexternalhit" in user_agent.lower():
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     print(
     "[FACEBOOK CALLBACK] "
