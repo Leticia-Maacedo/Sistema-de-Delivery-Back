@@ -921,6 +921,11 @@ async def facebook_callback(
 
     frontend_url = settings.FRONTEND_URL.rstrip("/")
 
+    print(
+        f"[FACEBOOK] Redirecionando para frontend: "
+        f"{frontend_url}/"
+    )
+
     resposta = RedirectResponse(
         url=(
             f"{frontend_url}/"
