@@ -51,6 +51,18 @@ def normalizar_telefone(telefone: str) -> str:
     """Mantém apenas os números do telefone."""
     return "".join(filter(str.isdigit, telefone))
 
+def get_facebook_redirect_uri(request: Request) -> str:
+    """Retorna o callback do Facebook conforme o ambiente."""
+
+    host = request.url.hostname
+
+    # Ambiente local
+    if host in {"localhost", "127.0.0.1"}:
+        return "http://localhost:8000/auth/facebook/callback"
+
+    # Ambiente publicado no Render
+    return settings.FACEBOOK_REDIRECT_URI
+
 
 def _chave_oauth() -> bytes:
     """Obtém a chave usada para assinar o state OAuth."""
@@ -763,14 +775,14 @@ async def google_callback(
     "/facebook",
     summary="Login com Facebook",
 )
-def login_facebook():
+def login_facebook(request: Request):
     """Inicia o fluxo de autenticação OAuth com Facebook."""
 
     state_oauth = criar_state_oauth()
 
     parametros = {
         "client_id": settings.FACEBOOK_APP_ID,
-        "redirect_uri": settings.FACEBOOK_REDIRECT_URI,
+        "redirect_uri": get_facebook_redirect_uri(request),
         "response_type": "code",
         "scope": "public_profile,email",
         "state": state_oauth,
@@ -840,7 +852,7 @@ async def facebook_callback(
             params={
                 "client_id": settings.FACEBOOK_APP_ID,
                 "client_secret": settings.FACEBOOK_APP_SECRET,
-                "redirect_uri": settings.FACEBOOK_REDIRECT_URI,
+                "redirect_uri": get_facebook_redirect_uri(request),
                 "code": code,
             },
         )
