@@ -799,6 +799,12 @@ async def facebook_callback(
 ):
     """Recebe o retorno do Facebook e gera o JWT do EntregaFood."""
 
+    print(
+    "[FACEBOOK CALLBACK] "
+    f"user-agent={request.headers.get('user-agent', 'desconhecido')} | "
+    f"ip={request.client.host if request.client else 'desconhecido'}"
+)
+
     if error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
