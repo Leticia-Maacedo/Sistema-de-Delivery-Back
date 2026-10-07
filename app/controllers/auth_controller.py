@@ -4,13 +4,17 @@ Tarefa da Leticia. Fica aqui porque o CRUD do Geovane depende do login
 funcionando para a demonstracao ponta a ponta do video.
 """
 
+import base64
+import hashlib
+import hmac
 import secrets
+import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -39,16 +43,123 @@ router = APIRouter(prefix="/auth", tags=["Autenticação"])
 settings = get_settings()
 
 
-# Os codigos OTP sao persistidos no PostgreSQL.
-# Isso permite que solicitacao e confirmacao funcionem
-# mesmo quando a aplicacao roda em processos diferentes.
-
+# ============================================================
+# FUNÇÕES AUXILIARES
+# ============================================================
 
 def normalizar_telefone(telefone: str) -> str:
-    """Mantem apenas os numeros do telefone."""
-
+    """Mantém apenas os números do telefone."""
     return "".join(filter(str.isdigit, telefone))
 
+def get_facebook_redirect_uri(request: Request) -> str:
+    """Retorna o callback do Facebook conforme o ambiente."""
+
+    host = request.url.hostname
+
+    # Ambiente local
+    if host in {"localhost", "127.0.0.1"}:
+        return "http://localhost:8000/auth/facebook/callback"
+
+    # Ambiente publicado no Render
+    return settings.FACEBOOK_REDIRECT_URI
+
+
+def _chave_oauth() -> bytes:
+    """Obtém a chave usada para assinar o state OAuth."""
+    return settings.JWT_SECRET.encode("utf-8")
+
+
+def criar_state_oauth() -> str:
+    """
+    Cria um state OAuth assinado.
+
+    O state contém:
+      - nonce aleatório
+      - timestamp
+      - assinatura HMAC
+
+    Assim não dependemos de cookie para validar o retorno do OAuth.
+    """
+
+    nonce = secrets.token_urlsafe(32)
+    timestamp = str(int(time.time()))
+
+    mensagem = f"{nonce}.{timestamp}".encode("utf-8")
+
+    assinatura = hmac.new(
+        _chave_oauth(),
+        mensagem,
+        hashlib.sha256,
+    ).digest()
+
+    assinatura_b64 = base64.urlsafe_b64encode(
+        assinatura
+    ).decode("utf-8").rstrip("=")
+
+    return f"{nonce}.{timestamp}.{assinatura_b64}"
+
+
+def validar_state_oauth(state: str | None) -> bool:
+    """
+    Valida o state recebido pelo provedor OAuth.
+
+    O state:
+      - precisa existir;
+      - precisa possuir formato correto;
+      - precisa ter no máximo 10 minutos;
+      - precisa possuir assinatura válida.
+    """
+
+    if not state:
+        return False
+
+    try:
+        partes = state.split(".")
+
+        if len(partes) != 3:
+            return False
+
+        nonce, timestamp_str, assinatura_recebida = partes
+
+        if not nonce or not timestamp_str or not assinatura_recebida:
+            return False
+
+        timestamp = int(timestamp_str)
+
+        agora = int(time.time())
+
+        # Estado válido por no máximo 10 minutos.
+        if agora - timestamp > 600:
+            return False
+
+        # Não aceita timestamp no futuro muito além da margem normal.
+        if timestamp - agora > 60:
+            return False
+
+        mensagem = f"{nonce}.{timestamp_str}".encode("utf-8")
+
+        assinatura_calculada = hmac.new(
+            _chave_oauth(),
+            mensagem,
+            hashlib.sha256,
+        ).digest()
+
+        assinatura_calculada_b64 = base64.urlsafe_b64encode(
+            assinatura_calculada
+        ).decode("utf-8").rstrip("=")
+
+        return hmac.compare_digest(
+            assinatura_recebida,
+            assinatura_calculada_b64,
+        )
+
+    except (ValueError, TypeError):
+        return False
+
+
+# ============================================================
+# LOGIN NORMAL
+# ============================================================
 
 @router.post(
     "/login",
@@ -62,14 +173,23 @@ def login(
     """Autentica por e-mail ou telefone e devolve o JWT."""
 
     if dados.email:
-        usuario = Usuario.buscar_por_email(db, str(dados.email))
+        usuario = Usuario.buscar_por_email(
+            db,
+            str(dados.email),
+        )
     else:
-        usuario = Usuario.buscar_por_telefone(db, dados.telefone or "")
+        usuario = Usuario.buscar_por_telefone(
+            db,
+            dados.telefone or "",
+        )
 
     if (
         usuario is None
         or usuario.senha_hash is None
-        or not verificar_senha(dados.senha, usuario.senha_hash)
+        or not verificar_senha(
+            dados.senha,
+            usuario.senha_hash,
+        )
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -81,6 +201,10 @@ def login(
         usuario=UsuarioOut.model_validate(usuario),
     )
 
+
+# ============================================================
+# OTP — LOGIN POR TELEFONE
+# ============================================================
 
 @router.post(
     "/telefone/solicitar-codigo",
@@ -101,7 +225,10 @@ def solicitar_codigo_otp(
             detail="Telefone inválido.",
         )
 
-    usuario = Usuario.buscar_por_telefone(db, telefone)
+    usuario = Usuario.buscar_por_telefone(
+        db,
+        telefone,
+    )
 
     if usuario is None:
         raise HTTPException(
@@ -111,20 +238,29 @@ def solicitar_codigo_otp(
 
     codigo = f"{secrets.randbelow(1_000_000):06d}"
 
-    registro_otp = db.get(CodigoOTP, (telefone, "login"))
+    registro_otp = db.get(
+        CodigoOTP,
+        (telefone, "login"),
+    )
 
     if registro_otp is None:
         registro_otp = CodigoOTP(
             telefone=telefone,
             finalidade="login",
             codigo=codigo,
-            expira_em=datetime.now(timezone.utc) + timedelta(minutes=5),
+            expira_em=datetime.now(timezone.utc)
+            + timedelta(minutes=5),
             tentativas=0,
         )
+
         db.add(registro_otp)
+
     else:
         registro_otp.codigo = codigo
-        registro_otp.expira_em = datetime.now(timezone.utc) + timedelta(minutes=5)
+        registro_otp.expira_em = (
+            datetime.now(timezone.utc)
+            + timedelta(minutes=5)
+        )
         registro_otp.tentativas = 0
 
     db.commit()
@@ -154,12 +290,18 @@ def verificar_codigo_otp(
             detail="Código OTP inválido.",
         )
 
-    registro_otp = db.get(CodigoOTP, (telefone, "login"))
+    registro_otp = db.get(
+        CodigoOTP,
+        (telefone, "login"),
+    )
 
     if registro_otp is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Nenhum código OTP válido foi solicitado para este telefone.",
+            detail=(
+                "Nenhum código OTP válido foi solicitado "
+                "para este telefone."
+            ),
         )
 
     if datetime.now(timezone.utc) > registro_otp.expira_em:
@@ -177,7 +319,10 @@ def verificar_codigo_otp(
 
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Limite de tentativas excedido. Solicite um novo código.",
+            detail=(
+                "Limite de tentativas excedido. "
+                "Solicite um novo código."
+            ),
         )
 
     if not secrets.compare_digest(
@@ -192,7 +337,10 @@ def verificar_codigo_otp(
             detail="Código OTP incorreto.",
         )
 
-    usuario = Usuario.buscar_por_telefone(db, telefone)
+    usuario = Usuario.buscar_por_telefone(
+        db,
+        telefone,
+    )
 
     if usuario is None:
         db.delete(registro_otp)
@@ -203,7 +351,7 @@ def verificar_codigo_otp(
             detail="Usuário não encontrado.",
         )
 
-    # OTP e de uso unico.
+    # OTP é de uso único.
     db.delete(registro_otp)
     db.commit()
 
@@ -212,6 +360,10 @@ def verificar_codigo_otp(
         usuario=UsuarioOut.model_validate(usuario),
     )
 
+
+# ============================================================
+# OTP — CADASTRO POR TELEFONE
+# ============================================================
 
 @router.post(
     "/telefone/cadastro/solicitar-codigo",
@@ -229,49 +381,70 @@ def solicitar_codigo_cadastro_telefone(
     if len(telefone) < 10 or len(telefone) > 13:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Telefone invalido.",
+            detail="Telefone inválido.",
         )
 
     if dados.tipo == "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Conta admin nao pode ser criada por autocadastro.",
+            detail=(
+                "Conta admin não pode ser criada "
+                "por autocadastro."
+            ),
         )
 
     if not Usuario.tipo_e_valido(dados.tipo):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Tipo de usuario invalido.",
+            detail="Tipo de usuário inválido.",
         )
 
-    if Usuario.telefone_ja_cadastrado(db, telefone):
+    if Usuario.telefone_ja_cadastrado(
+        db,
+        telefone,
+    ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ja existe uma conta cadastrada com este telefone.",
+            detail=(
+                "Já existe uma conta cadastrada "
+                "com este telefone."
+            ),
         )
 
     codigo = f"{secrets.randbelow(1_000_000):06d}"
 
-    registro_otp = db.get(CodigoOTP, (telefone, "cadastro"))
+    registro_otp = db.get(
+        CodigoOTP,
+        (telefone, "cadastro"),
+    )
 
     if registro_otp is None:
         registro_otp = CodigoOTP(
             telefone=telefone,
             finalidade="cadastro",
             codigo=codigo,
-            expira_em=datetime.now(timezone.utc) + timedelta(minutes=5),
+            expira_em=datetime.now(timezone.utc)
+            + timedelta(minutes=5),
             tentativas=0,
         )
+
         db.add(registro_otp)
+
     else:
         registro_otp.codigo = codigo
-        registro_otp.expira_em = datetime.now(timezone.utc) + timedelta(minutes=5)
+        registro_otp.expira_em = (
+            datetime.now(timezone.utc)
+            + timedelta(minutes=5)
+        )
         registro_otp.tentativas = 0
 
     db.commit()
 
     return OTPResponse(
-        detalhe="Codigo OTP de cadastro gerado. Validade de 5 minutos.",
+        detalhe=(
+            "Código OTP de cadastro gerado. "
+            "Validade de 5 minutos."
+        ),
         codigo_dev=codigo,
     )
 
@@ -292,15 +465,21 @@ def confirmar_cadastro_telefone(
     if not dados.codigo.isdigit() or len(dados.codigo) != 6:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Codigo OTP invalido.",
+            detail="Código OTP inválido.",
         )
 
-    registro_otp = db.get(CodigoOTP, (telefone, "cadastro"))
+    registro_otp = db.get(
+        CodigoOTP,
+        (telefone, "cadastro"),
+    )
 
     if registro_otp is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Nenhum codigo OTP valido foi solicitado para este cadastro.",
+            detail=(
+                "Nenhum código OTP válido foi solicitado "
+                "para este cadastro."
+            ),
         )
 
     if datetime.now(timezone.utc) > registro_otp.expira_em:
@@ -309,7 +488,10 @@ def confirmar_cadastro_telefone(
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Codigo OTP expirado. Solicite um novo codigo.",
+            detail=(
+                "Código OTP expirado. "
+                "Solicite um novo código."
+            ),
         )
 
     if registro_otp.tentativas >= 5:
@@ -318,7 +500,10 @@ def confirmar_cadastro_telefone(
 
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Limite de tentativas excedido. Solicite um novo codigo.",
+            detail=(
+                "Limite de tentativas excedido. "
+                "Solicite um novo código."
+            ),
         )
 
     if not secrets.compare_digest(
@@ -330,28 +515,37 @@ def confirmar_cadastro_telefone(
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Codigo OTP incorreto.",
+            detail="Código OTP incorreto.",
         )
 
     if dados.tipo == "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Conta admin nao pode ser criada por autocadastro.",
+            detail=(
+                "Conta admin não pode ser criada "
+                "por autocadastro."
+            ),
         )
 
     if not Usuario.tipo_e_valido(dados.tipo):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Tipo de usuario invalido.",
+            detail="Tipo de usuário inválido.",
         )
 
-    if Usuario.telefone_ja_cadastrado(db, telefone):
+    if Usuario.telefone_ja_cadastrado(
+        db,
+        telefone,
+    ):
         db.delete(registro_otp)
         db.commit()
 
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ja existe uma conta cadastrada com este telefone.",
+            detail=(
+                "Já existe uma conta cadastrada "
+                "com este telefone."
+            ),
         )
 
     usuario = Usuario.criar(
@@ -373,6 +567,10 @@ def confirmar_cadastro_telefone(
     )
 
 
+# ============================================================
+# USUÁRIO LOGADO
+# ============================================================
+
 @router.get(
     "/eu",
     response_model=UsuarioOut,
@@ -385,11 +583,18 @@ def usuario_logado(
     return usuario
 
 
-@router.get("/google", summary="Login com Google")
+# ============================================================
+# GOOGLE OAUTH
+# ============================================================
+
+@router.get(
+    "/google",
+    summary="Login com Google",
+)
 def login_google():
     """Inicia o fluxo de autenticação OAuth com Google."""
 
-    state_oauth = secrets.token_urlsafe(32)
+    state_oauth = criar_state_oauth()
 
     parametros = {
         "client_id": settings.GOOGLE_CLIENT_ID,
@@ -405,17 +610,9 @@ def login_google():
         + urlencode(parametros)
     )
 
-    resposta = RedirectResponse(url=url_google)
-
-    resposta.set_cookie(
-        key="google_oauth_state",
-        value=state_oauth,
-        httponly=True,
-        samesite="lax",
-        max_age=600,
+    return RedirectResponse(
+        url=url_google
     )
-
-    return resposta
 
 
 @router.get(
@@ -435,25 +632,30 @@ async def google_callback(
     if error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Login com Google cancelado: {error}",
+            detail=(
+                f"Login com Google cancelado: {error}"
+            ),
         )
 
     state_recebido = state or state_oauth
-    state_salvo = request.cookies.get("google_oauth_state")
 
-    if not state_salvo or state_recebido != state_salvo:
+    if not validar_state_oauth(state_recebido):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Estado OAuth inválido.",
+            detail="Estado OAuth inválido ou expirado.",
         )
 
     if not code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Código de autorização do Google não recebido.",
+            detail=(
+                "Código de autorização do Google "
+                "não recebido."
+            ),
         )
 
     async with httpx.AsyncClient() as client:
+
         resposta_token = await client.post(
             "https://oauth2.googleapis.com/token",
             data={
@@ -466,46 +668,77 @@ async def google_callback(
         )
 
         if resposta_token.status_code != 200:
+            try:
+                detalhe = resposta_token.json()
+            except Exception:
+                detalhe = resposta_token.text
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Não foi possível obter o token do Google.",
+                detail=(
+                    "Não foi possível obter o token "
+                    f"do Google: {detalhe}"
+                ),
             )
 
         dados_token = resposta_token.json()
-        access_token_google = dados_token.get("access_token")
+
+        access_token_google = dados_token.get(
+            "access_token"
+        )
 
         if not access_token_google:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Google não retornou um access token.",
+                detail=(
+                    "Google não retornou um access token."
+                ),
             )
 
         resposta_usuario = await client.get(
             "https://openidconnect.googleapis.com/v1/userinfo",
             headers={
-                "Authorization": f"Bearer {access_token_google}",
+                "Authorization": (
+                    f"Bearer {access_token_google}"
+                )
             },
         )
 
         if resposta_usuario.status_code != 200:
+            try:
+                detalhe = resposta_usuario.json()
+            except Exception:
+                detalhe = resposta_usuario.text
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Não foi possível consultar o usuário Google.",
+                detail=(
+                    "Não foi possível consultar o "
+                    f"usuário Google: {detalhe}"
+                ),
             )
 
         dados_google = resposta_usuario.json()
 
     email = dados_google.get("email")
     nome = dados_google.get("name")
-    email_verificado = dados_google.get("email_verified")
+    email_verificado = dados_google.get(
+        "email_verified"
+    )
 
     if not email or not email_verificado:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A conta Google não possui e-mail verificado.",
+            detail=(
+                "A conta Google não possui "
+                "e-mail verificado."
+            ),
         )
 
-    usuario = Usuario.buscar_por_email(db, email)
+    usuario = Usuario.buscar_por_email(
+        db,
+        email,
+    )
 
     if usuario is None:
         usuario = Usuario.criar(
@@ -518,26 +751,38 @@ async def google_callback(
             oauth_provider="google",
         )
 
-    token_entregafood = criar_token_acesso(usuario)
-
-    resposta = RedirectResponse(
-        url=f"{settings.FRONTEND_URL}/#oauth_token={token_entregafood}"
+    token_entregafood = criar_token_acesso(
+        usuario
     )
 
-    resposta.delete_cookie("google_oauth_state")
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
+
+    resposta = RedirectResponse(
+        url=(
+            f"{frontend_url}/"
+            f"#oauth_token={token_entregafood}"
+        )
+    )
 
     return resposta
 
 
-@router.get("/facebook", summary="Login com Facebook")
-def login_facebook():
+# ============================================================
+# FACEBOOK OAUTH
+# ============================================================
+
+@router.get(
+    "/facebook",
+    summary="Login com Facebook",
+)
+def login_facebook(request: Request):
     """Inicia o fluxo de autenticação OAuth com Facebook."""
 
-    state_oauth = secrets.token_urlsafe(32)
+    state_oauth = criar_state_oauth()
 
     parametros = {
         "client_id": settings.FACEBOOK_APP_ID,
-        "redirect_uri": settings.FACEBOOK_REDIRECT_URI,
+        "redirect_uri": get_facebook_redirect_uri(request),
         "response_type": "code",
         "scope": "public_profile,email",
         "state": state_oauth,
@@ -548,17 +793,9 @@ def login_facebook():
         + urlencode(parametros)
     )
 
-    resposta = RedirectResponse(url=url_facebook)
-
-    resposta.set_cookie(
-        key="facebook_oauth_state",
-        value=state_oauth,
-        httponly=True,
-        samesite="lax",
-        max_age=600,
+    return RedirectResponse(
+        url=url_facebook
     )
-
-    return resposta
 
 
 @router.get(
@@ -574,50 +811,79 @@ async def facebook_callback(
 ):
     """Recebe o retorno do Facebook e gera o JWT do EntregaFood."""
 
+    user_agent = request.headers.get("user-agent", "")
+
+    if "facebookexternalhit" in user_agent.lower():
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    print(
+    "[FACEBOOK CALLBACK] "
+    f"user-agent={request.headers.get('user-agent', 'desconhecido')} | "
+    f"ip={request.client.host if request.client else 'desconhecido'}"
+)
+
     if error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Login com Facebook cancelado: {error}",
+            detail=(
+                f"Login com Facebook cancelado: {error}"
+            ),
         )
 
-    state_salvo = request.cookies.get("facebook_oauth_state")
-
-    if not state_salvo or state != state_salvo:
+    if not validar_state_oauth(state):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Estado OAuth inválido.",
+            detail="Estado OAuth inválido ou expirado.",
         )
 
     if not code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Código de autorização do Facebook não recebido.",
+            detail=(
+                "Código de autorização do Facebook "
+                "não recebido."
+            ),
         )
 
     async with httpx.AsyncClient() as client:
+
         resposta_token = await client.get(
             "https://graph.facebook.com/oauth/access_token",
             params={
                 "client_id": settings.FACEBOOK_APP_ID,
                 "client_secret": settings.FACEBOOK_APP_SECRET,
-                "redirect_uri": settings.FACEBOOK_REDIRECT_URI,
+                "redirect_uri": get_facebook_redirect_uri(request),
                 "code": code,
             },
         )
 
         if resposta_token.status_code != 200:
+            try:
+                detalhe = resposta_token.json()
+            except Exception:
+                detalhe = resposta_token.text
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Não foi possível obter o token do Facebook.",
+                detail=(
+                    "Não foi possível obter o token "
+                    f"do Facebook: {detalhe}"
+                ),
             )
 
         dados_token = resposta_token.json()
-        access_token_facebook = dados_token.get("access_token")
+
+        access_token_facebook = dados_token.get(
+            "access_token"
+        )
 
         if not access_token_facebook:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Facebook não retornou um access token.",
+                detail=(
+                    "Facebook não retornou "
+                    "um access token."
+                ),
             )
 
         resposta_usuario = await client.get(
@@ -629,9 +895,17 @@ async def facebook_callback(
         )
 
         if resposta_usuario.status_code != 200:
+            try:
+                detalhe = resposta_usuario.json()
+            except Exception:
+                detalhe = resposta_usuario.text
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Não foi possível consultar o usuário Facebook.",
+                detail=(
+                    "Não foi possível consultar o "
+                    f"usuário Facebook: {detalhe}"
+                ),
             )
 
         dados_facebook = resposta_usuario.json()
@@ -642,10 +916,16 @@ async def facebook_callback(
     if not email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A conta Facebook não forneceu um endereço de e-mail.",
+            detail=(
+                "A conta Facebook não forneceu "
+                "um endereço de e-mail."
+            ),
         )
 
-    usuario = Usuario.buscar_por_email(db, email)
+    usuario = Usuario.buscar_por_email(
+        db,
+        email,
+    )
 
     if usuario is None:
         usuario = Usuario.criar(
@@ -658,12 +938,22 @@ async def facebook_callback(
             oauth_provider="facebook",
         )
 
-    token_entregafood = criar_token_acesso(usuario)
-
-    resposta = RedirectResponse(
-        url=f"{settings.FRONTEND_URL}/#oauth_token={token_entregafood}"
+    token_entregafood = criar_token_acesso(
+        usuario
     )
 
-    resposta.delete_cookie("facebook_oauth_state")
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
+
+    print(
+        f"[FACEBOOK] Redirecionando para frontend: "
+        f"{frontend_url}/"
+    )
+
+    resposta = RedirectResponse(
+        url=(
+            f"{frontend_url}/"
+            f"#oauth_token={token_entregafood}"
+        )
+    )
 
     return resposta
