@@ -1,4 +1,5 @@
-﻿"""Controller da cesta de compras do EntregaFood."""
+﻿
+"""Controller da cesta de compras do EntregaFood."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -20,6 +21,76 @@ from app.schemas.sacola import (
 
 router = APIRouter(prefix="/cesta", tags=["Cesta"])
 
+# Regra provisoria do projeto: limite por produto, nao representa estoque.
+QUANTIDADE_MAXIMA_POR_PRODUTO = 99
+
+
+def validar_quantidade(quantidade: int) -> None:
+    """Valida a quantidade total permitida por produto."""
+
+    if quantidade < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A quantidade deve ser maior que zero.",
+        )
+
+    if quantidade > QUANTIDADE_MAXIMA_POR_PRODUTO:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Quantidade maxima permitida por produto: "
+                f"{QUANTIDADE_MAXIMA_POR_PRODUTO} unidades."
+            ),
+        )
+
+
+def validar_disponibilidade(produto: Produto) -> None:
+    """Impede adicionar ou alterar produtos indisponiveis."""
+
+    if not produto.disponivel:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Produto indisponivel.",
+        )
+
+
+def validar_restaurante_cesta(
+    db: Session,
+    sacola: Sacola,
+    produto: Produto,
+) -> None:
+    """Impede produtos de restaurantes diferentes na mesma cesta."""
+
+    for item in ItemSacola.listar_por_sacola(db, sacola.id):
+        produto_existente = Produto.buscar_por_id(db, item.produto_id)
+
+        if produto_existente is None:
+            continue
+
+        if produto_existente.restaurante_id != produto.restaurante_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Nao e permitido adicionar produtos de "
+                    "restaurantes diferentes na mesma cesta."
+                ),
+            )
+
+
+def calcular_subtotal(
+    preco_unitario: Decimal,
+    quantidade: int,
+) -> Decimal:
+    """Calcula o subtotal de um produto."""
+
+    return preco_unitario * quantidade
+
+
+def calcular_total(subtotais: list[Decimal]) -> Decimal:
+    """Calcula o valor total da cesta."""
+
+    return sum(subtotais, Decimal("0.00"))
+
 
 def montar_resposta_cesta(
     db: Session,
@@ -28,7 +99,7 @@ def montar_resposta_cesta(
     """Monta a resposta completa da cesta."""
 
     itens_saida: list[ItemSacolaOut] = []
-    total = Decimal("0.00")
+    subtotais: list[Decimal] = []
 
     for item in ItemSacola.listar_por_sacola(db, sacola.id):
         produto = Produto.buscar_por_id(db, item.produto_id)
@@ -36,8 +107,11 @@ def montar_resposta_cesta(
         if produto is None:
             continue
 
-        subtotal = produto.preco * item.quantidade
-        total += subtotal
+        subtotal = calcular_subtotal(
+            produto.preco,
+            item.quantidade,
+        )
+        subtotais.append(subtotal)
 
         itens_saida.append(
             ItemSacolaOut(
@@ -56,7 +130,7 @@ def montar_resposta_cesta(
         criado_em=sacola.criado_em,
         atualizado_em=sacola.atualizado_em,
         itens=itens_saida,
-        total=total,
+        total=calcular_total(subtotais),
     )
 
 
@@ -69,7 +143,7 @@ def consultar_cesta(
     db: Session = Depends(get_db),
     usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> SacolaOut:
-    """Consulta a cesta e os itens do usuario autenticado."""
+    """Consulta a cesta do usuario autenticado."""
 
     sacola = Sacola.buscar_por_cliente(db, usuario_logado.id)
 
@@ -107,15 +181,37 @@ def adicionar_produto_cesta(
             detail="Produto nao encontrado.",
         )
 
-    if not produto.disponivel:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Produto indisponivel.",
-        )
+    validar_disponibilidade(produto)
+    validar_quantidade(dados.quantidade)
 
     sacola = Sacola.buscar_por_cliente(db, usuario_logado.id)
 
-    if sacola is None:
+    if sacola is not None:
+        validar_restaurante_cesta(db, sacola, produto)
+
+        item_existente = ItemSacola.buscar_por_produto(
+            db,
+            sacola.id,
+            produto.id,
+        )
+
+        if item_existente is not None:
+            nova_quantidade = (
+                item_existente.quantidade + dados.quantidade
+            )
+
+            validar_quantidade(nova_quantidade)
+
+            item_existente.quantidade = nova_quantidade
+            sacola.atualizado_em = datetime.now()
+
+            db.commit()
+            db.refresh(item_existente)
+            db.refresh(sacola)
+
+            return montar_resposta_cesta(db, sacola)
+
+    else:
         sacola = Sacola(
             cliente_id=usuario_logado.id,
             criado_em=datetime.now(),
@@ -126,31 +222,16 @@ def adicionar_produto_cesta(
         db.commit()
         db.refresh(sacola)
 
-    item_existente = ItemSacola.buscar_por_produto(
+    ItemSacola.adicionar(
         db,
-        sacola.id,
-        produto.id,
+        sacola_id=sacola.id,
+        produto_id=produto.id,
+        quantidade=dados.quantidade,
     )
 
-    if item_existente is not None:
-        item_existente.quantidade += dados.quantidade
-        sacola.atualizado_em = datetime.now()
-
-        db.commit()
-        db.refresh(item_existente)
-        db.refresh(sacola)
-
-    else:
-        ItemSacola.adicionar(
-            db,
-            sacola_id=sacola.id,
-            produto_id=produto.id,
-            quantidade=dados.quantidade,
-        )
-
-        sacola.atualizado_em = datetime.now()
-        db.commit()
-        db.refresh(sacola)
+    sacola.atualizado_em = datetime.now()
+    db.commit()
+    db.refresh(sacola)
 
     return montar_resposta_cesta(db, sacola)
 
@@ -166,7 +247,7 @@ def alterar_quantidade_cesta(
     db: Session = Depends(get_db),
     usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> SacolaOut:
-    """Altera a quantidade de um produto da cesta do usuario autenticado."""
+    """Altera a quantidade de um produto da cesta."""
 
     sacola = Sacola.buscar_por_cliente(db, usuario_logado.id)
 
@@ -187,6 +268,18 @@ def alterar_quantidade_cesta(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Produto nao encontrado na cesta.",
         )
+
+    produto = Produto.buscar_por_id(db, produto_id)
+
+    if produto is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Produto nao encontrado.",
+        )
+
+    validar_disponibilidade(produto)
+    validar_quantidade(dados.quantidade)
+    validar_restaurante_cesta(db, sacola, produto)
 
     item.quantidade = dados.quantidade
     sacola.atualizado_em = datetime.now()
