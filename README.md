@@ -26,7 +26,11 @@ API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115
 | 9 | Login por telefone com código OTP + cadastro por telefone | `/auth/telefone/*` | ✅ |
 | 10 | Login social (Google/Facebook) | `/auth/google`, `/auth/facebook` | ✅ implementado (ver Limitações sobre uso em modo de teste) |
 | 11 | Coleção Postman com todos os endpoints acima | [`postman/EntregaFood.postman_collection.json`](postman/EntregaFood.postman_collection.json) | ✅ |
-| 12 | Sacola, Pedido, Pagamento, Entrega, Avaliação | — | ❌ não implementado (só tabela no `sql/`) |
+| 12 | Cesta (incluir, consultar, alterar quantidade, excluir) com limite de 99 unidades e restaurante único | `/cesta`, `/cesta/itens` | ✅ |
+| 13 | Resumo da cesta: subtotal, taxa de entrega pela distância e total | `GET /cesta/resumo` | ✅ |
+| 14 | Fechamento do pedido: valida cesta vazia, disponibilidade, quantidade, endereço e raio; copia os itens para `item_pedido`; esvazia a cesta | `POST /pedidos` | ✅ |
+| 15 | Escolha do tipo de pagamento e pagamento por cartão (gateway simulado) | `/pagamentos` | ✅ simulado |
+| 16 | Entrega, Avaliação | — | ❌ não implementado (só tabela no `sql/`) |
 
 Essa tabela é o inventário de referência: toda vez que uma funcionalidade nova entrar no backend, adicione uma linha aqui.
 
@@ -297,6 +301,25 @@ psql -h localhost -U postgres -d entregafood -f sql/04_seed_cardapio.sql
 
 ---
 
+## Endpoints da Sprint 3 — cesta e fechamento do pedido
+
+| Método | Rota | O que faz | Retorno |
+|---|---|---|---|
+| `GET` | `/cesta` | Cesta do usuário logado (itens, subtotais e total) | `200` |
+| `POST` | `/cesta/itens` | Inclui produto (soma se já existir). Bloqueia indisponível, restaurante diferente e mais de 99 unidades | `201` · `400` · `404` |
+| `PUT` | `/cesta/itens/{produto_id}` | Altera a quantidade | `200` · `400` · `404` |
+| `DELETE` | `/cesta/itens/{produto_id}` | Remove o produto da cesta | `200` · `404` |
+| `GET` | `/cesta/resumo?local_id=&tipo_entrega=` | Subtotal, taxa de entrega, total, distância e se o pedido pode ser fechado (`pode_fechar` + `motivo`) | `200` · `403` · `404` |
+| `POST` | `/pedidos` | Cria o pedido a partir da cesta: recalcula os valores no servidor, copia os itens para `item_pedido` e esvazia a cesta | `201` · `400` |
+
+**Taxa de entrega** (`app/core/frete.py`): `taxa = max(mínima, base + taxa_entrega_km do restaurante × km além dos incluídos)`, arredondada para cima em R$ 0,10. A distância vem do OpenRouteService (pela rua) quando `ORS_API_KEY` está no `.env`; sem a chave, usa a linha reta × `FRETE_FATOR_CIRCUITO` (1,6). Base, km incluídos, taxa mínima e raio máximo (8 km) também ficam no `.env`. Retirada no balcão (`tipo_entrega=retirada`) não tem taxa.
+
+O `POST /pedidos` ignora `valor_total`, `taxa_entrega` e `restaurante_id` vindos do front: tudo é calculado a partir da cesta. Sem `local_id`, usa o último endereço cadastrado do cliente.
+
+Testes: `python -m pytest testes/teste_cesta.py testes/teste_fechamento_cesta.py` e as coleções `postman/Teste_*_Cesta.postman_collection.json` (inclusão, consulta, alteração, exclusão, subtotal/total e validações).
+
+---
+
 ## Casos de teste cobertos
 
 | ID | Caso | Verificação |
@@ -342,7 +365,9 @@ python testes/teste_consulta_cardapio.py
 - **Login social (Google/Facebook)**: implementado (`/auth/google`, `/auth/facebook` + callback). Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Pra demonstração, o caminho garantido continua sendo e-mail/senha.
 - **Verificação por SMS**: o OTP de telefone (`/auth/telefone/*`) gera e valida o código no próprio backend, mas não envia SMS de verdade — o endpoint devolve o código em `codigo_dev` pra facilitar teste/demonstração. Integração real com Twilio foi avaliada, mas a conta trial não permite nem buscar números disponíveis sem upgrade (cartão de crédito).
 - **Autorização em Restaurante e Produto**: só as rotas de `/usuarios` checam dono-ou-admin. `PUT`/`DELETE` de `/restaurantes/{id}` e `/produtos/{id}` ainda não exigem login — qualquer requisição altera qualquer registro pelo `id`. Funciona porque o front só deixa quem é `restaurante` chegar na tela de Produtos, mas a API em si confiaria em qualquer chamada — vale estender a mesma checagem de `usuario_controller.py` pra esses dois controllers numa próxima sprint.
-- **Sacola, Pedido, Pagamento, Entrega, Avaliação**: as demais tabelas do schema continuam só no `sql/`, sem model/controller/endpoint.
+- **Pagamento**: o gateway de cartão é simulado (`app/core/pagamento_cartao.py`); ver `docs/pesquisas` para a integração real recomendada (Mercado Pago em modo de teste).
+- **Estoque**: não há coluna de estoque; no fechamento são revalidados disponibilidade e o limite de 99 unidades por produto.
+- **Entrega e Avaliação**: tabelas só no `sql/`, sem model/controller/endpoint.
 
 ---
 
