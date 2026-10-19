@@ -1,0 +1,1346 @@
+{
+  "info": {
+    "name": "EntregaFood — Teste: alterar quantidade de itens da Cesta",
+    "description": "Teste funcional do endpoint PUT /cesta/itens/{produto_id}. Rode a coleção inteira em ordem (Run collection). Ela cria seus próprios usuários de teste com senha aleatória, escolhe um restaurante aprovado e um produto disponível, executa os casos e limpa a cesta no final. Única variável a ajustar: base_url.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Preparação",
+      "item": [
+        {
+          "name": "00.1 Cadastrar cliente A (teste)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios"
+              ]
+            },
+            "description": "Cria um cliente descartável com e-mail e senha aleatórios gerados no pre-request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente A Teste Cesta\",\n  \"email\": \"{{email_a}}\",\n  \"senha\": \"{{senha_a}}\",\n  \"tipo\": \"cliente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const sufixo = Date.now() + '' + Math.floor(Math.random() * 1000);",
+                  "pm.collectionVariables.set('email_a', `teste.cesta.a.${sufixo}@entregafood.com`);",
+                  "pm.collectionVariables.set('senha_a', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Tipo cliente', () => pm.expect(pm.response.json().tipo).to.eql('cliente'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.2 Login cliente A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Autentica o cliente A e guarda o JWT em {{token}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_a}}\",\n  \"senha\": \"{{senha_a}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK e access_token presente', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.have.property('access_token');",
+                  "});",
+                  "pm.collectionVariables.set('token', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.3 Escolher restaurante aprovado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes"
+              ]
+            },
+            "description": "Pega o primeiro restaurante aprovado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK e ao menos um restaurante', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().length).to.be.above(0);",
+                  "});",
+                  "pm.collectionVariables.set('restaurante_id', pm.response.json()[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.4 Escolher produto disponível do cardápio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes",
+                "{{restaurante_id}}",
+                "cardapio"
+              ]
+            },
+            "description": "Pega o primeiro item disponível e guarda id e preço."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "pm.test('200 OK e cardápio com itens', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(c.itens.length).to.be.above(0);",
+                  "});",
+                  "pm.collectionVariables.set('produto_id', c.itens[0].id);",
+                  "pm.collectionVariables.set('preco', c.itens[0].preco);",
+                  "if (c.itens.length > 1) { pm.collectionVariables.set('produto_id_2', c.itens[1].id); pm.collectionVariables.set('preco_2', c.itens[1].preco); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.5 Adicionar produto à cesta (quantidade 1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens"
+              ]
+            },
+            "description": "Pré-condição: o produto precisa estar na cesta para ter a quantidade alterada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{produto_id}},\n  \"quantidade\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cesta = pm.response.json();",
+                  "const item = (cesta.itens || []).find(i => i.produto_id === Number(pm.collectionVariables.get('produto_id')));",
+                  "",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Item na cesta com quantidade 1', () => pm.expect(item.quantidade).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.6 Adicionar segundo produto (quantidade 2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens"
+              ]
+            },
+            "description": "Segundo item, para provar que alterar um item não mexe no outro e que o total soma os dois.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{produto_id_2}},\n  \"quantidade\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Cesta com 2 itens', () => pm.expect(pm.response.json().itens.length).to.eql(2));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Cenários válidos",
+      "item": [
+        {
+          "name": "CT-01 Aumentar quantidade (1 → 3)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Cenário principal: aumentar a quantidade de um item existente.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cesta = pm.response.json();",
+                  "const item = (cesta.itens || []).find(i => i.produto_id === Number(pm.collectionVariables.get('produto_id')));",
+                  "",
+                  "const preco = Number(pm.collectionVariables.get('preco'));",
+                  "const preco2 = Number(pm.collectionVariables.get('preco_2'));",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Quantidade passou para 3', () => pm.expect(item.quantidade).to.eql(3));",
+                  "pm.test('Subtotal = preço × 3', () => pm.expect(Number(item.subtotal)).to.be.closeTo(preco * 3, 0.001));",
+                  "pm.test('Total = soma dos subtotais', () => pm.expect(Number(cesta.total)).to.be.closeTo(preco * 3 + preco2 * 2, 0.001));",
+                  "pm.test('Outro item não foi alterado', () => {",
+                  "  const outro = cesta.itens.find(i => i.produto_id === Number(pm.collectionVariables.get('produto_id_2')));",
+                  "  pm.expect(outro.quantidade).to.eql(2);",
+                  "});",
+                  "pm.test('Não duplicou o item', () => pm.expect(cesta.itens.length).to.eql(2));",
+                  "pm.test('atualizado_em preenchido', () => pm.expect(cesta.atualizado_em).to.not.be.null);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-02 Diminuir quantidade (3 → 1)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Reduzir a quantidade de um item existente.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cesta = pm.response.json();",
+                  "const item = (cesta.itens || []).find(i => i.produto_id === Number(pm.collectionVariables.get('produto_id')));",
+                  "",
+                  "const preco = Number(pm.collectionVariables.get('preco'));",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Quantidade passou para 1', () => pm.expect(item.quantidade).to.eql(1));",
+                  "pm.test('Subtotal = preço × 1', () => pm.expect(Number(item.subtotal)).to.be.closeTo(preco, 0.001));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-03 Mesma quantidade (1 → 1)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Enviar a quantidade atual não deve causar erro (operação idempotente).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cesta = pm.response.json();",
+                  "const item = (cesta.itens || []).find(i => i.produto_id === Number(pm.collectionVariables.get('produto_id')));",
+                  "",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Quantidade continua 1', () => pm.expect(item.quantidade).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-04 Quantidade alta (1 → 50)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Valor limite superior: a API não define máximo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cesta = pm.response.json();",
+                  "const item = (cesta.itens || []).find(i => i.produto_id === Number(pm.collectionVariables.get('produto_id')));",
+                  "",
+                  "const preco = Number(pm.collectionVariables.get('preco'));",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Quantidade 50 e subtotal correto', () => {",
+                  "  pm.expect(item.quantidade).to.eql(50);",
+                  "  pm.expect(Number(item.subtotal)).to.be.closeTo(preco * 50, 0.001);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-05 Consultar cesta confirma persistência",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "A alteração precisa estar salva: uma nova consulta devolve a quantidade 50."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cesta = pm.response.json();",
+                  "const item = (cesta.itens || []).find(i => i.produto_id === Number(pm.collectionVariables.get('produto_id')));",
+                  "",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Quantidade persistida = 50', () => pm.expect(item.quantidade).to.eql(50));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Cenários inválidos",
+      "item": [
+        {
+          "name": "CT-06 Quantidade zero → 422",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Regra: quantidade mínima é 1 (Field ge=1). Para tirar o item, usar DELETE.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('Erro aponta o campo quantidade', () => pm.expect(JSON.stringify(pm.response.json().detail)).to.include('quantidade'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-07 Quantidade negativa → 422",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Valores negativos são rejeitados.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": -2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-08 Quantidade decimal → 422",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Quantidade fracionada não é aceita.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 2.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-09 Quantidade texto → 422",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Tipo inválido.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": \"abc\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-10 Corpo sem quantidade → 422",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Campo obrigatório ausente.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('Erro informa campo obrigatório', () => pm.expect(JSON.stringify(pm.response.json().detail)).to.include('missing'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-11 Produto que não está na cesta → 404",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/999999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "999999"
+              ]
+            },
+            "description": "Não é possível alterar um item que não foi adicionado.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('Mensagem: Produto nao encontrado na cesta.', () => pm.expect(pm.response.json().detail).to.eql('Produto nao encontrado na cesta.'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-12 Sem token → 401",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "A rota exige autenticação.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-13 Token inválido → 401",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer token-invalido.abc.def"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Token adulterado é rejeitado.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-14 Quantidade como texto numérico \"2\" (observação)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Investiga o comportamento com \"2\" (string). O Pydantic em modo flexível converte para inteiro; o teste registra o comportamento real.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": \"2\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cesta = pm.response.json();",
+                  "const item = (cesta.itens || []).find(i => i.produto_id === Number(pm.collectionVariables.get('produto_id')));",
+                  "",
+                  "pm.test('Resposta registrada (200 = conversão aceita, 422 = rejeitado)', () => pm.expect([200, 422]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('Convertido para inteiro 2', () => pm.expect(item.quantidade).to.eql(2));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-15 Quantidade não alterada pelos erros",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Depois das tentativas inválidas, a quantidade continua a do último PUT válido."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cesta = pm.response.json();",
+                  "const item = (cesta.itens || []).find(i => i.produto_id === Number(pm.collectionVariables.get('produto_id')));",
+                  "",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Quantidade intacta (2 após CT-14, ou 50 se CT-14 foi rejeitado)', () => pm.expect([2, 50]).to.include(item.quantidade));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Isolamento entre clientes",
+      "item": [
+        {
+          "name": "CT-16.1 Cadastrar cliente B (teste)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios"
+              ]
+            },
+            "description": "Segundo cliente, para testar isolamento entre cestas.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente B Teste Cesta\",\n  \"email\": \"{{email_b}}\",\n  \"senha\": \"{{senha_b}}\",\n  \"tipo\": \"cliente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const sufixo = Date.now() + '' + Math.floor(Math.random() * 1000);",
+                  "pm.collectionVariables.set('email_b', `teste.cesta.b.${sufixo}@entregafood.com`);",
+                  "pm.collectionVariables.set('senha_b', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-16.2 Login cliente B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Guarda o JWT do cliente B em {{token_b}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_b}}\",\n  \"senha\": \"{{senha_b}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_b', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-16.3 Cliente B tenta alterar item → 404",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_b}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "O cliente B não tem cesta; a API usa a cesta do token, então não alcança a cesta do cliente A.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 7\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('Mensagem: Cesta nao encontrada.', () => pm.expect(pm.response.json().detail).to.eql('Cesta nao encontrada.'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-16.4 Cesta do cliente A não mudou",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Confirma que a tentativa do cliente B não afetou o cliente A."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cesta = pm.response.json();",
+                  "const item = (cesta.itens || []).find(i => i.produto_id === Number(pm.collectionVariables.get('produto_id')));",
+                  "",
+                  "pm.test('Quantidade do cliente A não virou 7', () => pm.expect(item.quantidade).to.not.eql(7));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Limpeza",
+      "item": [
+        {
+          "name": "99.1 Remover itens da cesta (limpeza)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Deixa a cesta do cliente A como antes do teste."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "99.2 Remover segundo item (limpeza)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id_2}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id_2}}"
+              ]
+            },
+            "description": "Cesta vazia ao final."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Cesta vazia e total 0', () => {",
+                  "  pm.expect(pm.response.json().itens.length).to.eql(0);",
+                  "  pm.expect(Number(pm.response.json().total)).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "token_b",
+      "value": ""
+    },
+    {
+      "key": "email_a",
+      "value": ""
+    },
+    {
+      "key": "senha_a",
+      "value": ""
+    },
+    {
+      "key": "email_b",
+      "value": ""
+    },
+    {
+      "key": "senha_b",
+      "value": ""
+    },
+    {
+      "key": "restaurante_id",
+      "value": ""
+    },
+    {
+      "key": "produto_id",
+      "value": ""
+    },
+    {
+      "key": "preco",
+      "value": ""
+    },
+    {
+      "key": "produto_id_2",
+      "value": ""
+    },
+    {
+      "key": "preco_2",
+      "value": ""
+    }
+  ]
+}

@@ -1,0 +1,1437 @@
+{
+  "info": {
+    "name": "EntregaFood — Teste: consultar itens da Cesta",
+    "description": "Teste funcional do endpoint GET /cesta. Rode a coleção inteira em ordem (Run collection). Ela cria os próprios usuários de teste com senha aleatória, monta a cesta, executa os casos, restaura o produto alterado e esvazia a cesta. Única variável a ajustar: base_url.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Preparação",
+      "item": [
+        {
+          "name": "00.1 Cadastrar cliente A (teste)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios"
+              ]
+            },
+            "description": "Cliente descartável com e-mail e senha aleatórios.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente A Consulta Cesta\",\n  \"email\": \"{{email_a}}\",\n  \"senha\": \"{{senha_a}}\",\n  \"tipo\": \"cliente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const sufixo = Date.now() + '' + Math.floor(Math.random() * 1000);",
+                  "pm.collectionVariables.set('email_a', `teste.consulta.a.${sufixo}@entregafood.com`);",
+                  "pm.collectionVariables.set('senha_a', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('usuario_id_a', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.2 Login cliente A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Guarda o JWT em {{token}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_a}}\",\n  \"senha\": \"{{senha_a}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.3 Escolher restaurante aprovado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes"
+              ]
+            },
+            "description": "Primeiro restaurante aprovado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('restaurante_id', pm.response.json()[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.4 Escolher dois produtos do cardápio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes",
+                "{{restaurante_id}}",
+                "cardapio"
+              ]
+            },
+            "description": "Guarda id, nome e preço dos dois primeiros itens disponíveis."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "pm.test('200 OK e ao menos 2 itens', () => { pm.response.to.have.status(200); pm.expect(c.itens.length).to.be.at.least(2); });",
+                  "pm.collectionVariables.set('produto_id', c.itens[0].id); pm.collectionVariables.set('nome_1', c.itens[0].nome); pm.collectionVariables.set('preco', c.itens[0].preco);",
+                  "pm.collectionVariables.set('produto_id_2', c.itens[1].id); pm.collectionVariables.set('nome_2', c.itens[1].nome); pm.collectionVariables.set('preco_2', c.itens[1].preco);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Cesta vazia",
+      "item": [
+        {
+          "name": "CT-01 Cliente sem cesta → cesta vazia",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Cliente recém-criado nunca adicionou nada: a API devolve uma cesta vazia (não 404)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('id nulo (cesta ainda não existe no banco)', () => pm.expect(c.id).to.be.null);",
+                  "pm.test('cliente_id é o do usuário logado', () => pm.expect(c.cliente_id).to.eql(Number(pm.collectionVariables.get('usuario_id_a'))));",
+                  "pm.test('itens = [] e total = 0.00', () => { pm.expect(c.itens).to.eql([]); pm.expect(c.total).to.eql('0.00'); });",
+                  "pm.test('criado_em e atualizado_em nulos', () => { pm.expect(c.criado_em).to.be.null; pm.expect(c.atualizado_em).to.be.null; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.5 Adicionar produto 1 (quantidade 2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens"
+              ]
+            },
+            "description": "Prepara a cesta para os próximos casos.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{produto_id}},\n  \"quantidade\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.6 Adicionar produto 2 (quantidade 1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens"
+              ]
+            },
+            "description": "Segundo item.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{produto_id_2}},\n  \"quantidade\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Consulta com itens",
+      "item": [
+        {
+          "name": "CT-02 Consultar cesta com itens",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Cenário principal: a cesta volta com os dois itens adicionados."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "const p1 = Number(pm.collectionVariables.get('produto_id'));",
+                  "const p2 = Number(pm.collectionVariables.get('produto_id_2'));",
+                  "const i1 = (c.itens || []).find(i => i.produto_id === p1);",
+                  "const i2 = (c.itens || []).find(i => i.produto_id === p2);",
+                  "",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Content-Type JSON', () => pm.response.to.have.header('content-type', 'application/json'));",
+                  "pm.test('Campos da cesta presentes', () => pm.expect(c).to.have.all.keys('id', 'cliente_id', 'criado_em', 'atualizado_em', 'itens', 'total'));",
+                  "pm.test('id da cesta preenchido', () => pm.expect(c.id).to.be.a('number'));",
+                  "pm.test('2 itens', () => pm.expect(c.itens.length).to.eql(2));",
+                  "pm.collectionVariables.set('cesta_id', c.id);",
+                  "pm.collectionVariables.set('atualizado_em', c.atualizado_em);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-03 Estrutura e tipos de cada item",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Contrato do item: campos e tipos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "const p1 = Number(pm.collectionVariables.get('produto_id'));",
+                  "const p2 = Number(pm.collectionVariables.get('produto_id_2'));",
+                  "const i1 = (c.itens || []).find(i => i.produto_id === p1);",
+                  "const i2 = (c.itens || []).find(i => i.produto_id === p2);",
+                  "",
+                  "pm.test('Cada item tem os 6 campos', () => c.itens.forEach(i => pm.expect(i).to.have.all.keys('id', 'produto_id', 'nome', 'quantidade', 'preco_unitario', 'subtotal')));",
+                  "pm.test('Tipos corretos', () => c.itens.forEach(i => {",
+                  "  pm.expect(i.id).to.be.a('number'); pm.expect(i.produto_id).to.be.a('number');",
+                  "  pm.expect(i.nome).to.be.a('string'); pm.expect(i.quantidade).to.be.a('number');",
+                  "  pm.expect(i.preco_unitario).to.match(/^\\d+\\.\\d{2}$/); pm.expect(i.subtotal).to.match(/^\\d+\\.\\d{2}$/);",
+                  "}));",
+                  "pm.test('total com 2 casas decimais', () => pm.expect(c.total).to.match(/^\\d+\\.\\d{2}$/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-04 Quantidades, subtotais e total",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Cálculos feitos pelo servidor."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "const p1 = Number(pm.collectionVariables.get('produto_id'));",
+                  "const p2 = Number(pm.collectionVariables.get('produto_id_2'));",
+                  "const i1 = (c.itens || []).find(i => i.produto_id === p1);",
+                  "const i2 = (c.itens || []).find(i => i.produto_id === p2);",
+                  "",
+                  "const pr1 = Number(pm.collectionVariables.get('preco')), pr2 = Number(pm.collectionVariables.get('preco_2'));",
+                  "pm.test('Quantidades 2 e 1', () => { pm.expect(i1.quantidade).to.eql(2); pm.expect(i2.quantidade).to.eql(1); });",
+                  "pm.test('subtotal = preço × quantidade', () => {",
+                  "  pm.expect(Number(i1.subtotal)).to.be.closeTo(pr1 * 2, 0.001);",
+                  "  pm.expect(Number(i2.subtotal)).to.be.closeTo(pr2 * 1, 0.001);",
+                  "});",
+                  "pm.test('total = soma dos subtotais', () => pm.expect(Number(c.total)).to.be.closeTo(pr1 * 2 + pr2, 0.001));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-05 Nome e preço conferem com o cardápio",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Os dados do item batem com o produto do cardápio."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "const p1 = Number(pm.collectionVariables.get('produto_id'));",
+                  "const p2 = Number(pm.collectionVariables.get('produto_id_2'));",
+                  "const i1 = (c.itens || []).find(i => i.produto_id === p1);",
+                  "const i2 = (c.itens || []).find(i => i.produto_id === p2);",
+                  "",
+                  "pm.test('Nomes iguais aos do cardápio', () => { pm.expect(i1.nome).to.eql(pm.collectionVariables.get('nome_1')); pm.expect(i2.nome).to.eql(pm.collectionVariables.get('nome_2')); });",
+                  "pm.test('Preços iguais aos do cardápio', () => { pm.expect(i1.preco_unitario).to.eql(pm.collectionVariables.get('preco')); pm.expect(i2.preco_unitario).to.eql(pm.collectionVariables.get('preco_2')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-06 Ordem dos itens = ordem de inclusão",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Itens ordenados pelo id do item (ordem em que entraram)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "const p1 = Number(pm.collectionVariables.get('produto_id'));",
+                  "const p2 = Number(pm.collectionVariables.get('produto_id_2'));",
+                  "const i1 = (c.itens || []).find(i => i.produto_id === p1);",
+                  "const i2 = (c.itens || []).find(i => i.produto_id === p2);",
+                  "",
+                  "pm.test('Primeiro item é o produto 1', () => pm.expect(c.itens[0].produto_id).to.eql(p1));",
+                  "pm.test('ids de item crescentes', () => pm.expect(c.itens[0].id).to.be.below(c.itens[1].id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-07 Consulta não altera a cesta (somente leitura)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Consultar de novo devolve os mesmos dados e não mexe em atualizado_em."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "const p1 = Number(pm.collectionVariables.get('produto_id'));",
+                  "const p2 = Number(pm.collectionVariables.get('produto_id_2'));",
+                  "const i1 = (c.itens || []).find(i => i.produto_id === p1);",
+                  "const i2 = (c.itens || []).find(i => i.produto_id === p2);",
+                  "",
+                  "pm.test('Mesma cesta', () => pm.expect(c.id).to.eql(Number(pm.collectionVariables.get('cesta_id'))));",
+                  "pm.test('atualizado_em não mudou', () => pm.expect(c.atualizado_em).to.eql(pm.collectionVariables.get('atualizado_em')));",
+                  "pm.test('Tempo de resposta < 500 ms', () => pm.expect(pm.response.responseTime).to.be.below(500));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.7 Alterar quantidade do produto 1 para 5",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Muda a cesta para verificar que a consulta reflete.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-08 Consulta reflete alteração de quantidade",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Depois do PUT, a consulta mostra quantidade 5 e total recalculado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "const p1 = Number(pm.collectionVariables.get('produto_id'));",
+                  "const p2 = Number(pm.collectionVariables.get('produto_id_2'));",
+                  "const i1 = (c.itens || []).find(i => i.produto_id === p1);",
+                  "const i2 = (c.itens || []).find(i => i.produto_id === p2);",
+                  "",
+                  "const pr1 = Number(pm.collectionVariables.get('preco')), pr2 = Number(pm.collectionVariables.get('preco_2'));",
+                  "pm.test('Quantidade 5', () => pm.expect(i1.quantidade).to.eql(5));",
+                  "pm.test('Total recalculado', () => pm.expect(Number(c.total)).to.be.closeTo(pr1 * 5 + pr2, 0.001));",
+                  "pm.test('atualizado_em avançou', () => pm.expect(c.atualizado_em).to.not.eql(pm.collectionVariables.get('atualizado_em')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.8 Remover produto 2",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id_2}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id_2}}"
+              ]
+            },
+            "description": "Remove um item."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-09 Consulta reflete remoção de item",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Só o produto 1 continua."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "const p1 = Number(pm.collectionVariables.get('produto_id'));",
+                  "const p2 = Number(pm.collectionVariables.get('produto_id_2'));",
+                  "const i1 = (c.itens || []).find(i => i.produto_id === p1);",
+                  "const i2 = (c.itens || []).find(i => i.produto_id === p2);",
+                  "",
+                  "const pr1 = Number(pm.collectionVariables.get('preco'));",
+                  "pm.test('1 item', () => pm.expect(c.itens.length).to.eql(1));",
+                  "pm.test('Produto 2 não aparece', () => pm.expect(i2).to.be.undefined);",
+                  "pm.test('Total = só o produto 1', () => pm.expect(Number(c.total)).to.be.closeTo(pr1 * 5, 0.001));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Regras de preço e disponibilidade",
+      "item": [
+        {
+          "name": "00.9 Guardar preço original do produto 1",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/produtos/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "produtos",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Salva o produto para restaurar no fim."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('preco_original', pm.response.json().preco);",
+                  "pm.collectionVariables.set('disponivel_original', String(pm.response.json().disponivel));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.10 Alterar preço do produto 1 (+ R$ 10,00)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/produtos/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "produtos",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Simula reajuste de preço depois do item já estar na cesta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"preco\": \"{{preco_novo}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('preco_novo', (Number(pm.collectionVariables.get('preco')) + 10).toFixed(2));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-10 Preço exibido após reajuste do produto (observação)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Registra qual preço a cesta usa: o atual do produto ou o do momento da inclusão."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "const p1 = Number(pm.collectionVariables.get('produto_id'));",
+                  "const p2 = Number(pm.collectionVariables.get('produto_id_2'));",
+                  "const i1 = (c.itens || []).find(i => i.produto_id === p1);",
+                  "const i2 = (c.itens || []).find(i => i.produto_id === p2);",
+                  "",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Cesta usa o preço ATUAL do produto', () => pm.expect(i1.preco_unitario).to.eql(pm.collectionVariables.get('preco_novo')));",
+                  "pm.test('Subtotal recalculado com o preço novo', () => pm.expect(Number(i1.subtotal)).to.be.closeTo(Number(pm.collectionVariables.get('preco_novo')) * 5, 0.001));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.11 Tornar produto 1 indisponível",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/produtos/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "produtos",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Simula o restaurante pausando o item.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"disponivel\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-11 Item indisponível continua na cesta (observação)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Registra se a consulta esconde, sinaliza ou mantém um item que ficou indisponível."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "const p1 = Number(pm.collectionVariables.get('produto_id'));",
+                  "const p2 = Number(pm.collectionVariables.get('produto_id_2'));",
+                  "const i1 = (c.itens || []).find(i => i.produto_id === p1);",
+                  "const i2 = (c.itens || []).find(i => i.produto_id === p2);",
+                  "",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Item indisponível ainda aparece', () => pm.expect(i1).to.not.be.undefined);",
+                  "pm.test('Resposta não informa disponibilidade', () => pm.expect(i1).to.not.have.property('disponivel'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.12 Restaurar produto 1 (preço e disponibilidade)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/produtos/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "produtos",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Desfaz as mudanças no produto.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"preco\": \"{{preco_original}}\",\n  \"disponivel\": {{disponivel_original}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Preço restaurado', () => pm.expect(pm.response.json().preco).to.eql(pm.collectionVariables.get('preco_original')));",
+                  "pm.test('Disponível restaurado', () => pm.expect(String(pm.response.json().disponivel)).to.eql(pm.collectionVariables.get('disponivel_original')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Segurança e isolamento",
+      "item": [
+        {
+          "name": "CT-12 Sem token → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "A rota exige autenticação."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('Mensagem de token', () => pm.expect(pm.response.json().detail).to.eql('Token ausente ou invalido.'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-13 Token inválido → 401",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer token-invalido.abc.def"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Token adulterado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-14 Esquema de autenticação errado → 401",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Basic {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Token enviado como Basic em vez de Bearer."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-15.1 Cadastrar cliente B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios"
+              ]
+            },
+            "description": "Segundo cliente.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente B Consulta Cesta\",\n  \"email\": \"{{email_b}}\",\n  \"senha\": \"{{senha_b}}\",\n  \"tipo\": \"cliente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const sufixo = Date.now() + '' + Math.floor(Math.random() * 1000);",
+                  "pm.collectionVariables.set('email_b', `teste.consulta.b.${sufixo}@entregafood.com`);",
+                  "pm.collectionVariables.set('senha_b', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-15.2 Login cliente B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "JWT do cliente B.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_b}}\",\n  \"senha\": \"{{senha_b}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_b', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-15.3 Cliente B não vê a cesta do A",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_b}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Cada token enxerga só a própria cesta."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Cesta do B vazia', () => { pm.expect(c.itens).to.eql([]); pm.expect(c.id).to.be.null; });",
+                  "pm.test('cliente_id diferente do A', () => pm.expect(c.cliente_id).to.not.eql(Number(pm.collectionVariables.get('usuario_id_a'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-16.1 Cliente B encerra a própria conta",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_b}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios/{{usuario_id_b}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios",
+                "{{usuario_id_b}}"
+              ]
+            },
+            "description": "Prepara o caso de token de usuário excluído."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const t = pm.collectionVariables.get('token_b').split('.')[1];",
+                  "pm.collectionVariables.set('usuario_id_b', JSON.parse(atob(t.replace(/-/g, '+').replace(/_/g, '/'))).sub);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-16.2 Token de usuário excluído → 401",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_b}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Token ainda válido na assinatura, mas o usuário não existe mais."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-17 Método não suportado (POST /cesta) → 405",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "A rota de consulta só aceita GET.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('405 Method Not Allowed', () => pm.response.to.have.status(405));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Limpeza",
+      "item": [
+        {
+          "name": "99.1 Esvaziar cesta (remover produto 1)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Remove o último item."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-18 Cesta esvaziada",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Depois de remover tudo: a cesta continua existindo, sem itens e com total zero."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('itens = [] e total = 0.00', () => { pm.expect(c.itens).to.eql([]); pm.expect(c.total).to.eql('0.00'); });",
+                  "pm.test('Cesta ainda existe (id mantido)', () => pm.expect(c.id).to.eql(Number(pm.collectionVariables.get('cesta_id'))));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    }
+  ]
+}

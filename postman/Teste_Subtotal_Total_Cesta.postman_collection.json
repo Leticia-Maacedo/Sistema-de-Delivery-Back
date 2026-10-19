@@ -1,0 +1,1189 @@
+{
+  "info": {
+    "name": "EntregaFood — Teste: cálculo de subtotal e total da Cesta",
+    "description": "Teste do endpoint GET /cesta/resumo (subtotal, taxa de entrega pela distância e total) e da criação do pedido com esses valores. Rode a coleção inteira em ordem. Única variável a ajustar: base_url.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Preparação",
+      "item": [
+        {
+          "name": "00.1 Cadastrar cliente A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios"
+              ]
+            },
+            "description": "Cliente descartável.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente A Resumo Cesta\",\n  \"email\": \"{{email_a}}\",\n  \"senha\": \"{{senha_a}}\",\n  \"tipo\": \"cliente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const sufixo = Date.now() + '' + Math.floor(Math.random() * 1000);",
+                  "pm.collectionVariables.set('email_a', `teste.resumo.a.${sufixo}@entregafood.com`);",
+                  "pm.collectionVariables.set('senha_a', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('usuario_a', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.2 Login cliente A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "JWT em {{token}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_a}}\",\n  \"senha\": \"{{senha_a}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.3 Restaurante aprovado (coordenadas e taxa por km)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes"
+              ]
+            },
+            "description": "Guarda id, latitude, longitude e taxa_entrega_km."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json()[0];",
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('restaurante_id', r.id); pm.collectionVariables.set('taxa_km', r.taxa_entrega_km);",
+                  "pm.collectionVariables.set('rest_lat', r.local.latitude); pm.collectionVariables.set('rest_lon', r.local.longitude);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.4 Dois produtos do cardápio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes",
+                "{{restaurante_id}}",
+                "cardapio"
+              ]
+            },
+            "description": "Guarda id e preço."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "pm.test('Ao menos 2 itens', () => pm.expect(c.itens.length).to.be.at.least(2));",
+                  "pm.collectionVariables.set('produto_id', c.itens[0].id); pm.collectionVariables.set('preco', c.itens[0].preco);",
+                  "pm.collectionVariables.set('produto_id_2', c.itens[1].id); pm.collectionVariables.set('preco_2', c.itens[1].preco);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.5 Cadastrar endereço do cliente A (Praça da Sé)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/locais",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "locais"
+              ]
+            },
+            "description": "Endereço com coordenadas conhecidas (≈ 2,6 km do Burger da Paulista).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario_id\": {{usuario_a}},\n  \"endereco\": \"Praca da Se, s/n - Se, Sao Paulo\",\n  \"tipo\": \"casa\",\n  \"latitude\": \"-23.550520\",\n  \"longitude\": \"-46.633308\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "const l = pm.response.json();",
+                  "pm.collectionVariables.set('local_a', l.id); pm.collectionVariables.set('cli_lat', l.latitude); pm.collectionVariables.set('cli_lon', l.longitude);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Casos de teste",
+      "item": [
+        {
+          "name": "CT-01 Cesta vazia",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/resumo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "resumo"
+              ]
+            },
+            "description": "Sem itens: tudo zero e não pode fechar."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const n = (x) => Number(x);",
+                  "",
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('subtotal, taxa e total = 0.00', () => { pm.expect(r.subtotal).to.eql('0.00'); pm.expect(r.taxa_entrega).to.eql('0.00'); pm.expect(r.total).to.eql('0.00'); });",
+                  "pm.test('pode_fechar = false com motivo', () => { pm.expect(r.pode_fechar).to.eql(false); pm.expect(r.motivo).to.eql('A cesta esta vazia.'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.6 Adicionar produto 1 (×2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens"
+              ]
+            },
+            "description": "Prepara a cesta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{produto_id}},\n  \"quantidade\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.7 Adicionar produto 2 (×1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens"
+              ]
+            },
+            "description": "Prepara a cesta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{produto_id_2}},\n  \"quantidade\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('atualizado_em', pm.response.json().atualizado_em);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-02 Subtotal = soma de preço × quantidade",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/resumo?tipo_entrega=retirada",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "resumo"
+              ],
+              "query": [
+                {
+                  "key": "tipo_entrega",
+                  "value": "retirada"
+                }
+              ]
+            },
+            "description": "Confere o subtotal com os preços do cardápio."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const n = (x) => Number(x);",
+                  "",
+                  "const esperado = n(v('preco')) * 2 + n(v('preco_2'));",
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('subtotal = preço1 × 2 + preço2 × 1', () => pm.expect(n(r.subtotal)).to.be.closeTo(esperado, 0.001));",
+                  "pm.test('quantidade_itens = 3', () => pm.expect(r.quantidade_itens).to.eql(3));",
+                  "pm.test('restaurante da cesta', () => pm.expect(r.restaurante_id).to.eql(n(v('restaurante_id'))));",
+                  "pm.collectionVariables.set('subtotal', r.subtotal);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-03 Retirada no balcão: sem taxa",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/resumo?tipo_entrega=retirada",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "resumo"
+              ],
+              "query": [
+                {
+                  "key": "tipo_entrega",
+                  "value": "retirada"
+                }
+              ]
+            },
+            "description": "Retirada não calcula distância nem taxa."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const n = (x) => Number(x);",
+                  "",
+                  "pm.test('taxa 0.00 e total = subtotal', () => { pm.expect(r.taxa_entrega).to.eql('0.00'); pm.expect(r.total).to.eql(r.subtotal); });",
+                  "pm.test('sem distância', () => { pm.expect(r.distancia_km).to.be.null; pm.expect(r.metodo_distancia).to.be.null; });",
+                  "pm.test('pode fechar', () => pm.expect(r.pode_fechar).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-04 Entrega: taxa pela distância",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/resumo?local_id={{local_a}}&tipo_entrega=delivery",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "resumo"
+              ],
+              "query": [
+                {
+                  "key": "local_id",
+                  "value": "{{local_a}}"
+                },
+                {
+                  "key": "tipo_entrega",
+                  "value": "delivery"
+                }
+              ]
+            },
+            "description": "Distância estimada (linha reta × 1,6) e taxa = base R$ 4,00 + taxa_entrega_km × km além de 2 km, arredondada para cima em R$ 0,10."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const n = (x) => Number(x);",
+                  "",
+                  "const hav = (a1, o1, a2, o2) => { const rad = (x) => x * Math.PI / 180, R = 6371.0088;",
+                  "  const h = Math.sin(rad(a2 - a1) / 2) ** 2 + Math.cos(rad(a1)) * Math.cos(rad(a2)) * Math.sin(rad(o2 - o1) / 2) ** 2;",
+                  "  return Math.round(2 * R * Math.asin(Math.sqrt(h)) * 1000) / 1000; };",
+                  "const distEsperada = Math.round(hav(n(v('rest_lat')), n(v('rest_lon')), n(v('cli_lat')), n(v('cli_lon'))) * 1.6 * 1000) / 1000;",
+                  "const taxaEsperada = Math.ceil(Math.max(4, 4 + n(v('taxa_km')) * Math.max(0, distEsperada - 2)) * 10 - 1e-9) / 10;",
+                  "",
+                  "pm.test('200 e pode fechar', () => { pm.response.to.have.status(200); pm.expect(r.pode_fechar).to.eql(true); });",
+                  "pm.test('método estimada (sem chave do OpenRouteService)', () => pm.expect(r.metodo_distancia).to.eql('estimada'));",
+                  "pm.test('distância = linha reta × 1,6', () => pm.expect(n(r.distancia_km)).to.be.closeTo(distEsperada, 0.002));",
+                  "pm.test('taxa conforme a regra', () => pm.expect(n(r.taxa_entrega)).to.be.closeTo(taxaEsperada, 0.001));",
+                  "pm.test('total = subtotal + taxa', () => pm.expect(n(r.total)).to.be.closeTo(n(r.subtotal) + n(r.taxa_entrega), 0.001));",
+                  "pm.test('endereço usado', () => pm.expect(r.local_entrega_id).to.eql(n(v('local_a'))));",
+                  "pm.collectionVariables.set('taxa', r.taxa_entrega); pm.collectionVariables.set('total', r.total);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-05 Sem local_id usa o último endereço do cliente",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/resumo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "resumo"
+              ]
+            },
+            "description": "Mesma taxa do CT-04."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const n = (x) => Number(x);",
+                  "",
+                  "pm.test('local_entrega_id = endereço do cliente', () => pm.expect(r.local_entrega_id).to.eql(n(v('local_a'))));",
+                  "pm.test('mesma taxa e total do CT-04', () => { pm.expect(r.taxa_entrega).to.eql(v('taxa')); pm.expect(r.total).to.eql(v('total')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-06 Resumo não altera a cesta",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Consultar o resumo é somente leitura."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const n = (x) => Number(x);",
+                  "",
+                  "pm.test('Mesmos 2 itens e atualizado_em igual', () => { pm.expect(r.itens.length).to.eql(2); pm.expect(r.atualizado_em).to.eql(v('atualizado_em')); });",
+                  "pm.test('total da cesta = subtotal do resumo', () => pm.expect(r.total).to.eql(v('subtotal')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.8 Alterar produto 1 para ×5",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens",
+                "{{produto_id}}"
+              ]
+            },
+            "description": "Muda a cesta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-07 Recalcula depois da alteração",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/resumo?local_id={{local_a}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "resumo"
+              ],
+              "query": [
+                {
+                  "key": "local_id",
+                  "value": "{{local_a}}"
+                }
+              ]
+            },
+            "description": "Subtotal e total acompanham a quantidade nova; a taxa não muda."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const n = (x) => Number(x);",
+                  "",
+                  "const esperado = n(v('preco')) * 5 + n(v('preco_2'));",
+                  "pm.test('subtotal com 5 unidades', () => pm.expect(n(r.subtotal)).to.be.closeTo(esperado, 0.001));",
+                  "pm.test('taxa igual (mesma distância)', () => pm.expect(r.taxa_entrega).to.eql(v('taxa')));",
+                  "pm.test('total = novo subtotal + taxa', () => pm.expect(n(r.total)).to.be.closeTo(esperado + n(v('taxa')), 0.001));",
+                  "pm.collectionVariables.set('total', r.total); pm.collectionVariables.set('taxa', r.taxa_entrega);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00.9 Cadastrar endereço distante (Campinas)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/locais",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "locais"
+              ]
+            },
+            "description": "Endereço a ~90 km, fora do raio de 8 km.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario_id\": {{usuario_a}},\n  \"endereco\": \"Centro, Campinas\",\n  \"tipo\": \"casa\",\n  \"latitude\": \"-22.905600\",\n  \"longitude\": \"-47.060800\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('local_longe', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-08 Endereço fora do raio",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/resumo?local_id={{local_longe}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "resumo"
+              ],
+              "query": [
+                {
+                  "key": "local_id",
+                  "value": "{{local_longe}}"
+                }
+              ]
+            },
+            "description": "O restaurante não entrega a mais de 8 km."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const n = (x) => Number(x);",
+                  "",
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('não pode fechar', () => { pm.expect(r.pode_fechar).to.eql(false); pm.expect(r.motivo).to.include('nao entrega'); });",
+                  "pm.test('distância > 8 km', () => pm.expect(n(r.distancia_km)).to.be.above(8));",
+                  "pm.test('subtotal continua aparecendo', () => pm.expect(n(r.subtotal)).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-09 Endereço inexistente → 404",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/resumo?local_id=999999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "resumo"
+              ],
+              "query": [
+                {
+                  "key": "local_id",
+                  "value": "999999"
+                }
+              ]
+            },
+            "description": "local_id que não existe."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-10.1 Cadastrar cliente B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios"
+              ]
+            },
+            "description": "Dono de outro endereço.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente B Resumo Cesta\",\n  \"email\": \"{{email_b}}\",\n  \"senha\": \"{{senha_b}}\",\n  \"tipo\": \"cliente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const sufixo = Date.now() + '' + Math.floor(Math.random() * 1000);",
+                  "pm.collectionVariables.set('email_b', `teste.resumo.b.${sufixo}@entregafood.com`);",
+                  "pm.collectionVariables.set('senha_b', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('usuario_b', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-10.2 Endereço do cliente B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/locais",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "locais"
+              ]
+            },
+            "description": "Endereço que pertence ao B.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario_id\": {{usuario_b}},\n  \"endereco\": \"Praca da Se, 1 - Sao Paulo\",\n  \"tipo\": \"casa\",\n  \"latitude\": \"-23.550520\",\n  \"longitude\": \"-46.633308\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('local_b', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-10.3 Usar endereço de outro cliente → 403",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/resumo?local_id={{local_b}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "resumo"
+              ],
+              "query": [
+                {
+                  "key": "local_id",
+                  "value": "{{local_b}}"
+                }
+              ]
+            },
+            "description": "A usa o endereço do B."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));",
+                  "pm.test('Mensagem', () => pm.expect(pm.response.json().detail).to.include('nao pertence'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-11 Tipo de entrega inválido → 422",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/resumo?tipo_entrega=drone",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "resumo"
+              ],
+              "query": [
+                {
+                  "key": "tipo_entrega",
+                  "value": "drone"
+                }
+              ]
+            },
+            "description": "Só aceita delivery ou retirada."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-12 Sem token → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cesta/resumo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "resumo"
+              ]
+            },
+            "description": "Rota protegida."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-13 Pedido usa os valores do resumo (ignora os do front)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pedidos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pedidos"
+              ]
+            },
+            "description": "O front manda valor_total 0,01 e taxa 0; o servidor recalcula.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\",\n  \"local_id\": {{local_a}},\n  \"restaurante_id\": 999,\n  \"valor_total\": \"0.01\",\n  \"taxa_entrega\": \"0\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const n = (x) => Number(x);",
+                  "",
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.test('valor_total = total do resumo', () => pm.expect(r.valor_total).to.eql(v('total')));",
+                  "pm.test('taxa_entrega = taxa do resumo', () => pm.expect(r.taxa_entrega).to.eql(v('taxa')));",
+                  "pm.test('valor enviado pelo front foi ignorado', () => pm.expect(n(r.valor_total)).to.be.above(1));",
+                  "pm.test('restaurante da cesta', () => pm.expect(r.restaurante_id).to.eql(n(v('restaurante_id'))));",
+                  "pm.collectionVariables.set('pedido_id', r.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-14 Cesta esvaziada após o pedido",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
+            },
+            "description": "Limpar cesta após criação do pedido."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const n = (x) => Number(x);",
+                  "",
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('Cesta sem itens e total 0.00', () => { pm.expect(r.itens).to.eql([]); pm.expect(r.total).to.eql('0.00'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Limpeza",
+      "item": [
+        {
+          "name": "99.1 Apagar endereço distante",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/locais/{{local_longe}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "locais",
+                "{{local_longe}}"
+              ]
+            },
+            "description": "Limpeza."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "99.2 Apagar endereço do cliente B",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/locais/{{local_b}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "locais",
+                "{{local_b}}"
+              ]
+            },
+            "description": "Limpeza."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    }
+  ]
+}
