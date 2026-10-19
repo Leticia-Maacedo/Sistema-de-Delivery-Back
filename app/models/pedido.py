@@ -12,6 +12,7 @@ from sqlalchemy import DateTime, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.core.database import Base
+from app.models.item_pedido import ItemPedido
 
 
 class Pedido(Base):
@@ -88,6 +89,59 @@ class Pedido(Base):
         """Busca um pedido pelo id."""
 
         return db.get(Pedido, pedido_id)
+
+    @classmethod
+    def criar_a_partir_da_cesta(
+        cls,
+        db: Session,
+        *,
+        cliente_id: int,
+        restaurante_id: int,
+        tipo_entrega: str,
+        forma_pagamento: str,
+        subtotal: Decimal,
+        taxa_entrega: Decimal,
+        itens: list[tuple[int, int, Decimal]],
+        sacola,
+    ) -> "Pedido":
+        """Cria o pedido, copia os itens com o preco do momento e esvazia a cesta.
+
+        `itens` e uma lista de (produto_id, quantidade, preco_unitario).
+        Tudo e gravado num unico commit: se algo falhar, nada fica pela metade.
+        """
+
+        pedido = cls(
+            cliente_id=cliente_id,
+            restaurante_id=restaurante_id,
+            entregador_id=None,
+            status="aguardando_aceite",
+            tipo_entrega=tipo_entrega,
+            forma_pagamento=forma_pagamento,
+            valor_total=subtotal + taxa_entrega,
+            taxa_entrega=taxa_entrega,
+            cupom_fiscal=None,
+            criado_em=datetime.now(),
+            atualizado_em=None,
+        )
+        db.add(pedido)
+        db.flush()  # gera o id do pedido para os itens
+
+        for produto_id, quantidade, preco_unitario in itens:
+            db.add(
+                ItemPedido(
+                    pedido_id=pedido.id,
+                    produto_id=produto_id,
+                    quantidade=quantidade,
+                    preco_unitario=preco_unitario,
+                )
+            )
+
+        sacola.esvaziar(db)
+
+        db.commit()
+        db.refresh(pedido)
+
+        return pedido
 
     def definir_forma_pagamento(
         self,

@@ -3,17 +3,26 @@
 from datetime import datetime
 from decimal import Decimal
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class PedidoCriarIn(BaseModel):
-    """Dados necessários para criar um pedido."""
+    """Dados necessários para criar um pedido a partir da cesta.
 
-    restaurante_id: int
-    tipo_entrega: str = Field(min_length=1, max_length=20)
+    Os itens, o restaurante, a taxa de entrega e o total vêm da cesta e
+    são calculados pelo servidor. `restaurante_id`, `valor_total` e
+    `taxa_entrega` continuam aceitos por compatibilidade com o front,
+    mas são ignorados.
+    """
+
     forma_pagamento: str = Field(min_length=1, max_length=20)
-    valor_total: Decimal = Field(ge=0)
-    taxa_entrega: Decimal = Field(ge=0)
+    tipo_entrega: Literal["delivery", "retirada"] = "delivery"
+    local_id: int | None = None
+    restaurante_id: int | None = None
+    valor_total: Decimal | None = None
+    taxa_entrega: Decimal | None = None
 
 
 class PedidoOut(BaseModel):

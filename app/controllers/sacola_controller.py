@@ -1,21 +1,27 @@
 ﻿
 """Controller da cesta de compras do EntregaFood."""
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.frete import calcular_taxa_entrega, entrega_no_raio, medir_distancia
 from app.core.security import obter_usuario_logado
+from app.models.local import Local
 from app.models.produto import Produto
+from app.models.restaurante import APROVADO, Restaurante
 from app.models.sacola import ItemSacola, Sacola
 from app.models.usuario import Usuario
 from app.schemas.sacola import (
     ItemSacolaAdicionar,
     ItemSacolaOut,
     ItemSacolaQuantidade,
+    ResumoCestaOut,
     SacolaOut,
 )
 
@@ -92,6 +98,156 @@ def calcular_total(subtotais: list[Decimal]) -> Decimal:
     return sum(subtotais, Decimal("0.00"))
 
 
+# ----------------------------------------------------------------------
+# Fechamento da cesta (Sprint 3): subtotal, taxa de entrega e validacoes
+# ----------------------------------------------------------------------
+
+
+@dataclass
+class Fechamento:
+    """Tudo o que o resumo da cesta e a criacao do pedido precisam saber."""
+
+    sacola: Sacola | None
+    tipo_entrega: str
+    itens: list[tuple[ItemSacola, Produto]] = field(default_factory=list)
+    restaurante: Restaurante | None = None
+    local: Local | None = None
+    subtotal: Decimal = Decimal("0.00")
+    distancia_km: Decimal | None = None
+    metodo_distancia: str | None = None
+    taxa_entrega: Decimal = Decimal("0.00")
+    problema: str | None = None  # primeiro motivo que impede fechar
+
+    @property
+    def total(self) -> Decimal:
+        return self.subtotal + self.taxa_entrega
+
+
+def obter_local_entrega(
+    db: Session,
+    usuario: Usuario,
+    local_id: int | None,
+) -> Local | None:
+    """Endereco de entrega: o informado ou, se nenhum, o ultimo do cliente."""
+
+    if local_id is not None:
+        local = Local.buscar_por_id(db, local_id)
+
+        if local is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Endereco de entrega nao encontrado.",
+            )
+
+        if local.usuario_id != usuario.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Este endereco nao pertence ao usuario logado.",
+            )
+
+        return local
+
+    enderecos = [
+        local for local in Local.listar(db, usuario_id=usuario.id)
+        if local.tipo != "restaurante"
+    ]
+    return enderecos[-1] if enderecos else None
+
+
+def validar_itens_para_fechamento(
+    itens: list[tuple[ItemSacola, Produto | None]],
+) -> str | None:
+    """Revalida cada item no momento do fechamento ("estoque").
+
+    O banco nao tem coluna de estoque: o produto precisa existir, estar
+    disponivel e respeitar o limite de quantidade por produto.
+    """
+
+    for item, produto in itens:
+        if produto is None:
+            return "Um produto da cesta nao existe mais. Remova-o para continuar."
+
+        if not produto.disponivel:
+            return (
+                f"O produto '{produto.nome}' esta indisponivel. "
+                "Remova-o da cesta para continuar."
+            )
+
+        if item.quantidade > QUANTIDADE_MAXIMA_POR_PRODUTO:
+            return (
+                f"O produto '{produto.nome}' passou do limite de "
+                f"{QUANTIDADE_MAXIMA_POR_PRODUTO} unidades."
+            )
+
+    restaurantes = {produto.restaurante_id for _, produto in itens}
+
+    if len(restaurantes) > 1:
+        return "A cesta tem produtos de restaurantes diferentes."
+
+    return None
+
+
+def preparar_fechamento(
+    db: Session,
+    usuario: Usuario,
+    local_id: int | None,
+    tipo_entrega: str,
+) -> Fechamento:
+    """Calcula subtotal, distancia e taxa e aponta o que impede o fechamento."""
+
+    sacola = Sacola.buscar_por_cliente(db, usuario.id)
+    fechamento = Fechamento(sacola=sacola, tipo_entrega=tipo_entrega)
+
+    itens_sacola = ItemSacola.listar_por_sacola(db, sacola.id) if sacola else []
+
+    if not itens_sacola:
+        fechamento.problema = "A cesta esta vazia."
+        return fechamento
+
+    itens = [(item, Produto.buscar_por_id(db, item.produto_id)) for item in itens_sacola]
+
+    # O subtotal aparece no resumo mesmo quando algo impede o fechamento.
+    fechamento.itens = [(item, produto) for item, produto in itens if produto is not None]
+    fechamento.subtotal = calcular_total(
+        [calcular_subtotal(produto.preco, item.quantidade) for item, produto in fechamento.itens]
+    )
+
+    fechamento.problema = validar_itens_para_fechamento(itens)
+
+    if fechamento.problema is not None:
+        return fechamento
+
+    restaurante = Restaurante.buscar_por_id(db, itens[0][1].restaurante_id)
+    fechamento.restaurante = restaurante
+
+    if restaurante is None or restaurante.status_aprovacao != APROVADO:
+        fechamento.problema = "O restaurante desta cesta nao esta disponivel para pedidos."
+        return fechamento
+
+    if tipo_entrega == "retirada":
+        return fechamento  # retirada no balcao: sem taxa de entrega
+
+    local = obter_local_entrega(db, usuario, local_id)
+    fechamento.local = local
+
+    if local is None:
+        fechamento.problema = "Cadastre um endereco de entrega para continuar."
+        return fechamento
+
+    distancia = medir_distancia(restaurante.local, local)
+    fechamento.distancia_km = distancia.km
+    fechamento.metodo_distancia = distancia.metodo
+
+    if not entrega_no_raio(distancia.km):
+        fechamento.problema = (
+            f"O restaurante nao entrega neste endereco ({distancia.km} km)."
+        )
+        return fechamento
+
+    fechamento.taxa_entrega = calcular_taxa_entrega(distancia.km, restaurante.taxa_entrega_km)
+    return fechamento
+
+
 def montar_resposta_cesta(
     db: Session,
     sacola: Sacola,
@@ -158,6 +314,45 @@ def consultar_cesta(
         )
 
     return montar_resposta_cesta(db, sacola)
+
+
+@router.get(
+    "/resumo",
+    response_model=ResumoCestaOut,
+    summary="Subtotal, taxa de entrega e total da cesta",
+)
+def resumo_cesta(
+    local_id: int | None = Query(
+        default=None,
+        description="Endereco de entrega do cliente. Se omitido, usa o ultimo cadastrado.",
+    ),
+    tipo_entrega: Literal["delivery", "retirada"] = Query(default="delivery"),
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> ResumoCestaOut:
+    """Mostra quanto o cliente vai pagar antes de fechar o pedido.
+
+    Nao altera nada. `pode_fechar` indica se o pedido pode ser criado e
+    `motivo` explica o que falta (cesta vazia, item indisponivel, sem
+    endereco, fora do raio de entrega...).
+    """
+
+    fechamento = preparar_fechamento(db, usuario_logado, local_id, tipo_entrega)
+
+    return ResumoCestaOut(
+        cesta_id=fechamento.sacola.id if fechamento.sacola else None,
+        restaurante_id=fechamento.restaurante.id if fechamento.restaurante else None,
+        quantidade_itens=sum(item.quantidade for item, _ in fechamento.itens),
+        subtotal=fechamento.subtotal,
+        tipo_entrega=tipo_entrega,
+        local_entrega_id=fechamento.local.id if fechamento.local else None,
+        distancia_km=fechamento.distancia_km,
+        metodo_distancia=fechamento.metodo_distancia,
+        taxa_entrega=fechamento.taxa_entrega,
+        total=fechamento.total,
+        pode_fechar=fechamento.problema is None,
+        motivo=fechamento.problema,
+    )
 
 
 @router.post(

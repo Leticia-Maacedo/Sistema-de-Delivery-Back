@@ -35,3 +35,19 @@ class SacolaOut(BaseModel):
     atualizado_em: datetime | None
     itens: list[ItemSacolaOut]
     total: Decimal
+
+class ResumoCestaOut(BaseModel):
+    """Subtotal, taxa de entrega e total da cesta antes do fechamento."""
+
+    cesta_id: int | None
+    restaurante_id: int | None
+    quantidade_itens: int
+    subtotal: Decimal
+    tipo_entrega: str
+    local_entrega_id: int | None
+    distancia_km: Decimal | None
+    metodo_distancia: str | None  # "rota", "estimada" ou None (retirada)
+    taxa_entrega: Decimal
+    total: Decimal
+    pode_fechar: bool
+    motivo: str | None

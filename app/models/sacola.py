@@ -43,6 +43,18 @@ class Sacola(Base):
 
         return db.execute(consulta).scalars().first()
 
+    def esvaziar(self, db: Session) -> None:
+        """Remove todos os itens da cesta (usado apos criar o pedido).
+
+        Nao faz commit: quem chama grava o pedido e a limpeza da cesta
+        na mesma transacao.
+        """
+
+        for item in ItemSacola.listar_por_sacola(db, self.id):
+            db.delete(item)
+
+        self.atualizado_em = datetime.now()
+
 
 class ItemSacola(Base):
     """Representa um produto adicionado à cesta."""
