@@ -31,6 +31,14 @@ class Settings(BaseSettings):
 
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # Taxa de entrega pela distancia (app/core/frete.py)
+    ORS_API_KEY: str = ""  # vazio = distancia estimada em linha reta x fator
+    FRETE_FATOR_CIRCUITO: float = 1.6
+    FRETE_TAXA_BASE: float = 4.00
+    FRETE_KM_INCLUSOS: float = 2.0
+    FRETE_TAXA_MINIMA: float = 4.00
+    FRETE_RAIO_MAX_KM: float = 8.0
+
     @property
     def cors_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

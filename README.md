@@ -3,8 +3,38 @@
 API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115**, seguindo a arquitetura **MVC**, com persistência em **PostgreSQL 16**.
 
 **Sprint 1** — CRUD de Usuário e autenticação por e-mail/senha com JWT.
-**Extra** — CRUD de Restaurante e Produto (Local só com criação, pré-requisito da cadeia).
+**Sprint 2** — Consulta de Restaurante e Cardápio pelo cliente.
+**Extra** — CRUD de Restaurante, Produto e Local (endereço, pré-requisito da cadeia).
 **Grupo:** Amigos do Gilberto · Turma A · Faculdade Impacta
+
+**📚 Documentação detalhada:** [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) (padrão MVC, ciclo de vida da requisição, autenticação, débitos técnicos) · [`docs/BANCO_DE_DADOS.md`](docs/BANCO_DE_DADOS.md) (schema completo, diagrama ER) · [`docs/API.md`](docs/API.md) (todos os endpoints e métodos de Model por trás de cada um).
+
+---
+
+## Funcionalidades implementadas
+
+| # | Funcionalidade | Onde | Status |
+|---|---|---|---|
+| 1 | Autenticação por e-mail/senha com JWT | `POST /auth/login`, `GET /auth/eu` | ✅ |
+| 2 | CRUD de Usuário (cadastro, consulta, edição, exclusão) | `/usuarios` | ✅ |
+| 3 | CRUD de Restaurante | `/restaurantes` | ✅ |
+| 4 | CRUD de Produto | `/produtos` | ✅ |
+| 5 | Consulta de Restaurante (visão do cliente) | `GET /consultas/restaurantes`, `GET /consultas/restaurantes/{id}` | ✅ |
+| 6 | Consulta de Itens/Cardápio (visão do cliente) | `GET /consultas/restaurantes/{id}/cardapio` | ✅ |
+| 7 | Listagem e busca de Restaurantes (`?busca=`) | `GET /consultas/restaurantes?busca=` | ✅ |
+| 8 | CRUD de Local (endereço) | `/locais` | ✅ |
+| 9 | Login por telefone com código OTP + cadastro por telefone | `/auth/telefone/*` | ✅ |
+| 10 | Login social (Google/Facebook) | `/auth/google`, `/auth/facebook` | ✅ implementado (ver Limitações sobre uso em modo de teste) |
+| 11 | Coleção Postman com todos os endpoints acima | [`postman/EntregaFood.postman_collection.json`](postman/EntregaFood.postman_collection.json) | ✅ |
+| 12 | Cesta (incluir, consultar, alterar quantidade, excluir) com limite de 99 unidades e restaurante único | `/cesta`, `/cesta/itens` | ✅ |
+| 13 | Resumo da cesta: subtotal, taxa de entrega pela distância e total | `GET /cesta/resumo` | ✅ |
+| 14 | Fechamento do pedido: valida cesta vazia, disponibilidade, quantidade, endereço e raio; copia os itens para `item_pedido`; esvazia a cesta | `POST /pedidos` | ✅ |
+| 15 | Escolha do tipo de pagamento e pagamento por cartão (gateway simulado) | `/pagamentos` | ✅ simulado |
+| 16 | Tipo de entrega no fechamento (delivery com taxa pela distância ou retirada no balcão sem taxa) | `POST /pedidos`, `GET /cesta/resumo` | ✅ |
+| 17 | Acompanhamento do pedido: linha do tempo de status, painel do restaurante/entregador e conclusão com código de entrega | `/pedidos`, `/pedidos/painel`, `/pedidos/{id}/status`, `/pedidos/{id}/entrega/confirmar` | ✅ |
+| 18 | Avaliação | — | ❌ não implementado (só tabela no `sql/`) |
+
+Essa tabela é o inventário de referência: toda vez que uma funcionalidade nova entrar no backend, adicione uma linha aqui.
 
 ---
 
@@ -16,20 +46,22 @@ O padrão MVC separa a aplicação em três responsabilidades, e a estrutura de 
 app/
 ├── models/          MODEL      → SQLAlchemy + regras de negócio
 │   ├── usuario.py              (mapeia a tabela usuario, valida e-mail único, tipo de perfil)
-│   ├── local.py                (mapeia a tabela local — só criação, pré-requisito de Restaurante)
+│   ├── local.py                (mapeia a tabela local — endereço, pré-requisito de Restaurante)
 │   ├── restaurante.py          (mapeia a tabela restaurante, valida CNPJ único)
 │   └── produto.py              (mapeia a tabela produto, vinculado a um restaurante)
 ├── schemas/         VIEW       → Pydantic: formato do JSON de entrada e saída
 │   ├── usuario.py              (define o que entra e — importante — o que NÃO sai)
 │   ├── local.py
 │   ├── restaurante.py
-│   └── produto.py
+│   ├── produto.py
+│   └── consulta.py             (formato de saída das consultas do cliente)
 ├── controllers/     CONTROLLER → routers FastAPI: recebem HTTP e orquestram
 │   ├── usuario_controller.py   (as 4 operações do CRUD)
-│   ├── auth_controller.py      (login e rota protegida)
-│   ├── local_controller.py     (só CREATE)
+│   ├── auth_controller.py      (login, OTP por telefone, login social e rota protegida)
+│   ├── local_controller.py     (as 4 operações do CRUD)
 │   ├── restaurante_controller.py (as 4 operações do CRUD)
-│   └── produto_controller.py   (as 4 operações do CRUD)
+│   ├── produto_controller.py   (as 4 operações do CRUD)
+│   └── consulta_controller.py  (leitura, visão do cliente: restaurantes aprovados e cardápio)
 └── core/            Infraestrutura de apoio
     ├── config.py               (lê o .env)
     ├── database.py             (engine e sessão do SQLAlchemy)
@@ -138,6 +170,10 @@ npm run dev
 
 Fica em http://localhost:5173 — já vem configurado pra falar com a API em `http://localhost:8000` (o CORS do back já libera essa origem por padrão).
 
+### 6. Testar com Postman
+
+O arquivo [`postman/EntregaFood.postman_collection.json`](postman/EntregaFood.postman_collection.json) tem todos os endpoints prontos para importar (Postman → Import → arraste o arquivo). Ele já vem organizado em pastas (Autenticação, Usuários, Locais, Restaurantes, Produtos, Consultas) e os requests de criação (`POST`) salvam automaticamente o `id` retornado — e o login salva o `token` — em variáveis da coleção, então dá pra rodar a coleção inteira em sequência (Cadastrar usuário → Login → Local → Restaurante → Produto → Consultas) sem copiar/colar nada manualmente. A única variável que costuma precisar de ajuste é `base_url` (padrão `http://localhost:8000`).
+
 ---
 
 ## Endpoints da Sprint 1
@@ -198,13 +234,17 @@ curl -X POST http://localhost:8000/auth/login \
 
 ## Endpoints extras — Restaurante e Produto
 
-Além do escopo mínimo da Sprint 1, o CRUD de **Produto** foi implementado por completo (com tela no front-end). Como `produto` exige um `restaurante_id`, e `restaurante` exige um `local_id`, a cadeia de pré-requisitos ficou assim:
+Além do escopo mínimo da Sprint 1, os CRUDs de **Local**, **Restaurante** e **Produto** foram implementados por completo (com telas no front-end). Como `produto` exige um `restaurante_id`, e `restaurante` exige um `local_id`, a cadeia de pré-requisitos ficou assim:
 
-**Usuário** (Sprint 1) → **Local** (só `POST`, o suficiente pra existir um endereço) → **Restaurante** (CRUD completo) → **Produto** (CRUD completo)
+**Usuário** (Sprint 1) → **Local** (CRUD completo, endereço) → **Restaurante** (CRUD completo) → **Produto** (CRUD completo)
 
 | Método | Rota | Operação | Retorno |
 |---|---|---|---|
 | `POST` | `/locais` | CREATE | `201` |
+| `GET` | `/locais` | READ (lista, filtra por `?usuario_id=`) | `200` |
+| `GET` | `/locais/{id}` | READ (por id) | `200` · `404` |
+| `PUT` | `/locais/{id}` | UPDATE | `200` · `404` |
+| `DELETE` | `/locais/{id}` | DELETE | `204` · `404` |
 | `POST` | `/restaurantes` | CREATE | `201` · `409` se CNPJ duplicado |
 | `GET` | `/restaurantes` | READ (lista) | `200` |
 | `GET` | `/restaurantes/{id}` | READ (por id) | `200` · `404` |
@@ -263,6 +303,57 @@ psql -h localhost -U postgres -d entregafood -f sql/04_seed_cardapio.sql
 
 ---
 
+## Endpoints da Sprint 3 — cesta e fechamento do pedido
+
+| Método | Rota | O que faz | Retorno |
+|---|---|---|---|
+| `GET` | `/cesta` | Cesta do usuário logado (itens, subtotais e total) | `200` |
+| `POST` | `/cesta/itens` | Inclui produto (soma se já existir). Bloqueia indisponível, restaurante diferente e mais de 99 unidades | `201` · `400` · `404` |
+| `PUT` | `/cesta/itens/{produto_id}` | Altera a quantidade | `200` · `400` · `404` |
+| `DELETE` | `/cesta/itens/{produto_id}` | Remove o produto da cesta | `200` · `404` |
+| `GET` | `/cesta/resumo?local_id=&tipo_entrega=` | Subtotal, taxa de entrega, total, distância e se o pedido pode ser fechado (`pode_fechar` + `motivo`) | `200` · `403` · `404` |
+| `POST` | `/pedidos` | Cria o pedido a partir da cesta: recalcula os valores no servidor, copia os itens para `item_pedido` e esvazia a cesta | `201` · `400` |
+
+**Taxa de entrega** (`app/core/frete.py`): `taxa = max(mínima, base + taxa_entrega_km do restaurante × km além dos incluídos)`, arredondada para cima em R$ 0,10. A distância vem do OpenRouteService (pela rua) quando `ORS_API_KEY` está no `.env`; sem a chave, usa a linha reta × `FRETE_FATOR_CIRCUITO` (1,6). Base, km incluídos, taxa mínima e raio máximo (8 km) também ficam no `.env`. Retirada no balcão (`tipo_entrega=retirada`) não tem taxa.
+
+O `POST /pedidos` ignora `valor_total`, `taxa_entrega` e `restaurante_id` vindos do front: tudo é calculado a partir da cesta. Sem `local_id`, usa o último endereço cadastrado do cliente.
+
+Testes: `python -m pytest testes/teste_cesta.py testes/teste_fechamento_cesta.py` e as coleções `postman/Teste_*_Cesta.postman_collection.json` (inclusão, consulta, alteração, exclusão, subtotal/total e validações).
+
+## Endpoints da Sprint 3 — acompanhar entrega
+
+Antes de usar, rode o script novo no banco (também roda sozinho num banco Docker criado do zero):
+
+```bash
+psql -h localhost -U postgres -d entregafood -f sql/05_sprint3_acompanhamento.sql
+psql -h localhost -U postgres -d entregafood -f sql/06_sprint3_dono_e_entregador.sql
+```
+
+| Método | Rota | Quem | O que faz | Retorno |
+|---|---|---|---|---|
+| `GET` | `/pedidos` | cliente | Meus pedidos, do mais recente para o mais antigo | `200` |
+| `GET` | `/pedidos/{id}` | dono do pedido, restaurante dono, entregador, admin | Itens, linha do tempo (`etapas`) e, só para o cliente, o `codigo_entrega` | `200` · `403` · `404` |
+| `GET` | `/pedidos/painel?incluir_finalizados=` | restaurante, entregador, admin | Pedidos em andamento (o restaurante só vê os dele) | `200` · `403` |
+| `PATCH` | `/pedidos/{id}/status` | restaurante, entregador, admin | Avança para a próxima etapa (ou `cancelado`) | `200` · `400` · `403` |
+| `POST` | `/pedidos/{id}/entrega/confirmar` | entregador (delivery), restaurante (retirada), admin | Confere o código informado pelo cliente e marca `entregue` | `200` · `400` · `403` |
+
+**Fluxo de status** (`app/core/status_pedido.py`):
+
+- Delivery: `aguardando_aceite → aceito → em_preparacao → pronto_para_entrega → em_transito → entregue`
+- Retirada: `aguardando_aceite → aceito → em_preparacao → pronto_para_retirada → entregue`
+
+Regras: não dá para pular nem voltar etapas; o restaurante só aceita depois do pagamento aprovado; o restaurante aceita, prepara e deixa pronto; o entregador marca `em_transito`; `entregue` só com o código de 4 dígitos que o cliente vê na tela de acompanhamento; o pedido só pode ser cancelado em `aguardando_aceite` ou `aceito`. Cada mudança grava uma linha em `pedido_status_historico`, e o código fica em `entrega.codigo_validacao`.
+
+**Dono do restaurante** (`restaurante.usuario_id`, script `06`): o usuário restaurante só vê e movimenta pedidos dos restaurantes dele. O dono é gravado no `POST /restaurantes` — é o usuário restaurante logado (Área do Parceiro) ou, quando quem cadastra é o admin, o usuário do endereço (`local`) se ele for do tipo restaurante. O script `06` preenche o dono dos restaurantes que já existiam da mesma forma.
+
+**Entregador**: fica só em `entrega.entregador_id` (a coluna `pedido.entregador_id` foi removida no script `06`, por ser redundante). Quem marca `em_transito` vira o entregador do pedido, e só ele confirma a entrega.
+
+Para testar o painel, crie usuários com `"tipo": "restaurante"` e `"tipo": "entregador"` pelo `POST /usuarios` e cadastre o restaurante logado com o usuário restaurante.
+
+Testes: `python -m pytest testes/teste_status_pedido.py`.
+
+---
+
 ## Casos de teste cobertos
 
 | ID | Caso | Verificação |
@@ -305,11 +396,14 @@ python testes/teste_consulta_cardapio.py
 
 ## Limitações conhecidas
 
-- **Login social (Google/Facebook)**: chegou a ser implementado (`/auth/{provedor}/login` + callback via Authlib), mas foi removido. Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Login continua só por e-mail/senha.
-- **Verificação por SMS**: a etapa de celular no cadastro (front-end) usa um código de 4 dígitos **simulado** — não envia SMS de verdade. Integração real com Twilio foi avaliada, mas a conta trial não permite nem buscar números disponíveis sem upgrade (cartão de crédito).
-- **Local**: só tem `POST` — não há edição/exclusão de endereço, pois não era o foco desta entrega (é só pré-requisito da cadeia até Produto).
+- **Login social (Google/Facebook)**: implementado (`/auth/google`, `/auth/facebook` + callback). Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Pra demonstração, o caminho garantido continua sendo e-mail/senha.
+- **Verificação por SMS**: o OTP de telefone (`/auth/telefone/*`) gera e valida o código no próprio backend, mas não envia SMS de verdade — o endpoint devolve o código em `codigo_dev` pra facilitar teste/demonstração. Integração real com Twilio foi avaliada, mas a conta trial não permite nem buscar números disponíveis sem upgrade (cartão de crédito).
 - **Autorização em Restaurante e Produto**: só as rotas de `/usuarios` checam dono-ou-admin. `PUT`/`DELETE` de `/restaurantes/{id}` e `/produtos/{id}` ainda não exigem login — qualquer requisição altera qualquer registro pelo `id`. Funciona porque o front só deixa quem é `restaurante` chegar na tela de Produtos, mas a API em si confiaria em qualquer chamada — vale estender a mesma checagem de `usuario_controller.py` pra esses dois controllers numa próxima sprint.
-- **Sacola, Pedido, Pagamento, Entrega, Avaliação**: as demais tabelas do schema continuam só no `sql/`, sem model/controller/endpoint.
+- **Pagamento**: o gateway de cartão é simulado (`app/core/pagamento_cartao.py`); ver `docs/pesquisas` para a integração real recomendada (Mercado Pago em modo de teste).
+- **Estoque**: não há coluna de estoque; no fechamento são revalidados disponibilidade e o limite de 99 unidades por produto.
+- **Dono do restaurante**: a tabela `restaurante` não tem o usuário dono, então no painel de pedidos qualquer usuário do tipo `restaurante` vê e movimenta os pedidos de todos os restaurantes. Ligar restaurante ↔ usuário resolve isso e permite filtrar o painel por restaurante.
+- **Notificação ao cliente**: a tela de acompanhamento consulta o pedido a cada 10 s; não há push/e-mail a cada mudança de status (itens 21 e 23 do Backlog).
+- **Avaliação**: tabela só no `sql/`, sem model/controller/endpoint.
 
 ---
 

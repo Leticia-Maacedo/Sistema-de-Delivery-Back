@@ -14,6 +14,7 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.geocoding import geocodificar_endereco
 from app.models.local import Local
 from app.schemas.local import (
     LocalCreate,
@@ -37,13 +38,23 @@ def criar_local(
     dados: LocalCreate,
     db: Session = Depends(get_db),
 ) -> Local:
+    latitude = dados.latitude
+    longitude = dados.longitude
+
+    # Sem coordenadas explicitas (ex.: alguem chamando so com endereco
+    # pelo Swagger) -> geocodifica sozinho via Nominatim. O front hoje
+    # ja calcula e manda lat/lng prontos, entao na pratica isso so entra
+    # em acao quando ninguem mandou.
+    if latitude is None or longitude is None:
+        latitude, longitude = geocodificar_endereco(dados.endereco)
+
     return Local.criar(
         db,
         usuario_id=dados.usuario_id,
         endereco=dados.endereco,
         tipo=dados.tipo,
-        latitude=dados.latitude,
-        longitude=dados.longitude,
+        latitude=latitude,
+        longitude=longitude,
     )
 
 
@@ -109,6 +120,14 @@ def atualizar_local(
     alteracoes = dados.model_dump(
         exclude_unset=True
     )
+
+    # Endereco mudou mas ninguem mandou coordenada nova junto -> as
+    # coordenadas antigas ficariam erradas. Regeocodifica.
+    endereco_novo = alteracoes.get("endereco")
+    if endereco_novo and "latitude" not in alteracoes and "longitude" not in alteracoes:
+        alteracoes["latitude"], alteracoes["longitude"] = geocodificar_endereco(
+            endereco_novo
+        )
 
     return local.atualizar(
         db,

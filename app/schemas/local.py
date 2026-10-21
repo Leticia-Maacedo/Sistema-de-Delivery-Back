@@ -21,11 +21,19 @@ class LocalCreate(BaseModel):
         examples=["Casa"],
     )
 
-    latitude: Decimal = Field(
+    # Opcionais: se nao vierem, o back-end geocodifica o `endereco` sozinho
+    # via Nominatim/OpenStreetMap (gratuito, sem chave — ver
+    # app/core/geocoding.py). O front hoje ja manda esses dois calculados
+    # no proprio navegador (CadastroEnderecoView + api/geo.js); ficam
+    # opcionais aqui pra cobrir quem nao mandar (Swagger, outro cliente,
+    # testes) sem duplicar geocoding pra quem ja manda.
+    latitude: Decimal | None = Field(
+        default=None,
         examples=["-23.550520"],
     )
 
-    longitude: Decimal = Field(
+    longitude: Decimal | None = Field(
+        default=None,
         examples=["-46.633308"],
     )
 
