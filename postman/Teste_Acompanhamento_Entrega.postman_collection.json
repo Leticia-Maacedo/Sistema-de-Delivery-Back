@@ -1,0 +1,2530 @@
+{
+  "info": {
+    "name": "EntregaFood — Teste: acompanhamento da entrega",
+    "description": "Teste do fluxo de status do pedido, do painel do restaurante/entregador e da conclusão com o código de entrega (/pedidos, /pedidos/painel, /pedidos/{id}/status, /pedidos/{id}/entrega/confirmar). Rode a coleção inteira em ordem. Única variável a ajustar: base_url.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://entregafood-back-dev.onrender.com"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Preparação",
+      "item": [
+        {
+          "name": "00.1 Cliente A",
+          "item": [
+            {
+              "name": "Cadastrar cliente A",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/usuarios",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "usuarios"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nome\": \"Teste cliente A\",\n  \"email\": \"{{email_a}}\",\n  \"senha\": \"{{senha_a}}\",\n  \"tipo\": \"cliente\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const sufixo = Date.now() + '' + Math.floor(Math.random() * 1000);",
+                      "pm.collectionVariables.set('sufixo', sufixo);",
+                      "pm.collectionVariables.set('email_a', `teste.acomp.a.${pm.collectionVariables.get('sufixo')}@entregafood.com`);",
+                      "pm.collectionVariables.set('senha_a', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('id_a', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login cliente A",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_a}}\",\n  \"senha\": \"{{senha_a}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_a', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cadastrar endereço do cliente A",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/locais",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "locais"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuario_id\": \"{{id_a}}\",\n  \"endereco\": \"Praça da Sé, 1 - Sé, São Paulo\",\n  \"tipo\": \"casa\",\n  \"latitude\": \"-23.550520\",\n  \"longitude\": \"-46.633308\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.2 Cliente B",
+          "item": [
+            {
+              "name": "Cadastrar cliente B",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/usuarios",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "usuarios"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nome\": \"Teste cliente B\",\n  \"email\": \"{{email_b}}\",\n  \"senha\": \"{{senha_b}}\",\n  \"tipo\": \"cliente\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('email_b', `teste.acomp.b.${pm.collectionVariables.get('sufixo')}@entregafood.com`);",
+                      "pm.collectionVariables.set('senha_b', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('id_b', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login cliente B",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_b}}\",\n  \"senha\": \"{{senha_b}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_b', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.3 Usuário restaurante",
+          "item": [
+            {
+              "name": "Cadastrar restaurante",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/usuarios",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "usuarios"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nome\": \"Teste restaurante\",\n  \"email\": \"{{email_rest}}\",\n  \"senha\": \"{{senha_rest}}\",\n  \"tipo\": \"restaurante\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('email_rest', `teste.acomp.rest.${pm.collectionVariables.get('sufixo')}@entregafood.com`);",
+                      "pm.collectionVariables.set('senha_rest', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('id_rest', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login restaurante",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_rest}}\",\n  \"senha\": \"{{senha_rest}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_rest', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.4 Usuário entregador",
+          "item": [
+            {
+              "name": "Cadastrar entregador",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/usuarios",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "usuarios"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nome\": \"Teste entregador\",\n  \"email\": \"{{email_entr}}\",\n  \"senha\": \"{{senha_entr}}\",\n  \"tipo\": \"entregador\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('email_entr', `teste.acomp.entr.${pm.collectionVariables.get('sufixo')}@entregafood.com`);",
+                      "pm.collectionVariables.set('senha_entr', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('id_entr', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login entregador",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_entr}}\",\n  \"senha\": \"{{senha_entr}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_entr', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.5 Restaurante e produto",
+          "item": [
+            {
+              "name": "Restaurante aprovado",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/consultas/restaurantes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "consultas",
+                    "restaurantes"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const r = pm.response.json().find(x => x.nome_fantasia === 'Burger da Paulista') || pm.response.json()[0];",
+                      "pm.test('Restaurante aprovado encontrado', () => pm.expect(r).to.be.an('object'));",
+                      "pm.collectionVariables.set('restaurante_id', r.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Produto do cardápio",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "consultas",
+                    "restaurantes",
+                    "{{restaurante_id}}",
+                    "cardapio"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const itens = pm.response.json().itens;",
+                      "pm.test('Cardápio com itens', () => pm.expect(itens.length).to.be.above(0));",
+                      "pm.collectionVariables.set('produto_id', itens[0].id);",
+                      "pm.collectionVariables.set('produto_preco', itens[0].preco);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.6 Pedido 1 (delivery) criado",
+          "item": [
+            {
+              "name": "Adicionar produto na cesta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Criar pedido delivery",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('p1', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Casos de teste",
+      "item": [
+        {
+          "name": "CT-01 Pedido nasce aguardando o restaurante, com código",
+          "item": [
+            {
+              "name": "Cliente consulta o pedido",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const p = pm.response.json();",
+                      "pm.test('Status aguardando_aceite', () => pm.expect(p.status).to.eql('aguardando_aceite'));",
+                      "pm.test('Rótulo para o cliente', () => pm.expect(p.status_rotulo).to.eql('Aguardando o restaurante'));",
+                      "pm.test('Código de 4 dígitos', () => pm.expect(p.codigo_entrega).to.match(/^\\d{4}$/));",
+                      "pm.test('6 etapas, só a primeira concluída', () => { pm.expect(p.etapas.length).to.eql(6); pm.expect(p.etapas.filter(e => e.concluida).length).to.eql(1); });",
+                      "pm.test('Próximo status = aceito', () => pm.expect(p.proximo_status).to.eql('aceito'));",
+                      "pm.collectionVariables.set('codigo_p1', p.codigo_entrega);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-02 Restaurante não aceita antes do pagamento",
+          "item": [
+            {
+              "name": "Aceitar sem pagamento",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"aceito\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));",
+                      "pm.test('Motivo: pagamento', () => pm.expect(pm.response.json().detail).to.include('pagamento aprovado'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Escolher pagamento cartão",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/pedidos/{{p1}}/metodo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "pedidos",
+                    "{{p1}}",
+                    "metodo"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"metodo\": \"cartao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pagar com cartão (simulado)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/cartao",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "cartao"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pedido_id\": \"{{p1}}\",\n  \"metodo\": \"cartao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.test('Pagamento aprovado', () => pm.expect(pm.response.json().status).to.eql('aprovado'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-03 Cliente não muda status",
+          "item": [
+            {
+              "name": "Cliente tenta aceitar",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"aceito\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-04 Restaurante aceita",
+          "item": [
+            {
+              "name": "Restaurante: aceito",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"aceito\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Status aceito', () => pm.expect(pm.response.json().status).to.eql('aceito'));",
+                      "pm.test('Próximo = em_preparacao', () => pm.expect(pm.response.json().proximo_status).to.eql('em_preparacao'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-05 Não pula etapas",
+          "item": [
+            {
+              "name": "Restaurante: aceito -> pronto_para_entrega",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"pronto_para_entrega\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));",
+                      "pm.test('Indica a etapa certa', () => pm.expect(pm.response.json().detail).to.include('Em preparação'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-06 Entregador não prepara pedido",
+          "item": [
+            {
+              "name": "Entregador: em_preparacao",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entr}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"em_preparacao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-07 Restaurante prepara e deixa pronto",
+          "item": [
+            {
+              "name": "Restaurante: em_preparacao",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"em_preparacao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Restaurante: pronto_para_entrega",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"pronto_para_entrega\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Próximo = em_transito', () => pm.expect(pm.response.json().proximo_status).to.eql('em_transito'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-08 Restaurante não sai para entrega",
+          "item": [
+            {
+              "name": "Restaurante: em_transito",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"em_transito\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-09 Entregador sai para entrega",
+          "item": [
+            {
+              "name": "Entregador: em_transito",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entr}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"em_transito\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Status em_transito', () => pm.expect(pm.response.json().status).to.eql('em_transito'));",
+                      "pm.test('Entregador registrado', () => pm.expect(pm.response.json().entregador_id).to.eql(Number(pm.collectionVariables.get('id_entr'))));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-10 Só o cliente vê o código",
+          "item": [
+            {
+              "name": "Restaurante consulta",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const p = pm.response.json();",
+                      "pm.test('Sem código', () => pm.expect(p.codigo_entrega).to.be.null);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Entregador consulta",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entr}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const p = pm.response.json();",
+                      "pm.test('Sem código', () => pm.expect(p.codigo_entrega).to.be.null);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente consulta",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const p = pm.response.json();",
+                      "pm.test('Com código', () => pm.expect(p.codigo_entrega).to.eql(pm.collectionVariables.get('codigo_p1')));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-11 Acesso ao painel e a pedido de outro cliente",
+          "item": [
+            {
+              "name": "Entregador: painel",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entr}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/painel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "painel"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Pedido 1 no painel', () => pm.expect(pm.response.json().map(x => x.id)).to.include(Number(pm.collectionVariables.get('p1'))));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente: painel",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/painel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "painel"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Sem login: painel",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/painel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "painel"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('401', () => pm.response.to.have.status(401));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente B: pedido do cliente A",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_b}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-12 Entregue só com código",
+          "item": [
+            {
+              "name": "Entregador: PATCH entregue",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entr}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"entregue\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));",
+                      "pm.test('Pede o código', () => pm.expect(pm.response.json().detail).to.include('codigo'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-13 Código errado",
+          "item": [
+            {
+              "name": "Confirmar com código errado",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entr}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/entrega/confirmar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "entrega",
+                    "confirmar"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigo\": \"{{codigo_errado}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const c = pm.collectionVariables.get('codigo_p1');",
+                      "pm.collectionVariables.set('codigo_errado', c === '0000' ? '1111' : '0000');"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));",
+                      "pm.test('Código incorreto', () => pm.expect(pm.response.json().detail).to.include('incorreto'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-14 Código certo conclui a entrega",
+          "item": [
+            {
+              "name": "Confirmar com o código do cliente",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entr}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/entrega/confirmar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "entrega",
+                    "confirmar"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigo\": \"{{codigo_p1}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const p = pm.response.json();",
+                      "pm.test('Status entregue', () => pm.expect(p.status).to.eql('entregue'));",
+                      "pm.test('Finalizado', () => pm.expect(p.finalizado).to.be.true);",
+                      "pm.test('Todas as etapas concluídas', () => pm.expect(p.etapas.every(e => e.concluida)).to.be.true);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-15 Pedido entregue não muda",
+          "item": [
+            {
+              "name": "Restaurante: cancelar entregue",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"cancelado\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-16 Painel esconde finalizados",
+          "item": [
+            {
+              "name": "Painel padrão",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/painel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "painel"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Pedido 1 não aparece', () => pm.expect(pm.response.json().map(x => x.id)).to.not.include(Number(pm.collectionVariables.get('p1'))));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Painel com finalizados",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/painel?incluir_finalizados=true",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "painel"
+                  ],
+                  "query": [
+                    {
+                      "key": "incluir_finalizados",
+                      "value": "true"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Pedido 1 aparece', () => pm.expect(pm.response.json().map(x => x.id)).to.include(Number(pm.collectionVariables.get('p1'))));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-17 Retirada: restaurante confirma no balcão",
+          "item": [
+            {
+              "name": "Adicionar produto na cesta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Criar pedido retirada",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"retirada\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('p2', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Escolher pagamento cartão",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/pedidos/{{p2}}/metodo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "pedidos",
+                    "{{p2}}",
+                    "metodo"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"metodo\": \"cartao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pagar com cartão (simulado)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/cartao",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "cartao"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pedido_id\": \"{{p2}}\",\n  \"metodo\": \"cartao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.test('Pagamento aprovado', () => pm.expect(pm.response.json().status).to.eql('aprovado'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente: código da retirada",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p2}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p2}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const p = pm.response.json();",
+                      "pm.collectionVariables.set('codigo_p2', p.codigo_entrega);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Restaurante: aceito",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p2}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p2}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"aceito\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Restaurante: em_preparacao",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p2}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p2}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"em_preparacao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Restaurante: pronto_para_retirada",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p2}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p2}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"pronto_para_retirada\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Entregador não confirma retirada",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entr}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p2}}/entrega/confirmar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p2}}",
+                    "entrega",
+                    "confirmar"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigo\": \"{{codigo_p2}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Restaurante confirma com o código",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p2}}/entrega/confirmar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p2}}",
+                    "entrega",
+                    "confirmar"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigo\": \"{{codigo_p2}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Status entregue', () => pm.expect(pm.response.json().status).to.eql('entregue'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-18 Cancelamento antes do preparo",
+          "item": [
+            {
+              "name": "Adicionar produto na cesta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Criar pedido",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"retirada\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('p3', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Restaurante: cancelado",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p3}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p3}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"cancelado\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const p = pm.response.json();",
+                      "pm.test('Status cancelado', () => pm.expect(p.status).to.eql('cancelado'));",
+                      "pm.test('Linha do tempo: aguardando e cancelado', () => pm.expect(p.etapas.map(e => e.status)).to.eql(['aguardando_aceite', 'cancelado']));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Restaurante: em_preparacao depois de cancelado",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p3}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p3}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"em_preparacao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-19 Histórico do cliente",
+          "item": [
+            {
+              "name": "Cliente: meus pedidos",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const l = pm.response.json();",
+                      "pm.test('3 pedidos', () => pm.expect(l.length).to.eql(3));",
+                      "pm.test('Mais recente primeiro', () => pm.expect(l[0].id).to.eql(Number(pm.collectionVariables.get('p3'))));",
+                      "pm.test('Status corretos', () => pm.expect(l.map(x => x.status)).to.eql(['cancelado', 'entregue', 'entregue']));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente B: meus pedidos",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_b}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Nenhum pedido', () => pm.expect(pm.response.json().length).to.eql(0));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
