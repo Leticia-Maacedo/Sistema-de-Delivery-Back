@@ -262,7 +262,7 @@
           ]
         },
         {
-          "name": "00.3 Usuário restaurante",
+          "name": "00.3 Usuário restaurante (dono)",
           "item": [
             {
               "name": "Cadastrar restaurante",
@@ -362,7 +362,107 @@
           ]
         },
         {
-          "name": "00.4 Usuário entregador",
+          "name": "00.4 Usuário restaurante de outro dono",
+          "item": [
+            {
+              "name": "Cadastrar outro restaurante",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/usuarios",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "usuarios"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nome\": \"Teste outro restaurante\",\n  \"email\": \"{{email_rest2}}\",\n  \"senha\": \"{{senha_rest2}}\",\n  \"tipo\": \"restaurante\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('email_rest2', `teste.acomp.rest2.${pm.collectionVariables.get('sufixo')}@entregafood.com`);",
+                      "pm.collectionVariables.set('senha_rest2', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('id_rest2', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login outro restaurante",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_rest2}}\",\n  \"senha\": \"{{senha_rest2}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_rest2', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.5 Usuários entregadores",
           "item": [
             {
               "name": "Cadastrar entregador",
@@ -458,59 +558,87 @@
                   }
                 }
               ]
-            }
-          ]
-        },
-        {
-          "name": "00.5 Restaurante e produto",
-          "item": [
+            },
             {
-              "name": "Restaurante aprovado",
+              "name": "Cadastrar outro entregador",
               "request": {
-                "method": "GET",
-                "header": [],
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
                 "url": {
-                  "raw": "{{base_url}}/consultas/restaurantes",
+                  "raw": "{{base_url}}/usuarios",
                   "host": [
                     "{{base_url}}"
                   ],
                   "path": [
-                    "consultas",
-                    "restaurantes"
+                    "usuarios"
                   ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nome\": \"Teste outro entregador\",\n  \"email\": \"{{email_entr2}}\",\n  \"senha\": \"{{senha_entr2}}\",\n  \"tipo\": \"entregador\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
                 }
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('email_entr2', `teste.acomp.entr2.${pm.collectionVariables.get('sufixo')}@entregafood.com`);",
+                      "pm.collectionVariables.set('senha_entr2', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('200', () => pm.response.to.have.status(200));",
-                      "const r = pm.response.json().find(x => x.nome_fantasia === 'Burger da Paulista') || pm.response.json()[0];",
-                      "pm.test('Restaurante aprovado encontrado', () => pm.expect(r).to.be.an('object'));",
-                      "pm.collectionVariables.set('restaurante_id', r.id);"
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('id_entr2', pm.response.json().id);"
                     ]
                   }
                 }
               ]
             },
             {
-              "name": "Produto do cardápio",
+              "name": "Login outro entregador",
               "request": {
-                "method": "GET",
-                "header": [],
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
                 "url": {
-                  "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
+                  "raw": "{{base_url}}/auth/login",
                   "host": [
                     "{{base_url}}"
                   ],
                   "path": [
-                    "consultas",
-                    "restaurantes",
-                    "{{restaurante_id}}",
-                    "cardapio"
+                    "auth",
+                    "login"
                   ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_entr2}}\",\n  \"senha\": \"{{senha_entr2}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
                 }
               },
               "event": [
@@ -520,10 +648,7 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('200', () => pm.response.to.have.status(200));",
-                      "const itens = pm.response.json().itens;",
-                      "pm.test('Cardápio com itens', () => pm.expect(itens.length).to.be.above(0));",
-                      "pm.collectionVariables.set('produto_id', itens[0].id);",
-                      "pm.collectionVariables.set('produto_preco', itens[0].preco);"
+                      "pm.collectionVariables.set('token_entr2', pm.response.json().access_token);"
                     ]
                   }
                 }
@@ -532,7 +657,198 @@
           ]
         },
         {
-          "name": "00.6 Pedido 1 (delivery) criado",
+          "name": "00.6 Restaurante do usuário restaurante, aprovado e com produto",
+          "item": [
+            {
+              "name": "Endereço do restaurante",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/locais",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "locais"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuario_id\": \"{{id_rest}}\",\n  \"endereco\": \"Av. Paulista, 1000 - Bela Vista, São Paulo\",\n  \"tipo\": \"restaurante\",\n  \"latitude\": \"-23.561414\",\n  \"longitude\": \"-46.655881\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('local_rest', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cadastrar restaurante (logado como o dono)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/restaurantes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "restaurantes"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"local_id\": \"{{local_rest}}\",\n  \"nome_fantasia\": \"Burger Teste Acompanhamento\",\n  \"cnpj\": \"{{cnpj}}\",\n  \"taxa_entrega_km\": \"4.50\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('cnpj', String(Date.now()).padStart(14, '0').slice(-14));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.test('Dono gravado = usuário restaurante', () => pm.expect(pm.response.json().usuario_id).to.eql(Number(pm.collectionVariables.get('id_rest'))));",
+                      "pm.collectionVariables.set('restaurante_id', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Aprovar restaurante",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/restaurantes/{{restaurante_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "restaurantes",
+                    "{{restaurante_id}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status_aprovacao\": \"aprovado\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cadastrar produto",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/produtos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "produtos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"restaurante_id\": \"{{restaurante_id}}\",\n  \"nome\": \"Batata Frita\",\n  \"descricao\": \"Porção 400g\",\n  \"preco\": \"19.90\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('produto_id', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.7 Pedido 1 (delivery) criado",
           "item": [
             {
               "name": "Adicionar produto na cesta",
@@ -1354,7 +1670,160 @@
           ]
         },
         {
-          "name": "CT-11 Acesso ao painel e a pedido de outro cliente",
+          "name": "CT-11 Restaurante de outro dono não acessa o pedido",
+          "item": [
+            {
+              "name": "Outro restaurante: painel",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest2}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/painel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "painel"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Pedido 1 não aparece', () => pm.expect(pm.response.json().map(x => x.id)).to.not.include(Number(pm.collectionVariables.get('p1'))));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Outro restaurante: consultar pedido",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest2}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Outro restaurante: mudar status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest2}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"cancelado\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Dono: painel",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/painel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "painel"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Pedido 1 aparece para o dono', () => pm.expect(pm.response.json().map(x => x.id)).to.include(Number(pm.collectionVariables.get('p1'))));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-12 Acesso ao painel e a pedido de outro cliente",
           "item": [
             {
               "name": "Entregador: painel",
@@ -1487,7 +1956,7 @@
           ]
         },
         {
-          "name": "CT-12 Entregue só com código",
+          "name": "CT-13 Entregue só com código",
           "item": [
             {
               "name": "Entregador: PATCH entregue",
@@ -1540,7 +2009,7 @@
           ]
         },
         {
-          "name": "CT-13 Código errado",
+          "name": "CT-14 Código errado",
           "item": [
             {
               "name": "Confirmar com código errado",
@@ -1604,7 +2073,61 @@
           ]
         },
         {
-          "name": "CT-14 Código certo conclui a entrega",
+          "name": "CT-15 Outro entregador não conclui",
+          "item": [
+            {
+              "name": "Outro entregador confirma com o código certo",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entr2}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/entrega/confirmar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "entrega",
+                    "confirmar"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigo\": \"{{codigo_p1}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('403', () => pm.response.to.have.status(403));",
+                      "pm.test('Pedido com outro entregador', () => pm.expect(pm.response.json().detail).to.include('outro entregador'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-16 Código certo conclui a entrega",
           "item": [
             {
               "name": "Confirmar com o código do cliente",
@@ -1661,7 +2184,7 @@
           ]
         },
         {
-          "name": "CT-15 Pedido entregue não muda",
+          "name": "CT-17 Pedido entregue não muda",
           "item": [
             {
               "name": "Restaurante: cancelar entregue",
@@ -1713,7 +2236,7 @@
           ]
         },
         {
-          "name": "CT-16 Painel esconde finalizados",
+          "name": "CT-18 Painel esconde finalizados",
           "item": [
             {
               "name": "Painel padrão",
@@ -1792,7 +2315,7 @@
           ]
         },
         {
-          "name": "CT-17 Retirada: restaurante confirma no balcão",
+          "name": "CT-19 Retirada: restaurante confirma no balcão",
           "item": [
             {
               "name": "Adicionar produto na cesta",
@@ -2257,7 +2780,7 @@
           ]
         },
         {
-          "name": "CT-18 Cancelamento antes do preparo",
+          "name": "CT-20 Cancelamento antes do preparo",
           "item": [
             {
               "name": "Adicionar produto na cesta",
@@ -2451,7 +2974,7 @@
           ]
         },
         {
-          "name": "CT-19 Histórico do cliente",
+          "name": "CT-21 Histórico do cliente",
           "item": [
             {
               "name": "Cliente: meus pedidos",
