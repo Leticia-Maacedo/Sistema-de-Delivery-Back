@@ -24,6 +24,9 @@ class Restaurante(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     local_id: Mapped[int] = mapped_column(ForeignKey("local.id"), nullable=False)
+    # Usuario (tipo "restaurante") dono do restaurante - sql/06.
+    # Nullable: restaurante cadastrado pelo admin pode ficar sem dono.
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuario.id"), nullable=True)
     nome_fantasia: Mapped[str] = mapped_column(String(120), nullable=False)
     cnpj: Mapped[str] = mapped_column(String(18), nullable=False, unique=True)
     status_aprovacao: Mapped[str] = mapped_column(String(20), nullable=False, default="pendente")
@@ -53,6 +56,10 @@ class Restaurante(Base):
     @staticmethod
     def buscar_por_id(db: Session, restaurante_id: int) -> "Restaurante | None":
         return db.get(Restaurante, restaurante_id)
+
+    def pertence_a(self, usuario_id: int) -> bool:
+        """Regra: o usuario e o dono deste restaurante."""
+        return self.usuario_id is not None and self.usuario_id == usuario_id
 
     @staticmethod
     def listar(db: Session, limite: int = 100, pular: int = 0) -> list["Restaurante"]:
@@ -102,9 +109,11 @@ class Restaurante(Base):
         cnpj: str,
         taxa_entrega_km: Decimal,
         status_aprovacao: str = "pendente",
+        usuario_id: int | None = None,
     ) -> "Restaurante":
         restaurante = cls(
             local_id=local_id,
+            usuario_id=usuario_id,
             nome_fantasia=nome_fantasia.strip(),
             cnpj=cnpj.strip(),
             taxa_entrega_km=taxa_entrega_km,

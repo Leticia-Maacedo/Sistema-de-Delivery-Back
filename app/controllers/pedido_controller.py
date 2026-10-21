@@ -61,8 +61,9 @@ def buscar_pedido_visivel(
 ) -> Pedido:
     """Busca o pedido e garante que o usuario pode ve-lo.
 
-    O cliente so ve os proprios pedidos; restaurante, entregador e admin
-    veem todos (o banco ainda nao liga restaurante a um usuario dono).
+    - Cliente: so os proprios pedidos.
+    - Restaurante: so os pedidos dos restaurantes dele (restaurante.usuario_id).
+    - Entregador e admin: todos.
     """
 
     pedido = Pedido.buscar_por_id(db, pedido_id)
@@ -73,13 +74,29 @@ def buscar_pedido_visivel(
             detail="Pedido nao encontrado.",
         )
 
-    if pedido.cliente_id != usuario.id and usuario.tipo not in status_pedido.OPERADORES:
+    if not pode_ver_pedido(db, pedido, usuario):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Voce nao possui acesso a este pedido.",
         )
 
     return pedido
+
+
+def pode_ver_pedido(db: Session, pedido: Pedido, usuario: Usuario) -> bool:
+    """Regra de visibilidade do pedido por tipo de usuario."""
+
+    if pedido.cliente_id == usuario.id:
+        return True
+
+    if usuario.tipo in ("admin", "entregador"):
+        return True
+
+    if usuario.tipo == "restaurante":
+        restaurante = Restaurante.buscar_por_id(db, pedido.restaurante_id)
+        return restaurante is not None and restaurante.pertence_a(usuario.id)
+
+    return False
 
 
 def montar_resumo(db: Session, pedido: Pedido) -> PedidoResumoOut:
@@ -166,7 +183,7 @@ def montar_detalhe(
     return PedidoDetalheOut(
         **resumo.model_dump(),
         cliente_id=pedido.cliente_id,
-        entregador_id=pedido.entregador_id,
+        entregador_id=entrega.entregador_id,
         taxa_entrega=pedido.taxa_entrega,
         subtotal=pedido.valor_total - pedido.taxa_entrega,
         atualizado_em=pedido.atualizado_em,
@@ -264,15 +281,23 @@ def listar_painel(
     db: Session = Depends(get_db),
     usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> list[PedidoResumoOut]:
-    """Pedidos em andamento para o restaurante e o entregador movimentarem."""
+    """Pedidos em andamento para o restaurante e o entregador movimentarem.
+
+    O restaurante so recebe os pedidos dos restaurantes dele; entregador e
+    admin recebem todos.
+    """
 
     exigir_operador(usuario_logado)
+
+    # Restaurante ve so os pedidos dos restaurantes dele.
+    dono = usuario_logado.id if usuario_logado.tipo == "restaurante" else None
 
     return [
         montar_resumo(db, pedido)
         for pedido in Pedido.listar_para_operacao(
             db,
             incluir_finalizados=incluir_finalizados,
+            dono_restaurante_id=dono,
         )
     ]
 
@@ -354,7 +379,8 @@ def confirmar_entrega(
 ) -> PedidoDetalheOut:
     """Conclui o pedido conferindo o código que o cliente informou.
 
-    Delivery: o entregador confere quando o pedido está "em_transito".
+    Delivery: o entregador que saiu com o pedido confere quando ele está
+    "em_transito".
     Retirada: o restaurante confere quando está "pronto_para_retirada".
     """
 
@@ -374,6 +400,18 @@ def confirmar_entrega(
         )
 
     entrega = Entrega.obter_ou_criar(db, pedido.id)
+
+    # Delivery: so o entregador que saiu com o pedido (marcou "em_transito")
+    # pode concluir.
+    if (
+        usuario_logado.tipo == "entregador"
+        and entrega.entregador_id is not None
+        and entrega.entregador_id != usuario_logado.id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Este pedido esta com outro entregador.",
+        )
 
     if not status_pedido.codigo_confere(entrega.codigo_validacao, dados.codigo):
         raise HTTPException(

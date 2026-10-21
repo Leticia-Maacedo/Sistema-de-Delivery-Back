@@ -19,6 +19,8 @@ recriar o volume.
 | 2 | `02_sprint2_telefone.sql` | Permite `usuario.email` nulo, adiciona índice único parcial em `telefone`, e uma constraint garantindo que todo usuário tem e-mail **ou** telefone. |
 | 3 | `03_create_codigo_otp.sql` | Cria a tabela `codigo_otp` (login/cadastro por telefone). |
 | 4 | `04_seed_cardapio.sql` | **Dados de exemplo**, não schema — popula usuário/local/restaurante/produto pra ter o que consultar em `/consultas/*`. Idempotente (pode rodar de novo sem duplicar). |
+| 5 | `05_sprint3_acompanhamento.sql` | Completa `entrega` (`codigo_validacao`, `entregue_em`) e cria `pedido_status_historico`. |
+| 6 | `06_sprint3_dono_e_entregador.sql` | Adiciona `restaurante.usuario_id` (dono) e remove `pedido.entregador_id` (o entregador fica só em `entrega`). Idempotente. |
 
 ## Diagrama entidade-relacionamento
 
@@ -30,7 +32,8 @@ erDiagram
     usuario ||--o{ local : "possui"
     usuario ||--o{ sacola : "tem"
     usuario ||--o{ pedido : "faz (cliente)"
-    usuario ||--o{ pedido : "entrega (entregador, opcional)"
+    usuario ||--o{ entrega : "entrega (entregador, opcional)"
+    usuario ||--o{ restaurante : "é dono de (opcional)"
     usuario ||--o{ avaliacao : "avalia / é avaliado"
     local ||--o{ restaurante : "endereço de"
     restaurante ||--o{ produto : "vende"
@@ -65,6 +68,7 @@ erDiagram
     restaurante {
         int id PK
         int local_id FK
+        int usuario_id FK "nullable: dono (tipo restaurante)"
         varchar nome_fantasia
         varchar cnpj UK
         varchar status_aprovacao "pendente | aprovado | recusado"
@@ -95,7 +99,6 @@ erDiagram
         int id PK
         int cliente_id FK
         int restaurante_id FK
-        int entregador_id FK "nullable"
         varchar status
         varchar tipo_entrega
         varchar forma_pagamento
@@ -194,9 +197,15 @@ está pronto; falta só a camada de aplicação.
 CREATE INDEX idx_produto_restaurante ON produto(restaurante_id);
 CREATE INDEX idx_pedido_cliente      ON pedido(cliente_id);
 CREATE INDEX idx_pedido_restaurante  ON pedido(restaurante_id);
-CREATE INDEX idx_pedido_entregador   ON pedido(entregador_id);
 CREATE INDEX idx_local_usuario       ON local(usuario_id);
+-- 06_sprint3_dono_e_entregador.sql
+CREATE INDEX idx_restaurante_usuario ON restaurante(usuario_id);
+CREATE INDEX idx_entrega_entregador  ON entrega(entregador_id);
 ```
+
+> `pedido.entregador_id` (e o `idx_pedido_entregador`) existiam no
+> `01_create_tables.sql`, mas eram redundantes com `entrega.entregador_id`.
+> O script `06` remove a coluna do pedido: o entregador fica só na entrega.
 
 Cobrem os padrões de consulta mais comuns (listar produtos de um
 restaurante, listar pedidos de um cliente/restaurante/entregador, listar

@@ -16,6 +16,7 @@ from app.core.status_pedido import AGUARDANDO_ACEITE, CANCELADO, ENTREGUE, EM_TR
 from app.models.entrega import Entrega
 from app.models.item_pedido import ItemPedido
 from app.models.pedido_status_historico import PedidoStatusHistorico
+from app.models.restaurante import Restaurante
 
 
 class Pedido(Base):
@@ -36,11 +37,6 @@ class Pedido(Base):
     restaurante_id: Mapped[int] = mapped_column(
         ForeignKey("restaurante.id"),
         nullable=False,
-    )
-
-    entregador_id: Mapped[int | None] = mapped_column(
-        ForeignKey("usuario.id"),
-        nullable=True,
     )
 
     status: Mapped[str] = mapped_column(
@@ -116,7 +112,6 @@ class Pedido(Base):
         pedido = cls(
             cliente_id=cliente_id,
             restaurante_id=restaurante_id,
-            entregador_id=None,
             status="aguardando_aceite",
             tipo_entrega=tipo_entrega,
             forma_pagamento=forma_pagamento,
@@ -191,10 +186,20 @@ class Pedido(Base):
         db: Session,
         *,
         incluir_finalizados: bool = False,
+        dono_restaurante_id: int | None = None,
     ) -> list["Pedido"]:
-        """Pedidos que o restaurante/entregador ainda precisam movimentar."""
+        """Pedidos que o restaurante/entregador ainda precisam movimentar.
+
+        Com `dono_restaurante_id`, traz so os pedidos dos restaurantes
+        desse usuario (painel do usuario restaurante).
+        """
 
         consulta = select(Pedido).order_by(Pedido.criado_em.desc(), Pedido.id.desc())
+
+        if dono_restaurante_id is not None:
+            consulta = consulta.join(
+                Restaurante, Restaurante.id == Pedido.restaurante_id
+            ).where(Restaurante.usuario_id == dono_restaurante_id)
 
         if not incluir_finalizados:
             consulta = consulta.where(Pedido.status.not_in([ENTREGUE, CANCELADO]))
@@ -222,6 +227,8 @@ class Pedido(Base):
 
         if entrega is not None:
             if novo_status == EM_TRANSITO:
+                # O entregador fica so na entrega (sql/06): quem marca
+                # "em_transito" e quem leva o pedido.
                 entrega.status = "em_transito"
                 entrega.entregador_id = usuario_id
             elif novo_status == ENTREGUE:
@@ -230,9 +237,6 @@ class Pedido(Base):
             elif novo_status == CANCELADO:
                 entrega.status = "cancelada"
             entrega.atualizado_em = agora
-
-        if novo_status == EM_TRANSITO:
-            self.entregador_id = usuario_id
 
         PedidoStatusHistorico.registrar(
             db,

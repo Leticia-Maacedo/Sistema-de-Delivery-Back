@@ -27,6 +27,7 @@ class RestauranteOut(BaseModel):
 
     id: int
     local_id: int
+    usuario_id: int | None = None
     nome_fantasia: str
     cnpj: str
     status_aprovacao: str

@@ -33,7 +33,6 @@ class PedidoOut(BaseModel):
     id: int
     cliente_id: int
     restaurante_id: int
-    entregador_id: int | None = None
     status: str
     tipo_entrega: str
     forma_pagamento: str
@@ -99,6 +98,7 @@ class PedidoDetalheOut(PedidoResumoOut):
     """Pedido completo para a tela de acompanhamento."""
 
     cliente_id: int
+    # Vem de entrega.entregador_id (o pedido nao guarda mais o entregador).
     entregador_id: int | None = None
     taxa_entrega: Decimal
     subtotal: Decimal

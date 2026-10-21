@@ -10,7 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import obter_usuario_opcional
+from app.models.local import Local
 from app.models.restaurante import Restaurante
+from app.models.usuario import Usuario
 from app.schemas.restaurante import RestauranteCreate, RestauranteOut, RestauranteUpdate
 
 router = APIRouter(prefix="/restaurantes", tags=["Restaurantes"])
@@ -18,7 +21,11 @@ router = APIRouter(prefix="/restaurantes", tags=["Restaurantes"])
 
 # ---------------------------------------------------------------- CREATE
 @router.post("", response_model=RestauranteOut, status_code=status.HTTP_201_CREATED, summary="Cadastrar restaurante")
-def criar_restaurante(dados: RestauranteCreate, db: Session = Depends(get_db)) -> Restaurante:
+def criar_restaurante(
+    dados: RestauranteCreate,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario | None = Depends(obter_usuario_opcional),
+) -> Restaurante:
     if Restaurante.cnpj_ja_cadastrado(db, dados.cnpj):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -30,7 +37,29 @@ def criar_restaurante(dados: RestauranteCreate, db: Session = Depends(get_db)) -
         nome_fantasia=dados.nome_fantasia,
         cnpj=dados.cnpj,
         taxa_entrega_km=dados.taxa_entrega_km,
+        usuario_id=_definir_dono(db, dados.local_id, usuario_logado),
     )
+
+
+def _definir_dono(db: Session, local_id: int, usuario_logado: Usuario | None) -> int | None:
+    """Quem e o dono do restaurante que esta sendo cadastrado.
+
+    - Usuario restaurante logado (Area do Parceiro): ele mesmo.
+    - Admin ou sem login: o usuario do endereco (local), se for do tipo
+      restaurante. Senao o restaurante fica sem dono.
+    """
+    if usuario_logado is not None and usuario_logado.tipo == "restaurante":
+        return usuario_logado.id
+
+    local = db.get(Local, local_id)
+    if local is None:
+        return None
+
+    dono_do_local = Usuario.buscar_por_id(db, local.usuario_id)
+    if dono_do_local is not None and dono_do_local.tipo == "restaurante":
+        return dono_do_local.id
+
+    return None
 
 
 # ------------------------------------------------------------------ READ
