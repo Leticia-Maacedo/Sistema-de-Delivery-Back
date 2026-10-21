@@ -80,6 +80,24 @@ def obter_usuario_logado(
     return usuario
 
 
+def obter_usuario_opcional(
+    credenciais: HTTPAuthorizationCredentials | None = Depends(esquema_bearer),
+    db: Session = Depends(get_db),
+) -> Usuario | None:
+    """Igual a `obter_usuario_logado`, mas devolve None em vez de 401.
+
+    Para rotas que funcionam sem login, mas usam o usuario quando ele vem
+    (ex.: cadastro de restaurante grava o dono).
+    """
+    if credenciais is None:
+        return None
+    try:
+        payload = decodificar_token(credenciais.credentials)
+    except jwt.PyJWTError:
+        return None
+    return Usuario.buscar_por_id(db, int(payload.get("sub", 0)))
+
+
 def exigir_admin(usuario: Usuario = Depends(obter_usuario_logado)) -> Usuario:
     """Dependencia que protege rotas administrativas (gerenciar qualquer usuario)."""
     if usuario.tipo != "admin":

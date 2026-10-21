@@ -326,13 +326,14 @@ Antes de usar, rode o script novo no banco (também roda sozinho num banco Docke
 
 ```bash
 psql -h localhost -U postgres -d entregafood -f sql/05_sprint3_acompanhamento.sql
+psql -h localhost -U postgres -d entregafood -f sql/06_sprint3_dono_e_entregador.sql
 ```
 
 | Método | Rota | Quem | O que faz | Retorno |
 |---|---|---|---|---|
 | `GET` | `/pedidos` | cliente | Meus pedidos, do mais recente para o mais antigo | `200` |
-| `GET` | `/pedidos/{id}` | dono do pedido, restaurante, entregador, admin | Itens, linha do tempo (`etapas`) e, só para o cliente, o `codigo_entrega` | `200` · `403` · `404` |
-| `GET` | `/pedidos/painel?incluir_finalizados=` | restaurante, entregador, admin | Pedidos em andamento | `200` · `403` |
+| `GET` | `/pedidos/{id}` | dono do pedido, restaurante dono, entregador, admin | Itens, linha do tempo (`etapas`) e, só para o cliente, o `codigo_entrega` | `200` · `403` · `404` |
+| `GET` | `/pedidos/painel?incluir_finalizados=` | restaurante, entregador, admin | Pedidos em andamento (o restaurante só vê os dele) | `200` · `403` |
 | `PATCH` | `/pedidos/{id}/status` | restaurante, entregador, admin | Avança para a próxima etapa (ou `cancelado`) | `200` · `400` · `403` |
 | `POST` | `/pedidos/{id}/entrega/confirmar` | entregador (delivery), restaurante (retirada), admin | Confere o código informado pelo cliente e marca `entregue` | `200` · `400` · `403` |
 
@@ -343,7 +344,11 @@ psql -h localhost -U postgres -d entregafood -f sql/05_sprint3_acompanhamento.sq
 
 Regras: não dá para pular nem voltar etapas; o restaurante só aceita depois do pagamento aprovado; o restaurante aceita, prepara e deixa pronto; o entregador marca `em_transito`; `entregue` só com o código de 4 dígitos que o cliente vê na tela de acompanhamento; o pedido só pode ser cancelado em `aguardando_aceite` ou `aceito`. Cada mudança grava uma linha em `pedido_status_historico`, e o código fica em `entrega.codigo_validacao`.
 
-Para testar o painel, crie usuários com `"tipo": "restaurante"` e `"tipo": "entregador"` pelo `POST /usuarios`. Como o banco ainda não liga um restaurante ao usuário dono, qualquer usuário restaurante movimenta qualquer pedido (ver Limitações).
+**Dono do restaurante** (`restaurante.usuario_id`, script `06`): o usuário restaurante só vê e movimenta pedidos dos restaurantes dele. O dono é gravado no `POST /restaurantes` — é o usuário restaurante logado (Área do Parceiro) ou, quando quem cadastra é o admin, o usuário do endereço (`local`) se ele for do tipo restaurante. O script `06` preenche o dono dos restaurantes que já existiam da mesma forma.
+
+**Entregador**: fica só em `entrega.entregador_id` (a coluna `pedido.entregador_id` foi removida no script `06`, por ser redundante). Quem marca `em_transito` vira o entregador do pedido, e só ele confirma a entrega.
+
+Para testar o painel, crie usuários com `"tipo": "restaurante"` e `"tipo": "entregador"` pelo `POST /usuarios` e cadastre o restaurante logado com o usuário restaurante.
 
 Testes: `python -m pytest testes/teste_status_pedido.py`.
 
