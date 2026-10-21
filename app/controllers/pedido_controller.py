@@ -1,17 +1,184 @@
-"""Controller de Pedido do EntregaFood."""
+"""Controller de Pedido do EntregaFood.
 
-from fastapi import APIRouter, Depends, HTTPException, status
+Sprint 3:
+    - Fechar Pedido: criar o pedido a partir da cesta, com o tipo de
+      entrega escolhido (delivery ou retirada).
+    - Acompanhar Entrega: consultar os pedidos, mudar o status
+      (restaurante/entregador) e concluir com o codigo de entrega.
+
+As regras do fluxo de status ficam em app/core/status_pedido.py.
+"""
+
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.controllers.sacola_controller import preparar_fechamento
+from app.core import status_pedido
 from app.core.database import get_db
 from app.core.security import obter_usuario_logado
+from app.models.entrega import Entrega
+from app.models.item_pedido import ItemPedido
+from app.models.pagamento import Pagamento
 from app.models.pedido import Pedido
+from app.models.pedido_status_historico import PedidoStatusHistorico
+from app.models.produto import Produto
+from app.models.restaurante import Restaurante
 from app.models.usuario import Usuario
-from app.schemas.pedido import PedidoCriarIn, PedidoOut
+from app.schemas.pedido import (
+    ConfirmarEntregaIn,
+    EtapaPedidoOut,
+    ItemPedidoOut,
+    PedidoCriarIn,
+    PedidoDetalheOut,
+    PedidoOut,
+    PedidoResumoOut,
+    StatusPedidoIn,
+)
 
 
 router = APIRouter(prefix="/pedidos", tags=["Pedido"])
+
+
+# ------------------------------------------------------------------ apoio
+
+
+def exigir_operador(usuario: Usuario) -> None:
+    """Somente restaurante, entregador ou admin movimentam pedidos."""
+
+    if usuario.tipo not in status_pedido.OPERADORES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Somente restaurante, entregador ou admin podem acessar o painel de pedidos.",
+        )
+
+
+def buscar_pedido_visivel(
+    db: Session,
+    pedido_id: int,
+    usuario: Usuario,
+) -> Pedido:
+    """Busca o pedido e garante que o usuario pode ve-lo.
+
+    O cliente so ve os proprios pedidos; restaurante, entregador e admin
+    veem todos (o banco ainda nao liga restaurante a um usuario dono).
+    """
+
+    pedido = Pedido.buscar_por_id(db, pedido_id)
+
+    if pedido is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pedido nao encontrado.",
+        )
+
+    if pedido.cliente_id != usuario.id and usuario.tipo not in status_pedido.OPERADORES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Voce nao possui acesso a este pedido.",
+        )
+
+    return pedido
+
+
+def montar_resumo(db: Session, pedido: Pedido) -> PedidoResumoOut:
+    """Dados do pedido para as listagens."""
+
+    restaurante = Restaurante.buscar_por_id(db, pedido.restaurante_id)
+    itens = ItemPedido.listar_por_pedido(db, pedido.id)
+    proximo = status_pedido.proximo_status(pedido.status, pedido.tipo_entrega)
+
+    return PedidoResumoOut(
+        id=pedido.id,
+        restaurante_id=pedido.restaurante_id,
+        restaurante_nome=restaurante.nome_fantasia if restaurante else None,
+        status=pedido.status,
+        status_rotulo=status_pedido.rotulo(pedido.status),
+        tipo_entrega=pedido.tipo_entrega,
+        forma_pagamento=pedido.forma_pagamento,
+        valor_total=pedido.valor_total,
+        quantidade_itens=sum(item.quantidade for item in itens),
+        criado_em=pedido.criado_em,
+        proximo_status=proximo,
+        proximo_status_rotulo=status_pedido.rotulo(proximo) if proximo else None,
+    )
+
+
+def montar_etapas(
+    pedido: Pedido,
+    historico: list[PedidoStatusHistorico],
+) -> list[EtapaPedidoOut]:
+    """Linha do tempo: todas as etapas do fluxo, marcando as ja cumpridas."""
+
+    datas = {registro.status: registro.criado_em for registro in historico}
+    datas.setdefault(status_pedido.AGUARDANDO_ACEITE, pedido.criado_em)
+
+    if pedido.status == status_pedido.CANCELADO:
+        # Mostra so o que chegou a acontecer e o cancelamento.
+        etapas = [registro.status for registro in historico] or [status_pedido.AGUARDANDO_ACEITE]
+        if status_pedido.CANCELADO not in etapas:
+            etapas.append(status_pedido.CANCELADO)
+    else:
+        etapas = status_pedido.fluxo(pedido.tipo_entrega)
+
+    posicao_atual = etapas.index(pedido.status) if pedido.status in etapas else -1
+
+    return [
+        EtapaPedidoOut(
+            status=etapa,
+            rotulo=status_pedido.rotulo(etapa),
+            concluida=posicao <= posicao_atual,
+            atual=posicao == posicao_atual,
+            data=datas.get(etapa),
+        )
+        for posicao, etapa in enumerate(etapas)
+    ]
+
+
+def montar_detalhe(
+    db: Session,
+    pedido: Pedido,
+    usuario: Usuario,
+) -> PedidoDetalheOut:
+    """Pedido completo para a tela de acompanhamento."""
+
+    resumo = montar_resumo(db, pedido)
+
+    itens_saida: list[ItemPedidoOut] = []
+    for item in ItemPedido.listar_por_pedido(db, pedido.id):
+        produto = Produto.buscar_por_id(db, item.produto_id)
+        itens_saida.append(
+            ItemPedidoOut(
+                produto_id=item.produto_id,
+                nome=produto.nome if produto else f"Produto #{item.produto_id}",
+                quantidade=item.quantidade,
+                preco_unitario=item.preco_unitario,
+                subtotal=(item.preco_unitario * item.quantidade).quantize(Decimal("0.01")),
+            )
+        )
+
+    historico = PedidoStatusHistorico.listar_por_pedido(db, pedido.id)
+    entrega = Entrega.obter_ou_criar(db, pedido.id)
+    pagamento = Pagamento.buscar_por_pedido(db, pedido.id)
+    eh_dono = pedido.cliente_id == usuario.id
+
+    return PedidoDetalheOut(
+        **resumo.model_dump(),
+        cliente_id=pedido.cliente_id,
+        entregador_id=pedido.entregador_id,
+        taxa_entrega=pedido.taxa_entrega,
+        subtotal=pedido.valor_total - pedido.taxa_entrega,
+        atualizado_em=pedido.atualizado_em,
+        finalizado=status_pedido.status_finalizado(pedido.status),
+        itens=itens_saida,
+        etapas=montar_etapas(pedido, historico),
+        codigo_entrega=entrega.codigo_validacao if eh_dono else None,
+        pagamento_status=pagamento.status if pagamento else None,
+    )
+
+
+# ------------------------------------------------------------------ rotas
 
 
 @router.post(
@@ -32,6 +199,10 @@ def criar_pedido(
     e a taxa de entrega são calculados aqui (os valores enviados pelo
     front são ignorados). Depois de criar, os itens vão para
     `item_pedido` com o preço do momento e a cesta é esvaziada.
+
+    `tipo_entrega` escolhe entre "delivery" (com taxa pela distância) e
+    "retirada" no balcão (sem taxa). O pedido já nasce com o código de
+    entrega e o primeiro status da linha do tempo.
     """
 
     fechamento = preparar_fechamento(
@@ -61,3 +232,155 @@ def criar_pedido(
         ],
         sacola=fechamento.sacola,
     )
+
+
+@router.get(
+    "",
+    response_model=list[PedidoResumoOut],
+    summary="Listar meus pedidos",
+)
+def listar_meus_pedidos(
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> list[PedidoResumoOut]:
+    """Pedidos do usuário logado, do mais recente para o mais antigo."""
+
+    return [
+        montar_resumo(db, pedido)
+        for pedido in Pedido.listar_por_cliente(db, usuario_logado.id)
+    ]
+
+
+@router.get(
+    "/painel",
+    response_model=list[PedidoResumoOut],
+    summary="Painel de pedidos (restaurante / entregador / admin)",
+)
+def listar_painel(
+    incluir_finalizados: bool = Query(
+        default=False,
+        description="Inclui pedidos entregues e cancelados.",
+    ),
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> list[PedidoResumoOut]:
+    """Pedidos em andamento para o restaurante e o entregador movimentarem."""
+
+    exigir_operador(usuario_logado)
+
+    return [
+        montar_resumo(db, pedido)
+        for pedido in Pedido.listar_para_operacao(
+            db,
+            incluir_finalizados=incluir_finalizados,
+        )
+    ]
+
+
+@router.get(
+    "/{pedido_id}",
+    response_model=PedidoDetalheOut,
+    summary="Acompanhar pedido",
+)
+def obter_pedido(
+    pedido_id: int,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> PedidoDetalheOut:
+    """Pedido com itens, linha do tempo de status e código de entrega.
+
+    O código de entrega só é devolvido para o próprio cliente.
+    """
+
+    pedido = buscar_pedido_visivel(db, pedido_id, usuario_logado)
+
+    return montar_detalhe(db, pedido, usuario_logado)
+
+
+@router.patch(
+    "/{pedido_id}/status",
+    response_model=PedidoDetalheOut,
+    summary="Alterar status do pedido",
+)
+def alterar_status_pedido(
+    pedido_id: int,
+    dados: StatusPedidoIn,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> PedidoDetalheOut:
+    """Avança o pedido para a próxima etapa (ou cancela).
+
+    Restaurante: aceito, em_preparacao, pronto_para_entrega /
+    pronto_para_retirada e cancelado. Entregador: em_transito. Admin: todos.
+    Para "entregue" use POST /pedidos/{id}/entrega/confirmar com o código.
+    """
+
+    exigir_operador(usuario_logado)
+    pedido = buscar_pedido_visivel(db, pedido_id, usuario_logado)
+
+    problema = status_pedido.validar_transicao(
+        pedido.status,
+        dados.status,
+        pedido.tipo_entrega,
+        usuario_logado.tipo,
+    )
+
+    if problema is None and dados.status == status_pedido.ACEITO:
+        pagamento = Pagamento.buscar_por_pedido(db, pedido.id)
+        if pagamento is None or pagamento.status != "aprovado":
+            problema = "O pedido so pode ser aceito depois do pagamento aprovado."
+
+    if problema is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=problema,
+        )
+
+    pedido.alterar_status(db, dados.status, usuario_id=usuario_logado.id)
+
+    return montar_detalhe(db, pedido, usuario_logado)
+
+
+@router.post(
+    "/{pedido_id}/entrega/confirmar",
+    response_model=PedidoDetalheOut,
+    summary="Confirmar entrega com o código do cliente",
+)
+def confirmar_entrega(
+    pedido_id: int,
+    dados: ConfirmarEntregaIn,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> PedidoDetalheOut:
+    """Conclui o pedido conferindo o código que o cliente informou.
+
+    Delivery: o entregador confere quando o pedido está "em_transito".
+    Retirada: o restaurante confere quando está "pronto_para_retirada".
+    """
+
+    exigir_operador(usuario_logado)
+    pedido = buscar_pedido_visivel(db, pedido_id, usuario_logado)
+
+    problema = status_pedido.validar_confirmacao_entrega(
+        pedido.status,
+        pedido.tipo_entrega,
+        usuario_logado.tipo,
+    )
+
+    if problema is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=problema,
+        )
+
+    entrega = Entrega.obter_ou_criar(db, pedido.id)
+
+    if not status_pedido.codigo_confere(entrega.codigo_validacao, dados.codigo):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Codigo de entrega incorreto.",
+        )
+
+    pedido.alterar_status(db, status_pedido.ENTREGUE, usuario_id=usuario_logado.id)
+
+    return montar_detalhe(db, pedido, usuario_logado)

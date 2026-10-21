@@ -30,7 +30,9 @@ API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115
 | 13 | Resumo da cesta: subtotal, taxa de entrega pela distância e total | `GET /cesta/resumo` | ✅ |
 | 14 | Fechamento do pedido: valida cesta vazia, disponibilidade, quantidade, endereço e raio; copia os itens para `item_pedido`; esvazia a cesta | `POST /pedidos` | ✅ |
 | 15 | Escolha do tipo de pagamento e pagamento por cartão (gateway simulado) | `/pagamentos` | ✅ simulado |
-| 16 | Entrega, Avaliação | — | ❌ não implementado (só tabela no `sql/`) |
+| 16 | Tipo de entrega no fechamento (delivery com taxa pela distância ou retirada no balcão sem taxa) | `POST /pedidos`, `GET /cesta/resumo` | ✅ |
+| 17 | Acompanhamento do pedido: linha do tempo de status, painel do restaurante/entregador e conclusão com código de entrega | `/pedidos`, `/pedidos/painel`, `/pedidos/{id}/status`, `/pedidos/{id}/entrega/confirmar` | ✅ |
+| 18 | Avaliação | — | ❌ não implementado (só tabela no `sql/`) |
 
 Essa tabela é o inventário de referência: toda vez que uma funcionalidade nova entrar no backend, adicione uma linha aqui.
 
@@ -318,6 +320,33 @@ O `POST /pedidos` ignora `valor_total`, `taxa_entrega` e `restaurante_id` vindos
 
 Testes: `python -m pytest testes/teste_cesta.py testes/teste_fechamento_cesta.py` e as coleções `postman/Teste_*_Cesta.postman_collection.json` (inclusão, consulta, alteração, exclusão, subtotal/total e validações).
 
+## Endpoints da Sprint 3 — acompanhar entrega
+
+Antes de usar, rode o script novo no banco (também roda sozinho num banco Docker criado do zero):
+
+```bash
+psql -h localhost -U postgres -d entregafood -f sql/05_sprint3_acompanhamento.sql
+```
+
+| Método | Rota | Quem | O que faz | Retorno |
+|---|---|---|---|---|
+| `GET` | `/pedidos` | cliente | Meus pedidos, do mais recente para o mais antigo | `200` |
+| `GET` | `/pedidos/{id}` | dono do pedido, restaurante, entregador, admin | Itens, linha do tempo (`etapas`) e, só para o cliente, o `codigo_entrega` | `200` · `403` · `404` |
+| `GET` | `/pedidos/painel?incluir_finalizados=` | restaurante, entregador, admin | Pedidos em andamento | `200` · `403` |
+| `PATCH` | `/pedidos/{id}/status` | restaurante, entregador, admin | Avança para a próxima etapa (ou `cancelado`) | `200` · `400` · `403` |
+| `POST` | `/pedidos/{id}/entrega/confirmar` | entregador (delivery), restaurante (retirada), admin | Confere o código informado pelo cliente e marca `entregue` | `200` · `400` · `403` |
+
+**Fluxo de status** (`app/core/status_pedido.py`):
+
+- Delivery: `aguardando_aceite → aceito → em_preparacao → pronto_para_entrega → em_transito → entregue`
+- Retirada: `aguardando_aceite → aceito → em_preparacao → pronto_para_retirada → entregue`
+
+Regras: não dá para pular nem voltar etapas; o restaurante só aceita depois do pagamento aprovado; o restaurante aceita, prepara e deixa pronto; o entregador marca `em_transito`; `entregue` só com o código de 4 dígitos que o cliente vê na tela de acompanhamento; o pedido só pode ser cancelado em `aguardando_aceite` ou `aceito`. Cada mudança grava uma linha em `pedido_status_historico`, e o código fica em `entrega.codigo_validacao`.
+
+Para testar o painel, crie usuários com `"tipo": "restaurante"` e `"tipo": "entregador"` pelo `POST /usuarios`. Como o banco ainda não liga um restaurante ao usuário dono, qualquer usuário restaurante movimenta qualquer pedido (ver Limitações).
+
+Testes: `python -m pytest testes/teste_status_pedido.py`.
+
 ---
 
 ## Casos de teste cobertos
@@ -367,7 +396,9 @@ python testes/teste_consulta_cardapio.py
 - **Autorização em Restaurante e Produto**: só as rotas de `/usuarios` checam dono-ou-admin. `PUT`/`DELETE` de `/restaurantes/{id}` e `/produtos/{id}` ainda não exigem login — qualquer requisição altera qualquer registro pelo `id`. Funciona porque o front só deixa quem é `restaurante` chegar na tela de Produtos, mas a API em si confiaria em qualquer chamada — vale estender a mesma checagem de `usuario_controller.py` pra esses dois controllers numa próxima sprint.
 - **Pagamento**: o gateway de cartão é simulado (`app/core/pagamento_cartao.py`); ver `docs/pesquisas` para a integração real recomendada (Mercado Pago em modo de teste).
 - **Estoque**: não há coluna de estoque; no fechamento são revalidados disponibilidade e o limite de 99 unidades por produto.
-- **Entrega e Avaliação**: tabelas só no `sql/`, sem model/controller/endpoint.
+- **Dono do restaurante**: a tabela `restaurante` não tem o usuário dono, então no painel de pedidos qualquer usuário do tipo `restaurante` vê e movimenta os pedidos de todos os restaurantes. Ligar restaurante ↔ usuário resolve isso e permite filtrar o painel por restaurante.
+- **Notificação ao cliente**: a tela de acompanhamento consulta o pedido a cada 10 s; não há push/e-mail a cada mudança de status (itens 21 e 23 do Backlog).
+- **Avaliação**: tabela só no `sql/`, sem model/controller/endpoint.
 
 ---
 

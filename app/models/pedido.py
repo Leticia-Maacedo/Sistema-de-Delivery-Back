@@ -8,11 +8,14 @@ integrar o pedido ao fluxo de pagamento.
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.core.database import Base
+from app.core.status_pedido import AGUARDANDO_ACEITE, CANCELADO, ENTREGUE, EM_TRANSITO
+from app.models.entrega import Entrega
 from app.models.item_pedido import ItemPedido
+from app.models.pedido_status_historico import PedidoStatusHistorico
 
 
 class Pedido(Base):
@@ -136,6 +139,16 @@ class Pedido(Base):
                 )
             )
 
+        # Sprint 3: a entrega nasce com o codigo de validacao e a linha do
+        # tempo do pedido comeca em "aguardando_aceite".
+        db.add(Entrega.nova(pedido.id))
+        PedidoStatusHistorico.registrar(
+            db,
+            pedido_id=pedido.id,
+            status=AGUARDANDO_ACEITE,
+            alterado_por=cliente_id,
+        )
+
         sacola.esvaziar(db)
 
         db.commit()
@@ -152,6 +165,81 @@ class Pedido(Base):
 
         self.forma_pagamento = forma_pagamento
         self.atualizado_em = datetime.now()
+
+        db.commit()
+        db.refresh(self)
+
+        return self
+
+    @staticmethod
+    def listar_por_cliente(
+        db: Session,
+        cliente_id: int,
+    ) -> list["Pedido"]:
+        """Pedidos do cliente, do mais recente para o mais antigo."""
+
+        consulta = (
+            select(Pedido)
+            .where(Pedido.cliente_id == cliente_id)
+            .order_by(Pedido.criado_em.desc(), Pedido.id.desc())
+        )
+
+        return list(db.execute(consulta).scalars())
+
+    @staticmethod
+    def listar_para_operacao(
+        db: Session,
+        *,
+        incluir_finalizados: bool = False,
+    ) -> list["Pedido"]:
+        """Pedidos que o restaurante/entregador ainda precisam movimentar."""
+
+        consulta = select(Pedido).order_by(Pedido.criado_em.desc(), Pedido.id.desc())
+
+        if not incluir_finalizados:
+            consulta = consulta.where(Pedido.status.not_in([ENTREGUE, CANCELADO]))
+
+        return list(db.execute(consulta).scalars())
+
+    def alterar_status(
+        self,
+        db: Session,
+        novo_status: str,
+        *,
+        usuario_id: int,
+    ) -> "Pedido":
+        """Muda o status, registra no historico e acompanha a entrega.
+
+        As regras (ordem do fluxo, quem pode) sao conferidas antes, pelo
+        controller, com app/core/status_pedido.py.
+        """
+
+        agora = datetime.now()
+        self.status = novo_status
+        self.atualizado_em = agora
+
+        entrega = Entrega.buscar_por_pedido(db, self.id)
+
+        if entrega is not None:
+            if novo_status == EM_TRANSITO:
+                entrega.status = "em_transito"
+                entrega.entregador_id = usuario_id
+            elif novo_status == ENTREGUE:
+                entrega.status = "entregue"
+                entrega.entregue_em = agora
+            elif novo_status == CANCELADO:
+                entrega.status = "cancelada"
+            entrega.atualizado_em = agora
+
+        if novo_status == EM_TRANSITO:
+            self.entregador_id = usuario_id
+
+        PedidoStatusHistorico.registrar(
+            db,
+            pedido_id=self.id,
+            status=novo_status,
+            alterado_por=usuario_id,
+        )
 
         db.commit()
         db.refresh(self)

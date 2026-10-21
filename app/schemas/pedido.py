@@ -42,3 +42,71 @@ class PedidoOut(BaseModel):
     cupom_fiscal: str | None = None
     criado_em: datetime
     atualizado_em: datetime | None = None
+
+# ------------------------------------------------- Sprint 3 - Acompanhar Entrega
+
+
+class StatusPedidoIn(BaseModel):
+    """Novo status pedido pelo restaurante/entregador."""
+
+    status: str = Field(min_length=1, max_length=30)
+
+
+class ConfirmarEntregaIn(BaseModel):
+    """Codigo de entrega que o cliente informa ao receber o pedido."""
+
+    codigo: str = Field(min_length=4, max_length=6, pattern=r"^\s*\d{4,6}\s*$")
+
+
+class ItemPedidoOut(BaseModel):
+    """Item do pedido com o preco congelado no fechamento."""
+
+    produto_id: int
+    nome: str
+    quantidade: int
+    preco_unitario: Decimal
+    subtotal: Decimal
+
+
+class EtapaPedidoOut(BaseModel):
+    """Uma etapa da linha do tempo do pedido."""
+
+    status: str
+    rotulo: str
+    concluida: bool
+    atual: bool
+    data: datetime | None = None
+
+
+class PedidoResumoOut(BaseModel):
+    """Pedido na listagem (historico do cliente e painel de entregas)."""
+
+    id: int
+    restaurante_id: int
+    restaurante_nome: str | None
+    status: str
+    status_rotulo: str
+    tipo_entrega: str
+    forma_pagamento: str
+    valor_total: Decimal
+    quantidade_itens: int
+    criado_em: datetime
+    proximo_status: str | None = None
+    proximo_status_rotulo: str | None = None
+
+
+class PedidoDetalheOut(PedidoResumoOut):
+    """Pedido completo para a tela de acompanhamento."""
+
+    cliente_id: int
+    entregador_id: int | None = None
+    taxa_entrega: Decimal
+    subtotal: Decimal
+    atualizado_em: datetime | None = None
+    finalizado: bool
+    itens: list[ItemPedidoOut]
+    etapas: list[EtapaPedidoOut]
+    # So vai preenchido para o proprio cliente: e ele quem informa o
+    # codigo ao entregador (ou no balcao, na retirada).
+    codigo_entrega: str | None = None
+    pagamento_status: str | None = None
