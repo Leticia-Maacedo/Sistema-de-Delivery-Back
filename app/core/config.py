@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     FRETE_TAXA_MINIMA: float = 4.00
     FRETE_RAIO_MAX_KM: float = 8.0
 
+    # Notificacoes push (Web Push / VAPID) - app/core/push.py
+    # Sem as chaves, o sistema funciona normalmente e so nao envia push.
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_SUBJECT: str = "mailto:contato@entregafood.com"
+
     @property
     def cors_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

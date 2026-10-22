@@ -11,12 +11,13 @@ As regras do fluxo de status ficam em app/core/status_pedido.py.
 
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.controllers.sacola_controller import preparar_fechamento
 from app.core import status_pedido
 from app.core.database import get_db
+from app.core.notificacoes_pedido import notificar_mudanca_status, notificar_pedido_criado
 from app.core.security import obter_usuario_logado
 from app.models.entrega import Entrega
 from app.models.item_pedido import ItemPedido
@@ -206,6 +207,7 @@ def montar_detalhe(
 )
 def criar_pedido(
     dados: PedidoCriarIn,
+    tarefas: BackgroundTasks,
     db: Session = Depends(get_db),
     usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> Pedido:
@@ -235,7 +237,7 @@ def criar_pedido(
             detail=fechamento.problema,
         )
 
-    return Pedido.criar_a_partir_da_cesta(
+    pedido = Pedido.criar_a_partir_da_cesta(
         db,
         cliente_id=usuario_logado.id,
         restaurante_id=fechamento.restaurante.id,
@@ -249,6 +251,8 @@ def criar_pedido(
         ],
         sacola=fechamento.sacola,
     )
+    tarefas.add_task(notificar_pedido_criado, pedido.id)  # push ao cliente e ao restaurante
+    return pedido
 
 
 @router.get(
@@ -330,6 +334,7 @@ def obter_pedido(
 def alterar_status_pedido(
     pedido_id: int,
     dados: StatusPedidoIn,
+    tarefas: BackgroundTasks,
     db: Session = Depends(get_db),
     usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> PedidoDetalheOut:
@@ -362,6 +367,7 @@ def alterar_status_pedido(
         )
 
     pedido.alterar_status(db, dados.status, usuario_id=usuario_logado.id)
+    tarefas.add_task(notificar_mudanca_status, pedido.id)  # push a cada mudanca
 
     return montar_detalhe(db, pedido, usuario_logado)
 
@@ -374,6 +380,7 @@ def alterar_status_pedido(
 def confirmar_entrega(
     pedido_id: int,
     dados: ConfirmarEntregaIn,
+    tarefas: BackgroundTasks,
     db: Session = Depends(get_db),
     usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> PedidoDetalheOut:
@@ -420,5 +427,6 @@ def confirmar_entrega(
         )
 
     pedido.alterar_status(db, status_pedido.ENTREGUE, usuario_id=usuario_logado.id)
+    tarefas.add_task(notificar_mudanca_status, pedido.id)
 
     return montar_detalhe(db, pedido, usuario_logado)
