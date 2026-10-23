@@ -29,7 +29,7 @@ API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115
 | 12 | Cesta (incluir, consultar, alterar quantidade, excluir) com limite de 99 unidades e restaurante único | `/cesta`, `/cesta/itens` | ✅ |
 | 13 | Resumo da cesta: subtotal, taxa de entrega pela distância e total | `GET /cesta/resumo` | ✅ |
 | 14 | Fechamento do pedido: valida cesta vazia, disponibilidade, quantidade, endereço e raio; copia os itens para `item_pedido`; esvazia a cesta | `POST /pedidos` | ✅ |
-| 15 | Escolha do tipo de pagamento e pagamento por cartão (gateway simulado) | `/pagamentos` | ✅ simulado |
+| 15 | Tipo de pagamento (cartão, PIX ou dinheiro na entrega), cobrança no Asaas sandbox (cartão e PIX, com gateway simulado sem chave) e nota fiscal em PDF por e-mail | `/pagamentos` | ✅ |
 | 16 | Tipo de entrega no fechamento (delivery com taxa pela distância ou retirada no balcão sem taxa) | `POST /pedidos`, `GET /cesta/resumo` | ✅ |
 | 17 | Acompanhamento do pedido: linha do tempo de status, painel do restaurante/entregador e conclusão com código de entrega | `/pedidos`, `/pedidos/painel`, `/pedidos/{id}/status`, `/pedidos/{id}/entrega/confirmar` | ✅ |
 | 18 | Avaliação | — | ❌ não implementado (só tabela no `sql/`) |
@@ -372,6 +372,52 @@ Testes: `python -m pytest testes/teste_notificacoes_rastreio.py`.
 
 ---
 
+## Endpoints da Sprint 3 — pagamento e nota fiscal
+
+Antes de usar, rode `sql/08_sprint3_pagamento_nf.sql` no banco e configure no `.env` (e no Render) as variáveis `ASAAS_*` e `SMTP_*` (ver [Variáveis de ambiente do pagamento](#variáveis-de-ambiente-do-pagamento)). Sem elas tudo funciona: o pagamento usa o gateway **simulado** e a nota é gerada sem ser enviada por e-mail.
+
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| `PUT` | `/pagamentos/pedidos/{id}/metodo` | cliente dono | Escolhe `cartao`, `pix` ou `dinheiro` (outro valor → 422). Dinheiro já fica `a_receber` |
+| `POST` | `/pagamentos/cartao` | cliente dono | Cobra no cartão de crédito. Recusado → `status: "recusado"` com o motivo em `mensagem` e pode tentar de novo |
+| `POST` | `/pagamentos/pix` | cliente dono | Gera o PIX: `pix_qrcode` (imagem base64), `pix_copia_cola` e `pix_expira_em` |
+| `GET` | `/pagamentos/pedidos/{id}` | cliente dono, restaurante dono, admin | Consulta o pagamento; se pendente, atualiza o status no Asaas (é o "já paguei" do PIX) |
+| `POST` | `/pagamentos/pedidos/{id}/pix/simular-pagamento` | cliente dono | Marca o PIX como pago (só no gateway simulado ou no Asaas **sandbox**) |
+| `GET` | `/pagamentos/pedidos/{id}/nota-fiscal` | cliente dono, restaurante dono, admin | Baixa o PDF da nota fiscal (404 enquanto o pagamento não for aprovado) |
+
+**Regras** (`app/core/pagamento_regras.py`):
+
+- O mesmo tipo `MetodoPagamento = Literal["cartao", "pix", "dinheiro"]` vale em `POST /pedidos` (`forma_pagamento`) e em `PUT /pagamentos/pedidos/{id}/metodo`.
+- Status do pagamento: `pendente` (PIX aguardando), `aprovado`, `recusado`, `a_receber` (dinheiro), `expirado`, `cancelado` (método trocado) e `estornado`.
+- **Aceite do restaurante**: só com pagamento `aprovado` (cartão e PIX) ou `a_receber` (dinheiro na entrega — regra definida com o grupo).
+- **Dinheiro**: não passa pelo gateway. Quando o entregador (ou o balcão) confirma a entrega com o código, o pagamento vira `aprovado` e a nota é emitida.
+- Trocar o método só antes do aceite; a cobrança anterior ainda não paga (ex.: PIX pendente) é cancelada no Asaas.
+- O número do cartão vai direto para o Asaas e **não é gravado** no banco nem no log.
+
+**Asaas** (`app/core/pagamento_asaas.py`, cliente HTTP com `httpx`): busca/cria o cliente pelo CPF (`/customers`), cria a cobrança (`/payments`, `CREDIT_CARD` ou `PIX`), busca o QR Code (`/payments/{id}/pixQrCode`) e consulta o status (`/payments/{id}`). O id da cobrança fica em `pagamento.transacao_externa_id`. Com o Asaas ativo o cliente precisa informar CPF (e, no cartão, CEP, número do endereço e telefone; o e-mail vem do cadastro). `app/core/pagamento_gateway.py` escolhe Asaas ou simulado pela `ASAAS_API_KEY`.
+
+Cartões de teste: `5162306219378829` (aprovado, qualquer validade futura e CVV) e `5184019740373151` (recusado). O gateway simulado também recusa o cartão `5184019740373151`, então o Postman testa os dois casos com ou sem o Asaas.
+
+**Nota fiscal** (`app/core/nota_fiscal.py`): simulada (sem valor fiscal, não passa pela SEFAZ). Quando o pagamento é aprovado, o número (`NF-<ano>-<pedido>`) é gravado em `pedido.cupom_fiscal` e, em segundo plano (`BackgroundTasks`), o PDF é gerado com restaurante, cliente, itens com o preço do momento, taxa, total e forma de pagamento, e enviado por e-mail (`app/core/email.py`). Sem SMTP só registra no log; erro no e-mail nunca afeta o pagamento. O PDF é refeito a cada download a partir do banco.
+
+Testes: `python -m pytest testes/teste_pagamento.py testes/teste_pagamento_api.py` (sem banco: o segundo usa SQLite em memória e o gateway simulado) e a coleção [`postman/Teste_Pagamento.postman_collection.json`](postman/Teste_Pagamento.postman_collection.json) (cartão aprovado e recusado, PIX, dinheiro, método inválido, outro cliente, nota fiscal e sem login).
+
+### Variáveis de ambiente do pagamento
+
+| Variável | Exemplo | Para que serve |
+|---|---|---|
+| `ASAAS_API_KEY` | `$aact_...` (sandbox) | Chave do Asaas (sandbox.asaas.com → Integrações → Chave de API). Vazia = gateway simulado |
+| `ASAAS_BASE_URL` | `https://api-sandbox.asaas.com/v3` | API do Asaas (sandbox) |
+| `SMTP_HOST` | `smtp.gmail.com` | Servidor de e-mail. Vazio = não envia a nota |
+| `SMTP_PORTA` | `587` | 587 (STARTTLS) ou 465 (SSL) |
+| `SMTP_USUARIO` | `entregafood.grupo@gmail.com` | Login do SMTP |
+| `SMTP_SENHA` | senha de app do Gmail | Senha do SMTP (no Gmail, "senha de app") |
+| `SMTP_REMETENTE` | `EntregaFood <entregafood.grupo@gmail.com>` | Remetente do e-mail |
+
+Nenhuma dessas chaves vai para o Git: só no `.env` local e nas variáveis de ambiente do Render.
+
+---
+
 ## Casos de teste cobertos
 
 | ID | Caso | Verificação |
@@ -417,7 +463,8 @@ python testes/teste_consulta_cardapio.py
 - **Login social (Google/Facebook)**: implementado (`/auth/google`, `/auth/facebook` + callback). Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Pra demonstração, o caminho garantido continua sendo e-mail/senha.
 - **Verificação por SMS**: o OTP de telefone (`/auth/telefone/*`) gera e valida o código no próprio backend, mas não envia SMS de verdade — o endpoint devolve o código em `codigo_dev` pra facilitar teste/demonstração. Integração real com Twilio foi avaliada, mas a conta trial não permite nem buscar números disponíveis sem upgrade (cartão de crédito).
 - **Autorização em Restaurante e Produto**: só as rotas de `/usuarios` checam dono-ou-admin. `PUT`/`DELETE` de `/restaurantes/{id}` e `/produtos/{id}` ainda não exigem login — qualquer requisição altera qualquer registro pelo `id`. Funciona porque o front só deixa quem é `restaurante` chegar na tela de Produtos, mas a API em si confiaria em qualquer chamada — vale estender a mesma checagem de `usuario_controller.py` pra esses dois controllers numa próxima sprint.
-- **Pagamento**: o gateway de cartão é simulado (`app/core/pagamento_cartao.py`); ver `docs/pesquisas` para a integração real recomendada (Mercado Pago em modo de teste).
+- **Pagamento**: cartão e PIX vão para o Asaas **sandbox** (sem dinheiro de verdade). Não há webhook (o status do PIX é atualizado na consulta) nem estorno automático quando um pedido pago é cancelado. Débito, parcelamento e Mercado Pago ficaram de fora.
+- **Nota fiscal**: simulada em PDF; a emissão real (NFC-e pela SEFAZ) é o item 28 do Backlog.
 - **Estoque**: não há coluna de estoque; no fechamento são revalidados disponibilidade e o limite de 99 unidades por produto.
 - **Dono do restaurante**: a tabela `restaurante` não tem o usuário dono, então no painel de pedidos qualquer usuário do tipo `restaurante` vê e movimenta os pedidos de todos os restaurantes. Ligar restaurante ↔ usuário resolve isso e permite filtrar o painel por restaurante.
 - **Notificação ao cliente**: a tela de acompanhamento consulta o pedido a cada 10 s; não há push/e-mail a cada mudança de status (itens 21 e 23 do Backlog).
