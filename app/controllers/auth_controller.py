@@ -548,10 +548,16 @@ def confirmar_cadastro_telefone(
             ),
         )
 
+    if dados.email and Usuario.email_ja_cadastrado(db, dados.email):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Já existe uma conta cadastrada com este e-mail.",
+        )
+
     usuario = Usuario.criar(
         db,
         nome=dados.nome,
-        email=None,
+        email=dados.email,
         senha_hash=gerar_hash_senha(dados.senha),
         telefone=telefone,
         tipo=dados.tipo,

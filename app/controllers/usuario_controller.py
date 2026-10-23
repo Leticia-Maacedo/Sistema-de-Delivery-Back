@@ -19,9 +19,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import gerar_hash_senha, obter_usuario_logado
+from app.core.security import gerar_hash_senha, obter_usuario_logado, verificar_senha
 from app.models.usuario import Usuario
-from app.schemas.usuario import UsuarioCreate, UsuarioOut, UsuarioUpdate
+from app.schemas.usuario import SenhaUpdate, UsuarioCreate, UsuarioOut, UsuarioUpdate
 
 router = APIRouter(prefix="/usuarios", tags=["Usuários"])
 
@@ -149,6 +149,36 @@ def atualizar_usuario(
         )
 
     return usuario.atualizar(db, **dados.model_dump(exclude_unset=True))
+
+
+@router.put(
+    "/{usuario_id}/senha",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Alterar senha",
+)
+def alterar_senha(
+    usuario_id: int,
+    dados: SenhaUpdate,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> None:
+    """Troca a senha do proprio usuario (confere a senha atual antes)."""
+
+    if usuario_id != usuario_logado.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você só pode alterar a sua própria senha.",
+        )
+
+    usuario = Usuario.buscar_por_id(db, usuario_id)
+    if usuario.senha_hash and not verificar_senha(dados.senha_atual or "", usuario.senha_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Senha atual incorreta.",
+        )
+
+    usuario.senha_hash = gerar_hash_senha(dados.senha_nova)
+    db.commit()
 
 
 # ---------------------------------------------------------------- DELETE
