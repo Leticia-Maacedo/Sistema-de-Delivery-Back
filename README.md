@@ -354,6 +354,24 @@ Testes: `python -m pytest testes/teste_status_pedido.py`.
 
 ---
 
+## Endpoints da Sprint 3 — notificações push e rastreio da entrega
+
+Antes de usar, rode `sql/07_sprint3_push.sql` no banco e configure `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT` no `.env` (e no Render). Sem as chaves, tudo funciona, só não envia push.
+
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| `GET` | `/notificacoes/chave-publica` | qualquer um | Chave pública VAPID para o navegador se inscrever |
+| `POST` | `/notificacoes/inscricao` | logado | Ativa as notificações neste navegador (`PushSubscription` do navegador) |
+| `DELETE` | `/notificacoes/inscricao` | logado | Desativa as notificações neste navegador |
+| `GET` | `/pedidos/{id}/rastreio` | dono, restaurante dono, entregador, admin | Restaurante, destino e posição do entregador, com link do Google Maps |
+| `PATCH` | `/pedidos/{id}/entrega/localizacao` | entregador que saiu com o pedido | Envia a posição atual (só com o pedido em trânsito) |
+
+**Quem recebe push** (`app/core/notificacoes_pedido.py`, enviado em segundo plano, nunca quebra o pedido): pedido criado → cliente e restaurante dono; cada mudança de status → cliente; `pronto_para_entrega` (delivery) → todos os entregadores. Usa Web Push padrão (`pywebpush`), sem depender de conta em serviço externo.
+
+Testes: `python -m pytest testes/teste_notificacoes_rastreio.py`.
+
+---
+
 ## Casos de teste cobertos
 
 | ID | Caso | Verificação |
