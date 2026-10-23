@@ -123,6 +123,9 @@ class ConfirmarCadastroTelefoneRequest(BaseModel):
         min_length=3,
         max_length=120,
     )
+    # E-mail informado na tela de cadastro: permite entrar por e-mail e
+    # receber a nota fiscal. Opcional (o cadastro e pelo telefone).
+    email: EmailStr | None = None
     telefone: str = Field(
         min_length=10,
         max_length=20,

@@ -4,7 +4,8 @@ Roda a API de verdade (TestClient) com SQLite em memoria.
 
 Cobre: o pedido grava o endereco escolhido na cesta; o rastreio continua
 apontando para ele mesmo depois que o cliente exclui o endereco; troca de
-senha (senha atual errada, certa e de outra conta); alteracao dos dados.
+senha (senha atual errada, certa e de outra conta); alteracao dos dados;
+cadastro por telefone guardando o e-mail informado.
 
 Executar:  python -m pytest testes/teste_conta_enderecos.py -v
 """
@@ -18,6 +19,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.controllers import auth_controller
 from app.core import notificacoes_pedido
 from app.core.database import Base, get_db
 from app.core.security import gerar_hash_senha, obter_usuario_logado, verificar_senha
@@ -181,3 +183,35 @@ def test_conta_sem_senha_define_a_primeira(ambiente):
     r = api.put(f"/usuarios/{ids['outro']}/senha", json={"senha_nova": "primeira1"})
     assert r.status_code == 204
     assert verificar_senha("primeira1", ambiente["ler"](Usuario, ids["outro"]).senha_hash)
+
+
+class _RelogioSemFuso(datetime):
+    """SQLite nao guarda fuso: o teste usa horas sem fuso no auth_controller."""
+
+    @classmethod
+    def now(cls, tz=None):
+        return datetime.now()
+
+
+def _cadastro_por_telefone(api, telefone, email):
+    r = api.post("/auth/telefone/cadastro/solicitar-codigo",
+                 json={"nome": "Nova Pessoa", "telefone": telefone, "senha": "senha123"})
+    assert r.status_code == 200, r.text
+    return api.post("/auth/telefone/cadastro/confirmar",
+                    json={"nome": "Nova Pessoa", "telefone": telefone, "senha": "senha123",
+                          "codigo": str(r.json()["codigo_dev"]), "email": email})
+
+
+def test_cadastro_por_telefone_grava_o_email(ambiente, monkeypatch):
+    monkeypatch.setattr(auth_controller, "datetime", _RelogioSemFuso)
+    r = _cadastro_por_telefone(ambiente["api"], "11977776666", "nova@teste.com")
+    assert r.status_code == 200, r.text
+    assert r.json()["usuario"]["email"] == "nova@teste.com"
+    login = ambiente["api"].post("/auth/login", json={"email": "nova@teste.com", "senha": "senha123"})
+    assert login.status_code == 200
+
+
+def test_cadastro_por_telefone_com_email_de_outra_conta(ambiente, monkeypatch):
+    monkeypatch.setattr(auth_controller, "datetime", _RelogioSemFuso)
+    r = _cadastro_por_telefone(ambiente["api"], "11966665555", "cliente@teste.com")
+    assert r.status_code == 409 and "e-mail" in r.json()["detail"]

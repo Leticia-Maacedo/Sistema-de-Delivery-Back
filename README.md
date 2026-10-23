@@ -425,6 +425,7 @@ Antes de usar, rode `sql/09_sprint3_conta_enderecos.sql` no banco (junto com o d
 | Método | Rota | Quem | O que faz |
 |---|---|---|---|
 | `PUT` | `/usuarios/{id}` | o próprio usuário ou admin | Altera nome, e-mail e telefone (e-mail/telefone de outra conta → `409`) |
+| `POST` | `/auth/telefone/cadastro/confirmar` | visitante | Agora também grava o `email` informado no cadastro (e-mail de outra conta → `409`), para entrar por e-mail e receber a nota fiscal |
 | `PUT` | `/usuarios/{id}/senha` | o próprio usuário | Troca a senha: confere `senha_atual` (errada → `400`); conta do Google/Facebook sem senha define a primeira |
 | `GET` | `/locais?usuario_id={id}` | — | Endereços do cliente ("Meus endereços") |
 | `POST` / `PUT` / `DELETE` | `/locais` | — | Cadastrar, alterar e excluir endereço |
