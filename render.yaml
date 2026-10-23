@@ -1,0 +1,81 @@
+# Publicacao da API no Render (plano gratuito), com o banco no Neon.
+# Render > New > Blueprint > escolher este repositorio: o Render le este
+# arquivo e cria o servico. Passo a passo no README ("Publicar a API no Render").
+#
+# Cada merge na DEV publica a API sozinho (autoDeploy).
+# As variaveis com `sync: false` sao segredos: o Render pede o valor na
+# criacao do Blueprint e eles nunca ficam no Git.
+services:
+  - type: web
+    runtime: docker
+    name: entregafood-api
+    plan: free
+    region: ohio            # mesma regiao do Neon (AWS us-east-2)
+    branch: DEV
+    autoDeploy: true
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    pullRequestPreviewsEnabled: false
+    envVars:
+      # O Dockerfile sobe o uvicorn na porta 8000.
+      - key: PORT
+        value: "8000"
+
+      # Banco Neon: postgresql+psycopg://usuario:senha@host/neondb?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+
+      # Login (JWT): o Render gera uma chave aleatoria.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_EXPIRE_MINUTES
+        value: "600"
+
+      # Front publicado (CORS e retorno do login social).
+      - key: CORS_ORIGINS
+        value: https://entregafood-front.onrender.com,http://localhost:5173
+      - key: FRONTEND_URL
+        value: https://entregafood-front.onrender.com
+
+      # Notificacoes push. A chave publica pode ficar aqui; a privada nao.
+      - key: VAPID_PUBLIC_KEY
+        value: BO8s0T8CYjZ-zUMKxwBET_mBJqvvxRIlB2wdR5IXvKDuwBJqGrkhaNCWg8DugGxNWmG7S97YzfZrkyepvBtyJXU
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:contato@entregafood.com
+
+      # Pagamento (Asaas sandbox). Sem a chave, o pagamento fica simulado.
+      - key: ASAAS_API_KEY
+        sync: false
+      - key: ASAAS_BASE_URL
+        value: https://api-sandbox.asaas.com/v3
+
+      # E-mail da nota fiscal (Brevo). Sem SMTP_HOST, a nota so nao e enviada.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORTA
+        value: "2525"
+      - key: SMTP_USUARIO
+        sync: false
+      - key: SMTP_SENHA
+        sync: false
+      - key: SMTP_REMETENTE
+        sync: false
+
+      # Login com Google e Facebook (opcional). As URLs de retorno abaixo
+      # precisam estar cadastradas no Google Cloud e no Meta for Developers.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://entregafood-api.onrender.com/auth/google/callback
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+      - key: FACEBOOK_REDIRECT_URI
+        value: https://entregafood-api.onrender.com/auth/facebook/callback
