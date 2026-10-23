@@ -5,6 +5,7 @@ administracao), aqui o formato do JSON e o que o app do cliente precisa
 pra montar a tela de navegacao e o cardapio: dados do restaurante ja
 com o endereco embutido e a lista de itens disponiveis.
 """
+from datetime import time
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
@@ -30,6 +31,11 @@ class RestauranteConsultaOut(BaseModel):
     status_aprovacao: str
     taxa_entrega_km: Decimal
     local: LocalResumoOut
+    # Funcionamento: o cliente ve "Fechado" e nao consegue fechar o pedido.
+    ativo: bool = True
+    aberto: bool = True
+    horario_abertura: time | None = None
+    horario_fechamento: time | None = None
 
 
 class ItemCardapioOut(BaseModel):

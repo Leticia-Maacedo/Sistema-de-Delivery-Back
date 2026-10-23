@@ -437,6 +437,23 @@ Nenhuma dessas chaves vai para o Git: só no `.env` local e nas variáveis de am
 
 ---
 
+## Endpoints da Sprint 3 — Portal do Parceiro (gestão do restaurante)
+
+Antes de usar, rode `sql/10_sprint3_gestao_restaurante.sql` no banco (pode ser antes do deploy: só acrescenta colunas com padrão). Todas as rotas exigem login de **restaurante** (outro tipo → `403`) e só enxergam o restaurante do próprio dono.
+
+| Método | Rota | O que faz |
+|---|---|---|
+| `GET` | `/parceiro/restaurante` | Meu restaurante, com endereço, raio, horário e se está aberto agora (`404` se ainda não cadastrou) |
+| `POST` | `/parceiro/restaurante` | Cadastra o restaurante do dono (nasce **pendente**; o admin aprova em `PUT /restaurantes/{id}`). Um por dono; CNPJ único (`409`) |
+| `PUT` | `/parceiro/restaurante` | Altera dados, endereço, `raio_entrega_km`, `horario_abertura`/`horario_fechamento` e `ativo` (pausar). `null` limpa raio e horário |
+| `GET` | `/parceiro/resumo` | Números reais do dia: pedidos, faturamento, ticket médio, pendentes, em andamento, itens ativos |
+| `GET` / `POST` | `/parceiro/produtos` | Cardápio do dono: listar e incluir item |
+| `PUT` / `DELETE` | `/parceiro/produtos/{id}` | Alterar (preço, descrição, disponível) e excluir. Item que já aparece em pedidos não é excluído (`409`): desative |
+
+Regras novas no fechamento da cesta: restaurante **pausado** ou **fora do horário** não recebe pedidos; o raio de entrega é o do restaurante (sem ele, `FRETE_RAIO_MAX_KM`). **Só conta de cliente compra**: cesta e `POST /pedidos` com restaurante ou entregador → `403`. Testes: `python -m pytest testes/teste_gestao_restaurante.py -v`.
+
+---
+
 ## Endpoints da Sprint 3 — minha conta e endereços
 
 Antes de usar, rode `sql/09_sprint3_conta_enderecos.sql` no banco (junto com o deploy da API).
