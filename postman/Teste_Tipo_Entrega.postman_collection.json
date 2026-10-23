@@ -1,0 +1,1481 @@
+{
+  "info": {
+    "name": "EntregaFood — Teste: tipo de entrega no fechamento do pedido",
+    "description": "Teste da escolha entre entrega (delivery) e retirada no balcão: resumo da cesta (GET /cesta/resumo?tipo_entrega=) e criação do pedido (POST /pedidos). Rode a coleção inteira em ordem. Única variável a ajustar: base_url.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://entregafood-back-dev.onrender.com"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Preparação",
+      "item": [
+        {
+          "name": "00.1 Cliente A (com endereço a 2,6 km)",
+          "item": [
+            {
+              "name": "Cadastrar cliente A",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/usuarios",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "usuarios"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nome\": \"Teste cliente A\",\n  \"email\": \"{{email_a}}\",\n  \"senha\": \"{{senha_a}}\",\n  \"tipo\": \"cliente\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const sufixo = Date.now() + '' + Math.floor(Math.random() * 1000);",
+                      "pm.collectionVariables.set('sufixo', sufixo);",
+                      "pm.collectionVariables.set('email_a', `teste.tipo.a.${pm.collectionVariables.get('sufixo')}@entregafood.com`);",
+                      "pm.collectionVariables.set('senha_a', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('id_a', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login cliente A",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_a}}\",\n  \"senha\": \"{{senha_a}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_a', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cadastrar endereço do cliente A",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/locais",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "locais"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuario_id\": \"{{id_a}}\",\n  \"endereco\": \"Praça da Sé, 1 - Sé, São Paulo\",\n  \"tipo\": \"casa\",\n  \"latitude\": \"-23.550520\",\n  \"longitude\": \"-46.633308\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.2 Cliente B (sem endereço)",
+          "item": [
+            {
+              "name": "Cadastrar cliente B",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/usuarios",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "usuarios"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nome\": \"Teste cliente B\",\n  \"email\": \"{{email_b}}\",\n  \"senha\": \"{{senha_b}}\",\n  \"tipo\": \"cliente\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('email_b', `teste.tipo.b.${pm.collectionVariables.get('sufixo')}@entregafood.com`);",
+                      "pm.collectionVariables.set('senha_b', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('id_b', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login cliente B",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_b}}\",\n  \"senha\": \"{{senha_b}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_b', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.3 Cliente C (endereço em Campinas, fora do raio)",
+          "item": [
+            {
+              "name": "Cadastrar cliente C",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/usuarios",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "usuarios"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nome\": \"Teste cliente C\",\n  \"email\": \"{{email_c}}\",\n  \"senha\": \"{{senha_c}}\",\n  \"tipo\": \"cliente\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('email_c', `teste.tipo.c.${pm.collectionVariables.get('sufixo')}@entregafood.com`);",
+                      "pm.collectionVariables.set('senha_c', 'Tst' + Math.random().toString(36).slice(2, 12));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('id_c', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login cliente C",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_c}}\",\n  \"senha\": \"{{senha_c}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_c', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cadastrar endereço do cliente C",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_c}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/locais",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "locais"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuario_id\": \"{{id_c}}\",\n  \"endereco\": \"Rua Barão de Jaguara, 1000 - Centro, Campinas\",\n  \"tipo\": \"casa\",\n  \"latitude\": \"-22.905600\",\n  \"longitude\": \"-47.060800\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.4 Restaurante e produto",
+          "item": [
+            {
+              "name": "Restaurante aprovado",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/consultas/restaurantes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "consultas",
+                    "restaurantes"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const r = pm.response.json().find(x => x.nome_fantasia === 'Burger da Paulista') || pm.response.json()[0];",
+                      "pm.test('Restaurante aprovado encontrado', () => pm.expect(r).to.be.an('object'));",
+                      "pm.collectionVariables.set('restaurante_id', r.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Produto do cardápio",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "consultas",
+                    "restaurantes",
+                    "{{restaurante_id}}",
+                    "cardapio"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const itens = pm.response.json().itens;",
+                      "pm.test('Cardápio com itens', () => pm.expect(itens.length).to.be.above(0));",
+                      "pm.collectionVariables.set('produto_id', itens[0].id);",
+                      "pm.collectionVariables.set('produto_preco', itens[0].preco);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.5 Cestas com 2 unidades",
+          "item": [
+            {
+              "name": "Adicionar produto na cesta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Adicionar produto na cesta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_b}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Adicionar produto na cesta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_c}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Casos de teste",
+      "item": [
+        {
+          "name": "CT-01 Resumo com entrega (delivery)",
+          "item": [
+            {
+              "name": "Resumo delivery",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/resumo?tipo_entrega=delivery",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "resumo"
+                  ],
+                  "query": [
+                    {
+                      "key": "tipo_entrega",
+                      "value": "delivery"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const r = pm.response.json();",
+                      "pm.test('tipo_entrega = delivery', () => pm.expect(r.tipo_entrega).to.eql('delivery'));",
+                      "pm.test('Taxa maior que zero', () => pm.expect(Number(r.taxa_entrega)).to.be.above(0));",
+                      "pm.test('Distância calculada', () => pm.expect(Number(r.distancia_km)).to.be.above(0));",
+                      "pm.test('Total = subtotal + taxa', () => pm.expect(Number(r.total)).to.be.closeTo(Number(r.subtotal) + Number(r.taxa_entrega), 0.001));",
+                      "pm.test('Pode fechar', () => pm.expect(r.pode_fechar).to.be.true);",
+                      "pm.collectionVariables.set('taxa_delivery', r.taxa_entrega);",
+                      "pm.collectionVariables.set('total_delivery', r.total);",
+                      "pm.collectionVariables.set('subtotal', r.subtotal);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-02 Resumo com retirada no balcão",
+          "item": [
+            {
+              "name": "Resumo retirada",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/resumo?tipo_entrega=retirada",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "resumo"
+                  ],
+                  "query": [
+                    {
+                      "key": "tipo_entrega",
+                      "value": "retirada"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const r = pm.response.json();",
+                      "pm.test('tipo_entrega = retirada', () => pm.expect(r.tipo_entrega).to.eql('retirada'));",
+                      "pm.test('Taxa = 0.00', () => pm.expect(Number(r.taxa_entrega)).to.eql(0));",
+                      "pm.test('Sem distância', () => pm.expect(r.distancia_km).to.be.null);",
+                      "pm.test('Total = subtotal', () => pm.expect(r.total).to.eql(r.subtotal));",
+                      "pm.test('Mesmo subtotal do delivery', () => pm.expect(r.subtotal).to.eql(pm.collectionVariables.get('subtotal')));",
+                      "pm.test('Pode fechar', () => pm.expect(r.pode_fechar).to.be.true);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-03 Sem informar o tipo usa delivery",
+          "item": [
+            {
+              "name": "Resumo sem tipo",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/resumo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "resumo"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Padrão = delivery', () => pm.expect(pm.response.json().tipo_entrega).to.eql('delivery'));",
+                      "pm.test('Mesma taxa do CT-01', () => pm.expect(pm.response.json().taxa_entrega).to.eql(pm.collectionVariables.get('taxa_delivery')));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-04 Tipo de entrega inválido no resumo",
+          "item": [
+            {
+              "name": "Resumo tipo 'drone'",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/resumo?tipo_entrega=drone",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "resumo"
+                  ],
+                  "query": [
+                    {
+                      "key": "tipo_entrega",
+                      "value": "drone"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-05 Retirada não exige endereço",
+          "item": [
+            {
+              "name": "Cliente B: resumo retirada",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_b}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/resumo?tipo_entrega=retirada",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "resumo"
+                  ],
+                  "query": [
+                    {
+                      "key": "tipo_entrega",
+                      "value": "retirada"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Pode fechar sem endereço', () => pm.expect(pm.response.json().pode_fechar).to.be.true);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente B: resumo delivery",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_b}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/resumo?tipo_entrega=delivery",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "resumo"
+                  ],
+                  "query": [
+                    {
+                      "key": "tipo_entrega",
+                      "value": "delivery"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const r = pm.response.json();",
+                      "pm.test('Não pode fechar', () => pm.expect(r.pode_fechar).to.be.false);",
+                      "pm.test('Motivo: cadastrar endereço', () => pm.expect(r.motivo).to.include('endereco'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-06 Delivery fora do raio, retirada liberada",
+          "item": [
+            {
+              "name": "Cliente C: resumo delivery",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_c}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/resumo?tipo_entrega=delivery",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "resumo"
+                  ],
+                  "query": [
+                    {
+                      "key": "tipo_entrega",
+                      "value": "delivery"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const r = pm.response.json();",
+                      "pm.test('Não pode fechar', () => pm.expect(r.pode_fechar).to.be.false);",
+                      "pm.test('Motivo: fora do raio', () => pm.expect(r.motivo).to.include('nao entrega'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente C: resumo retirada",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_c}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/resumo?tipo_entrega=retirada",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "resumo"
+                  ],
+                  "query": [
+                    {
+                      "key": "tipo_entrega",
+                      "value": "retirada"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Pode fechar', () => pm.expect(pm.response.json().pode_fechar).to.be.true);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente C: pedido delivery recusado",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_c}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));",
+                      "pm.test('Motivo: fora do raio', () => pm.expect(pm.response.json().detail).to.include('nao entrega'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-07 Pedido com retirada",
+          "item": [
+            {
+              "name": "Criar pedido retirada",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"retirada\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "const p = pm.response.json();",
+                      "pm.test('tipo_entrega = retirada', () => pm.expect(p.tipo_entrega).to.eql('retirada'));",
+                      "pm.test('Taxa = 0.00', () => pm.expect(Number(p.taxa_entrega)).to.eql(0));",
+                      "pm.test('Total = subtotal do resumo', () => pm.expect(p.valor_total).to.eql(pm.collectionVariables.get('subtotal')));",
+                      "pm.collectionVariables.set('pedido_retirada', p.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cesta esvaziada",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Zero itens', () => pm.expect(pm.response.json().itens.length).to.eql(0));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-08 Pedido com entrega",
+          "item": [
+            {
+              "name": "Adicionar produto de novo",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Criar pedido delivery",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "description": "valor_total e taxa_entrega enviados pelo front devem ser ignorados.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\",\n  \"valor_total\": 1,\n  \"taxa_entrega\": 0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "const p = pm.response.json();",
+                      "pm.test('tipo_entrega = delivery', () => pm.expect(p.tipo_entrega).to.eql('delivery'));",
+                      "pm.test('Taxa = taxa do resumo (ignora a do front)', () => pm.expect(p.taxa_entrega).to.eql(pm.collectionVariables.get('taxa_delivery')));",
+                      "pm.test('Total = total do resumo (ignora o do front)', () => pm.expect(p.valor_total).to.eql(pm.collectionVariables.get('total_delivery')));",
+                      "pm.collectionVariables.set('pedido_delivery', p.id);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-09 Tipo de entrega inválido no pedido",
+          "item": [
+            {
+              "name": "Adicionar produto de novo",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Criar pedido tipo 'drone'",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"drone\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-10 Etapas do acompanhamento conforme o tipo",
+          "item": [
+            {
+              "name": "Pedido retirada: etapas",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{pedido_retirada}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{pedido_retirada}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const s = pm.response.json().etapas.map(e => e.status);",
+                      "pm.test('5 etapas', () => pm.expect(s.length).to.eql(5));",
+                      "pm.test('Tem pronto_para_retirada e não tem em_transito', () => { pm.expect(s).to.include('pronto_para_retirada'); pm.expect(s).to.not.include('em_transito'); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido delivery: etapas",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{pedido_delivery}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{pedido_delivery}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const s = pm.response.json().etapas.map(e => e.status);",
+                      "pm.test('6 etapas', () => pm.expect(s.length).to.eql(6));",
+                      "pm.test('Tem pronto_para_entrega e em_transito', () => { pm.expect(s).to.include('pronto_para_entrega'); pm.expect(s).to.include('em_transito'); });"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-11 Sem login",
+          "item": [
+            {
+              "name": "Resumo sem token",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/cesta/resumo?tipo_entrega=retirada",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "resumo"
+                  ],
+                  "query": [
+                    {
+                      "key": "tipo_entrega",
+                      "value": "retirada"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('401', () => pm.response.to.have.status(401));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido sem token",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"retirada\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('401', () => pm.response.to.have.status(401));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

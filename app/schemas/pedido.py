@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.pagamento import MetodoPagamento
+
 
 class PedidoCriarIn(BaseModel):
     """Dados necessários para criar um pedido a partir da cesta.
@@ -17,7 +19,7 @@ class PedidoCriarIn(BaseModel):
     mas são ignorados.
     """
 
-    forma_pagamento: str = Field(min_length=1, max_length=20)
+    forma_pagamento: MetodoPagamento
     tipo_entrega: Literal["delivery", "retirada"] = "delivery"
     local_id: int | None = None
     restaurante_id: int | None = None
@@ -110,3 +112,5 @@ class PedidoDetalheOut(PedidoResumoOut):
     # codigo ao entregador (ou no balcao, na retirada).
     codigo_entrega: str | None = None
     pagamento_status: str | None = None
+    # Numero da nota fiscal (emitida quando o pagamento e aprovado).
+    nota_fiscal: str | None = None

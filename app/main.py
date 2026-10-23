@@ -1,4 +1,4 @@
-﻿"""Ponto de entrada da API EntregaFood.
+"""Ponto de entrada da API EntregaFood.
 
 Arquitetura MVC:
     app/models/       -> MODEL      (SQLAlchemy + regras de negocio)
@@ -14,7 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.controllers import (
     auth_controller,
     consulta_controller,
+    entrega_controller,
     local_controller,
+    notificacao_controller,
     pagamento_controller,
     pedido_controller,
     produto_controller,
@@ -44,6 +46,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],  # nome do PDF da nota fiscal
 )
 
 app.include_router(usuario_controller.router)
@@ -55,6 +58,8 @@ app.include_router(consulta_controller.router)
 app.include_router(sacola_controller.router)
 app.include_router(pedido_controller.router)
 app.include_router(pagamento_controller.router)
+app.include_router(entrega_controller.router)
+app.include_router(notificacao_controller.router)
 
 
 @app.get("/", tags=["Status"], summary="VerificaÃ§Ã£o de saÃºde da API")
