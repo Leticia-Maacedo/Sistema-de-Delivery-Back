@@ -9,6 +9,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.frete import calcular_taxa_entrega, entrega_no_raio, medir_distancia
 from app.core.security import obter_usuario_logado
@@ -239,8 +240,11 @@ def preparar_fechamento(
     fechamento.metodo_distancia = distancia.metodo
 
     if not entrega_no_raio(distancia.km):
+        # Numeros no formato brasileiro: "15,4 km" (e nao "15.363 km").
+        limite = get_settings().FRETE_RAIO_MAX_KM
         fechamento.problema = (
-            f"O restaurante nao entrega neste endereco ({distancia.km} km)."
+            f"O restaurante nao entrega neste endereco: fica a "
+            f"{float(distancia.km):.1f} km e o limite e de {limite:.0f} km.".replace(".", ",", 1)
         )
         return fechamento
 
