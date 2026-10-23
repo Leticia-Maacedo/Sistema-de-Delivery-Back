@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.frete import calcular_taxa_entrega, entrega_no_raio, medir_distancia
-from app.core.security import obter_usuario_logado
+from app.core.security import exigir_cliente
 from app.models.local import Local
 from app.models.produto import Produto
 from app.models.restaurante import APROVADO, Restaurante
@@ -225,6 +225,10 @@ def preparar_fechamento(
         fechamento.problema = "O restaurante desta cesta nao esta disponivel para pedidos."
         return fechamento
 
+    if not restaurante.aberto_agora():
+        fechamento.problema = restaurante.motivo_fechado()
+        return fechamento
+
     if tipo_entrega == "retirada":
         return fechamento  # retirada no balcao: sem taxa de entrega
 
@@ -239,9 +243,10 @@ def preparar_fechamento(
     fechamento.distancia_km = distancia.km
     fechamento.metodo_distancia = distancia.metodo
 
-    if not entrega_no_raio(distancia.km):
+    # Raio definido pelo restaurante; sem ele, o limite da plataforma.
+    limite = float(restaurante.raio_entrega_km or get_settings().FRETE_RAIO_MAX_KM)
+    if not entrega_no_raio(distancia.km, limite):
         # Numeros no formato brasileiro: "15,4 km" (e nao "15.363 km").
-        limite = get_settings().FRETE_RAIO_MAX_KM
         fechamento.problema = (
             f"O restaurante nao entrega neste endereco: fica a "
             f"{float(distancia.km):.1f} km e o limite e de {limite:.0f} km.".replace(".", ",", 1)
@@ -301,7 +306,7 @@ def montar_resposta_cesta(
 )
 def consultar_cesta(
     db: Session = Depends(get_db),
-    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    usuario_logado: Usuario = Depends(exigir_cliente),
 ) -> SacolaOut:
     """Consulta a cesta do usuario autenticado."""
 
@@ -332,7 +337,7 @@ def resumo_cesta(
     ),
     tipo_entrega: Literal["delivery", "retirada"] = Query(default="delivery"),
     db: Session = Depends(get_db),
-    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    usuario_logado: Usuario = Depends(exigir_cliente),
 ) -> ResumoCestaOut:
     """Mostra quanto o cliente vai pagar antes de fechar o pedido.
 
@@ -368,7 +373,7 @@ def resumo_cesta(
 def adicionar_produto_cesta(
     dados: ItemSacolaAdicionar,
     db: Session = Depends(get_db),
-    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    usuario_logado: Usuario = Depends(exigir_cliente),
 ) -> SacolaOut:
     """Adiciona um produto a cesta do usuario autenticado."""
 
@@ -444,7 +449,7 @@ def alterar_quantidade_cesta(
     produto_id: int,
     dados: ItemSacolaQuantidade,
     db: Session = Depends(get_db),
-    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    usuario_logado: Usuario = Depends(exigir_cliente),
 ) -> SacolaOut:
     """Altera a quantidade de um produto da cesta."""
 
@@ -498,7 +503,7 @@ def alterar_quantidade_cesta(
 def excluir_produto_cesta(
     produto_id: int,
     db: Session = Depends(get_db),
-    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    usuario_logado: Usuario = Depends(exigir_cliente),
 ) -> SacolaOut:
     """Exclui um produto da cesta do usuario autenticado."""
 

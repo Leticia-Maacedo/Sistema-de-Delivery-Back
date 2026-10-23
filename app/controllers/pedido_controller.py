@@ -19,7 +19,7 @@ from app.controllers.sacola_controller import preparar_fechamento
 from app.core import pagamento_regras, status_pedido
 from app.core.database import get_db
 from app.core.notificacoes_pedido import notificar_mudanca_status, notificar_pedido_criado
-from app.core.security import obter_usuario_logado
+from app.core.security import exigir_cliente, obter_usuario_logado
 from app.models.entrega import Entrega
 from app.models.item_pedido import ItemPedido
 from app.models.pagamento import Pagamento
@@ -212,7 +212,7 @@ def criar_pedido(
     dados: PedidoCriarIn,
     tarefas: BackgroundTasks,
     db: Session = Depends(get_db),
-    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    usuario_logado: Usuario = Depends(exigir_cliente),
 ) -> Pedido:
     """Fecha a cesta do usuário autenticado e cria o pedido.
 

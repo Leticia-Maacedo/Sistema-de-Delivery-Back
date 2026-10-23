@@ -1,5 +1,5 @@
 """VIEW — schemas Pydantic do dominio Restaurante."""
-from datetime import datetime
+from datetime import datetime, time
 from decimal import Decimal
 from typing import Literal
 
@@ -32,4 +32,9 @@ class RestauranteOut(BaseModel):
     cnpj: str
     status_aprovacao: str
     taxa_entrega_km: Decimal
+    ativo: bool = True
+    raio_entrega_km: Decimal | None = None
+    horario_abertura: time | None = None
+    horario_fechamento: time | None = None
+    aberto: bool = True
     criado_em: datetime

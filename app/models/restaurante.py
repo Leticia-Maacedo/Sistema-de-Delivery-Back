@@ -4,11 +4,11 @@ Camada Model do MVC: mapeia a tabela `restaurante` e concentra as
 regras de negocio do dominio (CNPJ unico, vinculo obrigatorio a um
 Local). Pre-requisito para o cadastro de Produto.
 """
-from datetime import datetime
+from datetime import datetime, time
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, func, select
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Time, func, select
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from app.core.database import Base
@@ -31,6 +31,11 @@ class Restaurante(Base):
     cnpj: Mapped[str] = mapped_column(String(18), nullable=False, unique=True)
     status_aprovacao: Mapped[str] = mapped_column(String(20), nullable=False, default="pendente")
     taxa_entrega_km: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
+    # Gestao pelo parceiro (sql/10): pausar, raio proprio e horario.
+    ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    raio_entrega_km: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    horario_abertura: Mapped[time | None] = mapped_column(Time, nullable=True)
+    horario_fechamento: Mapped[time | None] = mapped_column(Time, nullable=True)
     criado_em: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
     )
@@ -56,6 +61,41 @@ class Restaurante(Base):
     @staticmethod
     def buscar_por_id(db: Session, restaurante_id: int) -> "Restaurante | None":
         return db.get(Restaurante, restaurante_id)
+
+    def aberto_agora(self, agora: datetime | None = None) -> bool:
+        """Regra: recebe pedidos se estiver ativo e dentro do horario.
+
+        Sem horario definido, vale so o "ativo". Fechamento antes da
+        abertura atravessa a meia-noite (ex.: 18:00 as 02:00).
+        """
+        if not self.ativo:
+            return False
+        if self.horario_abertura is None or self.horario_fechamento is None:
+            return True
+        hora = (agora or datetime.now()).time()
+        abre, fecha = self.horario_abertura, self.horario_fechamento
+        if abre <= fecha:
+            return abre <= hora < fecha
+        return hora >= abre or hora < fecha
+
+    @property
+    def aberto(self) -> bool:
+        return self.aberto_agora()
+
+    def motivo_fechado(self) -> str:
+        """Texto para o cliente quando o restaurante nao recebe pedidos."""
+        if not self.ativo:
+            return "O restaurante esta pausado e nao esta recebendo pedidos agora."
+        return (
+            f"O restaurante esta fechado agora. Funciona das "
+            f"{self.horario_abertura:%H:%M} as {self.horario_fechamento:%H:%M}."
+        )
+
+    @staticmethod
+    def buscar_por_dono(db: Session, usuario_id: int) -> "Restaurante | None":
+        """Restaurante do usuario (tipo "restaurante") logado."""
+        consulta = select(Restaurante).where(Restaurante.usuario_id == usuario_id).order_by(Restaurante.id.desc())
+        return db.execute(consulta).unique().scalars().first()
 
     def pertence_a(self, usuario_id: int) -> bool:
         """Regra: o usuario e o dono deste restaurante."""
@@ -110,8 +150,10 @@ class Restaurante(Base):
         taxa_entrega_km: Decimal,
         status_aprovacao: str = "pendente",
         usuario_id: int | None = None,
+        **extras,
     ) -> "Restaurante":
         restaurante = cls(
+            **extras,
             local_id=local_id,
             usuario_id=usuario_id,
             nome_fantasia=nome_fantasia.strip(),

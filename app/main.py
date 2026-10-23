@@ -18,6 +18,7 @@ from app.controllers import (
     local_controller,
     notificacao_controller,
     pagamento_controller,
+    parceiro_controller,
     pedido_controller,
     produto_controller,
     restaurante_controller,
@@ -60,6 +61,7 @@ app.include_router(pedido_controller.router)
 app.include_router(pagamento_controller.router)
 app.include_router(entrega_controller.router)
 app.include_router(notificacao_controller.router)
+app.include_router(parceiro_controller.router)
 
 
 @app.get("/", tags=["Status"], summary="VerificaÃ§Ã£o de saÃºde da API")
