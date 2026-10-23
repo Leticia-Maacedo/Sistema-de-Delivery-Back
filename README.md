@@ -176,6 +176,25 @@ O arquivo [`postman/EntregaFood.postman_collection.json`](postman/EntregaFood.po
 
 ---
 
+## Publicar a API no Render
+
+A API roda no Render (plano gratuito, Docker) e o banco no **Neon** (PostgreSQL). O arquivo [`render.yaml`](render.yaml) descreve o serviço `entregafood-api`, que publica sozinho a cada merge na `DEV`.
+
+1. Render → **New → Blueprint** → escolha este repositório → **Apply**.
+2. O Render pede os valores das variáveis secretas (`sync: false`). Preencha:
+   - `DATABASE_URL`: a URL do Neon no formato `postgresql+psycopg://usuario:senha@host/neondb?sslmode=require` (a mesma do `.env`).
+   - `VAPID_PRIVATE_KEY`: a chave privada das notificações (a mesma do `.env`).
+   - `ASAAS_API_KEY`: chave do Asaas sandbox (vazia = pagamento simulado).
+   - `SMTP_HOST`, `SMTP_USUARIO`, `SMTP_SENHA`, `SMTP_REMETENTE`: e-mail da nota (Brevo: `smtp-relay.brevo.com`, porta 2525). Vazio = a nota não é enviada.
+   - `GOOGLE_*` e `FACEBOOK_*`: opcionais; sem eles só o login social fica desligado.
+3. Espere o primeiro deploy ficar **Live** e abra `https://entregafood-api.onrender.com/` (`{"status":"ok"}`).
+4. No front, troque `VITE_API_URL` no `render.yaml` do front para a URL nova.
+5. Login social: cadastre `https://entregafood-api.onrender.com/auth/google/callback` no Google Cloud e `.../auth/facebook/callback` no Meta for Developers.
+
+Mudança de banco (`sql/NN_*.sql`): rode o script no Neon (SQL Editor) **antes** do merge que precisa dele — os scripts são idempotentes e só acrescentam colunas/tabelas.
+
+---
+
 ## Endpoints da Sprint 1
 
 O escopo da Sprint 1 é o domínio **Usuário**: cadastro, CRUD e autenticação.
