@@ -70,6 +70,23 @@ class Pedido(Base):
         nullable=True,
     )
 
+    # Endereco de entrega copiado no fechamento (delivery). Fica gravado no
+    # pedido para que trocar ou excluir o endereco depois nao mude o destino.
+    endereco_entrega: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+    )
+
+    latitude_entrega: Mapped[Decimal | None] = mapped_column(
+        Numeric(9, 6),
+        nullable=True,
+    )
+
+    longitude_entrega: Mapped[Decimal | None] = mapped_column(
+        Numeric(9, 6),
+        nullable=True,
+    )
+
     criado_em: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
@@ -102,10 +119,12 @@ class Pedido(Base):
         taxa_entrega: Decimal,
         itens: list[tuple[int, int, Decimal]],
         sacola,
+        local_entrega=None,
     ) -> "Pedido":
         """Cria o pedido, copia os itens com o preco do momento e esvazia a cesta.
 
         `itens` e uma lista de (produto_id, quantidade, preco_unitario).
+        `local_entrega` (delivery) e copiado para o pedido.
         Tudo e gravado num unico commit: se algo falhar, nada fica pela metade.
         """
 
@@ -118,6 +137,9 @@ class Pedido(Base):
             valor_total=subtotal + taxa_entrega,
             taxa_entrega=taxa_entrega,
             cupom_fiscal=None,
+            endereco_entrega=local_entrega.endereco if local_entrega else None,
+            latitude_entrega=local_entrega.latitude if local_entrega else None,
+            longitude_entrega=local_entrega.longitude if local_entrega else None,
             criado_em=datetime.now(),
             atualizado_em=None,
         )

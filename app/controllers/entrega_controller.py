@@ -43,7 +43,12 @@ def montar_rastreio(db: Session, pedido) -> RastreioOut:
                               latitude=restaurante.local.latitude, longitude=restaurante.local.longitude)
 
     destino = None
-    if pedido.tipo_entrega == "delivery":
+    if pedido.tipo_entrega == "delivery" and pedido.latitude_entrega is not None:
+        # Endereco gravado no pedido quando ele foi fechado.
+        destino = PontoOut(endereco=pedido.endereco_entrega or "",
+                           latitude=pedido.latitude_entrega, longitude=pedido.longitude_entrega)
+    elif pedido.tipo_entrega == "delivery":
+        # Pedidos antigos, de antes do sql/09: ultimo endereco do cliente.
         cliente = Usuario.buscar_por_id(db, pedido.cliente_id)
         local = obter_local_entrega(db, cliente, None) if cliente else None
         if local is not None:

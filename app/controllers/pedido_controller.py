@@ -121,6 +121,7 @@ def montar_resumo(db: Session, pedido: Pedido) -> PedidoResumoOut:
         criado_em=pedido.criado_em,
         proximo_status=proximo,
         proximo_status_rotulo=status_pedido.rotulo(proximo) if proximo else None,
+        endereco_entrega=pedido.endereco_entrega,
     )
 
 
@@ -252,6 +253,7 @@ def criar_pedido(
             for item, produto in fechamento.itens
         ],
         sacola=fechamento.sacola,
+        local_entrega=fechamento.local if dados.tipo_entrega == "delivery" else None,
     )
     tarefas.add_task(notificar_pedido_criado, pedido.id)  # push ao cliente e ao restaurante
     return pedido
