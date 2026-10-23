@@ -31,6 +31,17 @@ class UsuarioUpdate(BaseModel):
     tipo: TipoUsuario | None = None
 
 
+class SenhaUpdate(BaseModel):
+    """Corpo do PUT /usuarios/{id}/senha.
+
+    `senha_atual` e obrigatoria para quem ja tem senha. Conta criada pelo
+    Google/Facebook (sem senha) pode definir a primeira sem ela.
+    """
+
+    senha_atual: str | None = Field(default=None, max_length=72)
+    senha_nova: str = Field(min_length=6, max_length=72, examples=["novaSenha123"])
+
+
 class UsuarioOut(BaseModel):
     """Resposta da API. Repare: nenhum campo de senha."""
 

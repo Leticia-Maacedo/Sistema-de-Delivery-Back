@@ -94,6 +94,8 @@ class PedidoResumoOut(BaseModel):
     criado_em: datetime
     proximo_status: str | None = None
     proximo_status_rotulo: str | None = None
+    # Endereco copiado no fechamento (so delivery).
+    endereco_entrega: str | None = None
 
 
 class PedidoDetalheOut(PedidoResumoOut):

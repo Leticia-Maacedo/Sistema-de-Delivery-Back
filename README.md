@@ -409,12 +409,29 @@ Testes: `python -m pytest testes/teste_pagamento.py testes/teste_pagamento_api.p
 | `ASAAS_API_KEY` | `$aact_...` (sandbox) | Chave do Asaas (sandbox.asaas.com → Integrações → Chave de API). Vazia = gateway simulado |
 | `ASAAS_BASE_URL` | `https://api-sandbox.asaas.com/v3` | API do Asaas (sandbox) |
 | `SMTP_HOST` | `smtp.gmail.com` | Servidor de e-mail. Vazio = não envia a nota |
-| `SMTP_PORTA` | `587` | 587 (STARTTLS) ou 465 (SSL) |
+| `SMTP_PORTA` | `2525` | 2525 ou 587 (STARTTLS) ou 465 (SSL). No Render (Brevo) use 2525 |
 | `SMTP_USUARIO` | `entregafood.grupo@gmail.com` | Login do SMTP |
 | `SMTP_SENHA` | senha de app do Gmail | Senha do SMTP (no Gmail, "senha de app") |
 | `SMTP_REMETENTE` | `EntregaFood <entregafood.grupo@gmail.com>` | Remetente do e-mail |
 
 Nenhuma dessas chaves vai para o Git: só no `.env` local e nas variáveis de ambiente do Render.
+
+---
+
+## Endpoints da Sprint 3 — minha conta e endereços
+
+Antes de usar, rode `sql/09_sprint3_conta_enderecos.sql` no banco (junto com o deploy da API).
+
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| `PUT` | `/usuarios/{id}` | o próprio usuário ou admin | Altera nome, e-mail e telefone (e-mail/telefone de outra conta → `409`) |
+| `PUT` | `/usuarios/{id}/senha` | o próprio usuário | Troca a senha: confere `senha_atual` (errada → `400`); conta do Google/Facebook sem senha define a primeira |
+| `GET` | `/locais?usuario_id={id}` | — | Endereços do cliente ("Meus endereços") |
+| `POST` / `PUT` / `DELETE` | `/locais` | — | Cadastrar, alterar e excluir endereço |
+| `GET` | `/cesta/resumo?local_id={id}` | cliente | Taxa e total para o endereço escolhido na cesta |
+| `POST` | `/pedidos` (`local_id`) | cliente | Fecha o pedido para o endereço escolhido |
+
+O pedido de entrega **grava uma cópia do endereço** (`pedido.endereco_entrega`, `latitude_entrega`, `longitude_entrega`). Assim, se o cliente alterar ou excluir o endereço depois, o destino do pedido no rastreio e no painel do entregador continua o mesmo. Sem `local_id`, vale o último endereço cadastrado. Testes: `python -m pytest testes/teste_conta_enderecos.py -v`.
 
 ---
 
@@ -466,8 +483,7 @@ python testes/teste_consulta_cardapio.py
 - **Pagamento**: cartão e PIX vão para o Asaas **sandbox** (sem dinheiro de verdade). Não há webhook (o status do PIX é atualizado na consulta) nem estorno automático quando um pedido pago é cancelado. Débito, parcelamento e Mercado Pago ficaram de fora.
 - **Nota fiscal**: simulada em PDF; a emissão real (NFC-e pela SEFAZ) é o item 28 do Backlog.
 - **Estoque**: não há coluna de estoque; no fechamento são revalidados disponibilidade e o limite de 99 unidades por produto.
-- **Dono do restaurante**: a tabela `restaurante` não tem o usuário dono, então no painel de pedidos qualquer usuário do tipo `restaurante` vê e movimenta os pedidos de todos os restaurantes. Ligar restaurante ↔ usuário resolve isso e permite filtrar o painel por restaurante.
-- **Notificação ao cliente**: a tela de acompanhamento consulta o pedido a cada 10 s; não há push/e-mail a cada mudança de status (itens 21 e 23 do Backlog).
+- **Endereços (`/locais`)**: as rotas ainda não exigem login (as coleções Postman das Sprints 2 e 3 criam e excluem endereços sem token). O front só lista e altera os endereços do usuário logado, mas a API aceitaria a chamada de qualquer um — mesma melhoria indicada para Restaurante e Produto.
 - **Avaliação**: tabela só no `sql/`, sem model/controller/endpoint.
 
 ---
