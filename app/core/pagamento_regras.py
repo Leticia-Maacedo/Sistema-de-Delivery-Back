@@ -23,6 +23,9 @@ A_RECEBER = "a_receber"
 EXPIRADO = "expirado"
 CANCELADO = "cancelado"
 ESTORNADO = "estornado"
+# Pedido cancelado com pagamento aprovado, aguardando o Asaas aceitar o
+# estorno (logo depois da aprovacao o Asaas pede para tentar mais tarde).
+ESTORNO_PENDENTE = "estorno_pendente"
 
 ROTULOS = {
     PENDENTE: "Aguardando pagamento",
@@ -32,6 +35,7 @@ ROTULOS = {
     EXPIRADO: "PIX expirado",
     CANCELADO: "Cancelado",
     ESTORNADO: "Estornado",
+    ESTORNO_PENDENTE: "Estorno em andamento",
 }
 
 # Status que liberam o restaurante a aceitar o pedido.

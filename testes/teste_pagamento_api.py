@@ -20,7 +20,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core import nota_fiscal, notificacoes_pedido
+from app.controllers import pagamento_controller
+from app.core import nota_fiscal, notificacoes_pedido, pagamento_gateway
+from app.core.pagamento_asaas import AsaasErro
 from app.core.config import get_settings
 from app.core.database import Base, get_db
 from app.core.security import obter_usuario_logado
@@ -57,6 +59,7 @@ def ambiente(monkeypatch):
 
     # As tarefas em segundo plano (NF por e-mail, push) abrem sessao propria.
     monkeypatch.setattr(nota_fiscal, "SessionLocal", Sessao)
+    monkeypatch.setattr(pagamento_controller, "SessionLocal", Sessao)
     monkeypatch.setattr(notificacoes_pedido, "SessionLocal", Sessao)
 
     logado = {"usuario_id": None}
@@ -290,3 +293,101 @@ def test_nota_fiscal_em_pdf_para_cliente_e_restaurante(ambiente):
 
     detalhe = api.get(f"/pedidos/{pedido_id}").json()
     assert detalhe["nota_fiscal"] == f"NF-{datetime.now().year}-{pedido_id:06d}"
+
+
+# ------------------------------------------------------------------ RN04: cancelamento pelo cliente
+
+
+def test_cliente_cancela_pedido_pago_e_o_valor_e_estornado(ambiente):
+    api, pedido_id = ambiente["api"], ambiente["novo_pedido"]("cartao")
+    api.post("/pagamentos/cartao", json={"pedido_id": pedido_id, "cartao": CARTAO_OK})
+
+    r = api.post(f"/pedidos/{pedido_id}/cancelar")
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "cancelado"
+    assert r.json()["pagamento_status"] == "estornado"
+    assert ambiente["ler"](Pagamento, pedido_id=pedido_id).status == "estornado"
+
+
+def test_cliente_cancela_pix_pendente_e_dinheiro(ambiente):
+    api = ambiente["api"]
+
+    pix = ambiente["novo_pedido"]("pix")
+    escolher(api, pix, "pix")
+    api.post("/pagamentos/pix", json={"pedido_id": pix})
+    assert api.post(f"/pedidos/{pix}/cancelar").json()["pagamento_status"] == "cancelado"
+
+    dinheiro = ambiente["novo_pedido"]("dinheiro")
+    escolher(api, dinheiro, "dinheiro")
+    assert api.post(f"/pedidos/{dinheiro}/cancelar").json()["pagamento_status"] == "cancelado"
+
+    sem_pagamento = ambiente["novo_pedido"]("cartao")
+    r = api.post(f"/pedidos/{sem_pagamento}/cancelar")
+    assert r.status_code == 200
+    assert r.json()["pagamento_status"] is None
+
+
+def test_cliente_nao_cancela_depois_do_aceite(ambiente):
+    api, pedido_id = ambiente["api"], ambiente["novo_pedido"]("cartao")
+    api.post("/pagamentos/cartao", json={"pedido_id": pedido_id, "cartao": CARTAO_OK})
+    ambiente["logar"]("dono")
+    assert api.patch(f"/pedidos/{pedido_id}/status", json={"status": "aceito"}).status_code == 200
+
+    ambiente["logar"]("cliente")
+    r = api.post(f"/pedidos/{pedido_id}/cancelar")
+    assert r.status_code == 400
+    assert "aguarda o aceite" in r.json()["detail"]
+    assert ambiente["ler"](Pedido, id=pedido_id).status == "aceito"
+    assert ambiente["ler"](Pagamento, pedido_id=pedido_id).status == "aprovado"
+
+
+def test_cancelar_duas_vezes_e_recusado(ambiente):
+    api, pedido_id = ambiente["api"], ambiente["novo_pedido"]("cartao")
+    assert api.post(f"/pedidos/{pedido_id}/cancelar").status_code == 200
+    r = api.post(f"/pedidos/{pedido_id}/cancelar")
+    assert r.status_code == 400
+    assert "ja esta cancelado" in r.json()["detail"]
+
+
+def test_so_o_cliente_dono_cancela(ambiente):
+    api, pedido_id = ambiente["api"], ambiente["novo_pedido"]("cartao")
+
+    ambiente["logar"]("outro")
+    assert api.post(f"/pedidos/{pedido_id}/cancelar").status_code == 403
+
+    ambiente["logar"]("dono")  # restaurante usa PATCH /status, nao esta rota
+    assert api.post(f"/pedidos/{pedido_id}/cancelar").status_code == 403
+
+    assert api.post("/pedidos/99999/cancelar").status_code in (403, 404)
+    assert ambiente["ler"](Pedido, id=pedido_id).status == "aguardando_aceite"
+
+
+def test_restaurante_cancela_pedido_pago_e_estorna(ambiente):
+    api, pedido_id = ambiente["api"], ambiente["novo_pedido"]("cartao")
+    api.post("/pagamentos/cartao", json={"pedido_id": pedido_id, "cartao": CARTAO_OK})
+
+    ambiente["logar"]("dono")
+    api.patch(f"/pedidos/{pedido_id}/status", json={"status": "aceito"})
+    r = api.patch(f"/pedidos/{pedido_id}/status", json={"status": "cancelado"})
+    assert r.status_code == 200, r.text
+    assert r.json()["pagamento_status"] == "estornado"
+
+
+def test_estorno_recusado_pelo_asaas_fica_pendente_e_e_refeito(ambiente, monkeypatch):
+    api, pedido_id = ambiente["api"], ambiente["novo_pedido"]("cartao")
+    api.post("/pagamentos/cartao", json={"pedido_id": pedido_id, "cartao": CARTAO_OK})
+
+    def asaas_ocupado(_):
+        raise AsaasErro("Nao e possivel solicitar estorno no momento.")
+
+    monkeypatch.setattr(pagamento_gateway, "estornar", asaas_ocupado)
+    monkeypatch.setattr(pagamento_controller, "INTERVALO_ESTORNO_SEGUNDOS", 0)
+
+    r = api.post(f"/pedidos/{pedido_id}/cancelar")
+    assert r.status_code == 200
+    assert r.json()["status"] == "cancelado"  # o cancelamento nunca trava
+    assert r.json()["pagamento_status"] == "estorno_pendente"
+
+    monkeypatch.setattr(pagamento_gateway, "estornar", lambda _: None)  # Asaas liberou
+    r = api.get(f"/pagamentos/pedidos/{pedido_id}")
+    assert r.json()["status"] == "estornado"

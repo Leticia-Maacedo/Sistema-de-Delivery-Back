@@ -35,6 +35,7 @@ __all__ = [
     "criar_pix",
     "consultar_status",
     "cancelar",
+    "estornar",
     "simular_pagamento_pix",
     "simulacao_permitida",
 ]
@@ -121,6 +122,15 @@ def cancelar(transacao_externa_id: str | None) -> None:
         _cliente().cancelar(transacao_externa_id)
     except (AsaasErro, AsaasIndisponivel):
         pass  # cobranca ja paga/removida: nao impede a troca
+
+
+def estornar(transacao_externa_id: str | None) -> None:
+    """Devolve o valor de um pagamento aprovado (no simulado nao ha o que fazer)."""
+
+    if not transacao_externa_id or nome_gateway(transacao_externa_id) == "simulado":
+        return
+
+    _cliente().estornar(transacao_externa_id)
 
 
 def simular_pagamento_pix(transacao_externa_id: str | None, valor: Decimal) -> str:
