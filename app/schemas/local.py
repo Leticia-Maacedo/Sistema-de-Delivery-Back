@@ -7,7 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class LocalCreate(BaseModel):
-    usuario_id: int
+    # Dono do endereco. Sem ele, vale o usuario logado; so o admin
+    # cadastra endereco para outro usuario.
+    usuario_id: int | None = None
 
     endereco: str = Field(
         min_length=5,

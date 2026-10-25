@@ -1,7 +1,8 @@
-"""API local para rodar a colecao Teste_Consulta_Status_Cancelamento sem tocar no banco do Neon.
+"""API local para rodar as colecoes Teste_* do Postman sem tocar no banco do Neon.
 
-Sobe a API com um banco SQLite novo (apagado a cada execucao), cria as contas e os restaurantes de teste
-e grava um ambiente do Postman com a URL e as senhas (aleatorias, geradas a cada execucao).
+Sobe a API com um banco SQLite novo (apagado a cada execucao), cria as contas de teste (inclusive um
+admin), os restaurantes de teste e os mesmos restaurantes de exemplo do sql/04_seed_cardapio.sql, e grava
+um ambiente do Postman com a URL e as senhas (aleatorias, geradas a cada execucao).
 Pagamento, e-mail e push ficam no modo simulado (sem ASAAS_API_KEY, SMTP e VAPID).
 
 Uso (na pasta Sistema-de-Delivery-Back, com o venv ativo):
@@ -46,7 +47,7 @@ Base.metadata.create_all(engine)
 CONTAS = {
     "cliente_a": ("Ana Teste", "cliente"), "cliente_b": ("Bruno Teste", "cliente"),
     "dono_1": ("Dono Burger", "restaurante"), "dono_2": ("Dono Pizzaria", "restaurante"),
-    "entregador": ("Carlos Entregador", "entregador"),
+    "entregador": ("Carlos Entregador", "entregador"), "admin": ("Admin Teste", "admin"),
 }
 senhas = {k: "Tst" + secrets.token_urlsafe(9) for k in CONTAS}
 
@@ -72,14 +73,42 @@ with SessionLocal() as db:
                latitude=Decimal("-23.570000"), longitude=Decimal("-46.639000"), criado_em=agora)
     db.add_all([l1, l2, la, lb])
     db.flush()
-    r1 = Restaurante(local_id=l1.id, usuario_id=u["dono_1"].id, nome_fantasia="Burger Teste", cnpj="11.111.111/0001-11",
+    r1 = Restaurante(local_id=l1.id, usuario_id=u["dono_1"].id, nome_fantasia="Teste Burger", cnpj="55.555.555/0001-55",
                      status_aprovacao="aprovado", taxa_entrega_km=Decimal("2.00"), ativo=True, criado_em=agora)
-    r2 = Restaurante(local_id=l2.id, usuario_id=u["dono_2"].id, nome_fantasia="Pizzaria Teste", cnpj="22.222.222/0001-22",
+    r2 = Restaurante(local_id=l2.id, usuario_id=u["dono_2"].id, nome_fantasia="Teste Pizzaria", cnpj="66.666.666/0001-66",
                      status_aprovacao="aprovado", taxa_entrega_km=Decimal("2.00"), ativo=True, criado_em=agora)
     db.add_all([r1, r2])
     db.flush()
     db.add_all([Produto(restaurante_id=r1.id, nome="X-Burger", descricao="Pão, carne e queijo", preco=Decimal("25.00"), disponivel=True),
                 Produto(restaurante_id=r2.id, nome="Pizza Margherita", descricao="Média", preco=Decimal("45.00"), disponivel=True)])
+
+    # Restaurantes de exemplo (mesmos dados do sql/04_seed_cardapio.sql); o dono nao tem senha
+    seed = Usuario(nome="Dono Exemplo (seed)", email="seed-cardapio@entregafood.com", tipo="restaurante", criado_em=agora)
+    db.add(seed)
+    db.flush()
+    for nome, cnpj, situacao, taxa, endereco, lat, lng, itens in [
+        ("Burger da Paulista", "11.111.111/0001-11", "aprovado", "4.50", "Av. Paulista, 1000 - Bela Vista, Sao Paulo",
+         "-23.561414", "-46.655881", [("X-Salada", "Pao, hamburguer 150g, queijo, alface e tomate", "26.90", True),
+                                      ("X-Bacon", "Pao, hamburguer 150g, queijo e bacon", "31.90", True),
+                                      ("Batata Frita", "Porcao 400g", "19.90", True),
+                                      ("Milk-shake", "Chocolate, 500ml", "18.00", False)]),
+        ("Sushi Aurora", "22.222.222/0001-22", "aprovado", "6.00", "Rua Aurora, 250 - Centro, Sao Paulo",
+         "-23.539000", "-46.640000", [("Combo Sushi 20", "20 pecas variadas", "59.90", True),
+                                      ("Temaki Salmao", "Salmao, cream cheese e cebolinha", "32.00", True),
+                                      ("Hot Roll (8un)", "Empanado, recheio de salmao", "28.00", True)]),
+        ("Cantina Pinheiros", "33.333.333/0001-33", "pendente", "5.00", "Rua dos Pinheiros, 500 - Pinheiros, Sao Paulo",
+         "-23.564200", "-46.681400", []),
+    ]:
+        loc = Local(usuario_id=seed.id, endereco=endereco, tipo="restaurante", latitude=Decimal(lat),
+                    longitude=Decimal(lng), criado_em=agora)
+        db.add(loc)
+        db.flush()
+        rest = Restaurante(local_id=loc.id, nome_fantasia=nome, cnpj=cnpj, status_aprovacao=situacao,
+                           taxa_entrega_km=Decimal(taxa), ativo=True, criado_em=agora)
+        db.add(rest)
+        db.flush()
+        db.add_all([Produto(restaurante_id=rest.id, nome=n, descricao=d, preco=Decimal(pr), disponivel=disp)
+                    for n, d, pr, disp in itens])
     db.commit()
 
 ambiente = {"name": "EntregaFood — teste local", "values":

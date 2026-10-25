@@ -266,37 +266,42 @@ Além do escopo mínimo da Sprint 1, os CRUDs de **Local**, **Restaurante** e **
 
 **Usuário** (Sprint 1) → **Local** (CRUD completo, endereço) → **Restaurante** (CRUD completo) → **Produto** (CRUD completo)
 
-| Método | Rota | Operação | Retorno |
-|---|---|---|---|
-| `POST` | `/locais` | CREATE | `201` |
-| `GET` | `/locais` | READ (lista, filtra por `?usuario_id=`) | `200` |
-| `GET` | `/locais/{id}` | READ (por id) | `200` · `404` |
-| `PUT` | `/locais/{id}` | UPDATE | `200` · `404` |
-| `DELETE` | `/locais/{id}` | DELETE | `204` · `404` |
-| `POST` | `/restaurantes` | CREATE | `201` · `409` se CNPJ duplicado |
-| `GET` | `/restaurantes` | READ (lista) | `200` |
-| `GET` | `/restaurantes/{id}` | READ (por id) | `200` · `404` |
-| `PUT` | `/restaurantes/{id}` | UPDATE | `200` · `404` · `409` |
-| `DELETE` | `/restaurantes/{id}` | DELETE | `204` · `404` |
-| `POST` | `/produtos` | CREATE | `201` · `422` se restaurante não existe |
-| `GET` | `/produtos` | READ (lista, filtra por `?restaurante_id=`) | `200` |
-| `GET` | `/produtos/{id}` | READ (por id) | `200` · `404` |
-| `PUT` | `/produtos/{id}` | UPDATE | `200` · `404` |
-| `DELETE` | `/produtos/{id}` | DELETE | `204` · `404` |
+Todas as rotas de Local e Restaurante e as de escrita de Produto exigem o token do login (`401` sem ele). Cada usuário mexe só no que é dele (`403` no que é de outro); o admin acessa tudo.
+
+| Método | Rota | Operação | Quem pode | Retorno |
+|---|---|---|---|---|
+| `POST` | `/locais` | CREATE (`usuario_id` opcional: sem ele, vale o usuário logado) | o próprio usuário · admin | `201` · `403` |
+| `GET` | `/locais` | READ (os próprios; o admin vê todos e filtra por `?usuario_id=`) | logado | `200` · `403` |
+| `GET` | `/locais/{id}` | READ (por id) | dono do endereço · admin | `200` · `403` · `404` |
+| `PUT` | `/locais/{id}` | UPDATE | dono do endereço · admin | `200` · `403` · `404` |
+| `DELETE` | `/locais/{id}` | DELETE | dono do endereço · admin | `204` · `403` · `404` |
+| `POST` | `/restaurantes` | CREATE (o endereço precisa ser da conta) | restaurante · admin | `201` · `403` · `409` se CNPJ duplicado |
+| `GET` | `/restaurantes` | READ (lista, com os pendentes) | admin | `200` · `403` |
+| `GET` | `/restaurantes/{id}` | READ (por id) | dono · admin | `200` · `403` · `404` |
+| `PUT` | `/restaurantes/{id}` | UPDATE (`status_aprovacao` só o admin) | dono · admin | `200` · `403` · `404` · `409` |
+| `DELETE` | `/restaurantes/{id}` | DELETE | dono · admin | `204` · `403` · `404` |
+| `POST` | `/produtos` | CREATE | dono do restaurante · admin | `201` · `403` · `422` se restaurante não existe |
+| `GET` | `/produtos` | READ (lista, filtra por `?restaurante_id=`) | público | `200` |
+| `GET` | `/produtos/{id}` | READ (por id) | público | `200` · `404` |
+| `PUT` | `/produtos/{id}` | UPDATE | dono do restaurante · admin | `200` · `403` · `404` |
+| `DELETE` | `/produtos/{id}` | DELETE | dono do restaurante · admin | `204` · `403` · `404` |
+
+Testes: `python -m pytest testes/teste_seguranca_cadastros.py -v`.
 
 ### Exemplo: cadastrar a cadeia inteira
 
 ```bash
-# 1. Local (usuario_id precisa existir)
-curl -X POST http://localhost:8000/locais -H "Content-Type: application/json" \
-  -d '{"usuario_id":1,"endereco":"Rua das Flores, 123","tipo":"restaurante","latitude":"-23.550520","longitude":"-46.633308"}'
+# TOKEN = access_token do POST /auth/login de uma conta do tipo restaurante
+# 1. Local (fica na conta de quem está logado)
+curl -X POST http://localhost:8000/locais -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+  -d '{"endereco":"Rua das Flores, 123","tipo":"restaurante","latitude":"-23.550520","longitude":"-46.633308"}'
 
-# 2. Restaurante (local_id = id devolvido acima)
-curl -X POST http://localhost:8000/restaurantes -H "Content-Type: application/json" \
+# 2. Restaurante (local_id = id devolvido acima; nasce pendente até o admin aprovar)
+curl -X POST http://localhost:8000/restaurantes -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
   -d '{"local_id":1,"nome_fantasia":"Cantinho do Chef","cnpj":"12.345.678/0001-90","taxa_entrega_km":"2.50"}'
 
 # 3. Produto (restaurante_id = id devolvido acima)
-curl -X POST http://localhost:8000/produtos -H "Content-Type: application/json" \
+curl -X POST http://localhost:8000/produtos -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
   -d '{"restaurante_id":1,"nome":"X-Salada","preco":"24.90"}'
 ```
 
@@ -304,11 +309,11 @@ curl -X POST http://localhost:8000/produtos -H "Content-Type: application/json" 
 
 ## Endpoints da Sprint 2 — consulta de Restaurante e Cardápio
 
-As rotas de `/restaurantes` e `/produtos` acima são de **administração**: devolvem tudo, sem filtro. A Sprint 2 adiciona a visão do **cliente** que navega no app — só o que ele pode pedir. São endpoints de leitura, agrupados sob `/consultas`.
+As rotas de `/restaurantes` e `/produtos` acima são de **cadastro e administração**. A Sprint 2 adiciona a visão do **cliente** que navega no app — só o que ele pode pedir. São endpoints de leitura, agrupados sob `/consultas`.
 
 | Método | Rota | O que devolve | Retorno |
 |---|---|---|---|
-| `GET` | `/consultas/restaurantes` | Só restaurantes `status_aprovacao = 'aprovado'`, com o endereço embutido. Filtra por nome com `?busca=` | `200` |
+| `GET` | `/consultas/restaurantes` | Só restaurantes `status_aprovacao = 'aprovado'`, com o endereço embutido. Filtra por nome com `?busca=`. Com `?latitude=&longitude=` do endereço do cliente, só vêm os que entregam ali (raio de entrega de cada restaurante; distância estimada em linha reta × `FRETE_FATOR_CIRCUITO`), do mais perto ao mais longe, com `distancia_km` e `entrega_no_endereco`; `incluir_fora_do_raio=true` lista também os que não entregam | `200` |
 | `GET` | `/consultas/restaurantes/{id}` | Um restaurante aprovado + endereço (sem CNPJ) | `200` · `404` se pendente/recusado/inexistente |
 | `GET` | `/consultas/restaurantes/{id}/cardapio` | Dados do restaurante + lista dos itens com `disponivel = true` + `total_itens` | `200` · `404` |
 
@@ -318,6 +323,7 @@ Diferenças em relação ao CRUD: a consulta **não** expõe CNPJ, **não** most
 
 ```bash
 curl "http://localhost:8000/consultas/restaurantes?busca=burger"
+curl "http://localhost:8000/consultas/restaurantes?latitude=-23.550520&longitude=-46.633308"
 curl http://localhost:8000/consultas/restaurantes/1/cardapio
 ```
 
@@ -472,7 +478,7 @@ Antes de usar, rode `sql/10_sprint3_gestao_restaurante.sql` no banco (pode ser a
 | `GET` / `POST` | `/parceiro/produtos` | Cardápio do dono: listar e incluir item |
 | `PUT` / `DELETE` | `/parceiro/produtos/{id}` | Alterar (preço, descrição, disponível) e excluir. Item que já aparece em pedidos não é excluído (`409`): desative |
 
-Regras novas no fechamento da cesta: restaurante **pausado** ou **fora do horário** não recebe pedidos; o raio de entrega é o do restaurante (sem ele, `FRETE_RAIO_MAX_KM`). **Só conta de cliente compra**: cesta e `POST /pedidos` com restaurante ou entregador → `403`. Testes: `python -m pytest testes/teste_gestao_restaurante.py -v`.
+Regras novas no fechamento da cesta: restaurante **pausado** ou **fora do horário** não recebe pedidos; o raio de entrega é o do restaurante (sem ele, `FRETE_RAIO_MAX_KM`). **Só conta de cliente compra**: cesta e `POST /pedidos` com restaurante ou entregador → `403`. Produto de restaurante não aprovado, pausado ou fechado já é recusado na inclusão na cesta (`400`). Testes: `python -m pytest testes/teste_gestao_restaurante.py -v`.
 
 ---
 
@@ -531,6 +537,7 @@ python testes/teste_consulta_cardapio.py
 - Autenticação por **JWT Bearer**, com expiração configurável.
 - O login devolve mensagem genérica ("E-mail ou senha incorretos") de propósito, para não revelar quais e-mails existem na base.
 - CORS restrito às origens listadas no `.env`.
+- Endereços, restaurantes e cardápios só são lidos e alterados pelo dono ou pelo admin; aprovar restaurante é só do admin.
 
 ---
 
@@ -538,11 +545,9 @@ python testes/teste_consulta_cardapio.py
 
 - **Login social (Google/Facebook)**: implementado (`/auth/google`, `/auth/facebook` + callback). Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Pra demonstração, o caminho garantido continua sendo e-mail/senha.
 - **Código de validação (OTP)**: no login e no cadastro por telefone (`/auth/telefone/*`) o código de 6 dígitos é enviado **por e-mail** pelo mesmo SMTP da nota fiscal (`app/core/otp_envio.py`): no login vai para o e-mail da conta; no cadastro, para o e-mail informado na tela. A resposta mostra o e-mail mascarado e não traz mais o código. Sem `SMTP_HOST` (rodando local, testes) o código volta em `codigo_dev`, como antes; `OTP_MOSTRAR_CODIGO=true` devolve o código mesmo com o e-mail enviado (só para demonstração). Conta antiga sem e-mail entra com telefone e senha. SMS de verdade não foi feito: o Twilio trial e o SMS do Brevo exigem pagamento. Testes: `testes/teste_otp_email.py`.
-- **Autorização em Restaurante e Produto**: só as rotas de `/usuarios` checam dono-ou-admin. `PUT`/`DELETE` de `/restaurantes/{id}` e `/produtos/{id}` ainda não exigem login — qualquer requisição altera qualquer registro pelo `id`. Funciona porque o front só deixa quem é `restaurante` chegar na tela de Produtos, mas a API em si confiaria em qualquer chamada — vale estender a mesma checagem de `usuario_controller.py` pra esses dois controllers numa próxima sprint.
-- **Pagamento**: cartão e PIX vão para o Asaas **sandbox** (sem dinheiro de verdade). Não há webhook (o status do PIX é atualizado na consulta) nem estorno automático quando um pedido pago é cancelado. Débito, parcelamento e Mercado Pago ficaram de fora.
+- **Pagamento**: cartão e PIX vão para o Asaas **sandbox** (sem dinheiro de verdade). Não há webhook (o status do PIX é atualizado na consulta). O cancelamento de pedido pago pede o estorno ao gateway (`estorno_pendente` se ele falhar). Débito, parcelamento e Mercado Pago ficaram de fora.
 - **Nota fiscal**: simulada em PDF; a emissão real (NFC-e pela SEFAZ) é o item 28 do Backlog.
 - **Estoque**: não há coluna de estoque; no fechamento são revalidados disponibilidade e o limite de 99 unidades por produto.
-- **Endereços (`/locais`)**: as rotas ainda não exigem login (as coleções Postman das Sprints 2 e 3 criam e excluem endereços sem token). O front só lista e altera os endereços do usuário logado, mas a API aceitaria a chamada de qualquer um — mesma melhoria indicada para Restaurante e Produto.
 - **Avaliação**: tabela só no `sql/`, sem model/controller/endpoint.
 
 ---

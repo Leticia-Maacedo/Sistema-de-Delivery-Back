@@ -104,7 +104,7 @@
               ]
             },
             {
-              "name": "Login dono do Burger Teste",
+              "name": "Login dono do Teste Burger",
               "request": {
                 "method": "POST",
                 "header": [
@@ -147,7 +147,7 @@
               ]
             },
             {
-              "name": "Login dono da Pizzaria Teste",
+              "name": "Login dono da Teste Pizzaria",
               "request": {
                 "method": "POST",
                 "header": [
@@ -260,8 +260,8 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                      "const r = pm.response.json().find(x => x.nome_fantasia === 'Burger Teste');",
-                      "pm.test('Burger Teste encontrado', () => pm.expect(r).to.be.an('object'));",
+                      "const r = pm.response.json().find(x => x.nome_fantasia === 'Teste Burger');",
+                      "pm.test('Teste Burger encontrado', () => pm.expect(r).to.be.an('object'));",
                       "pm.collectionVariables.set('restaurante_id', r.id);"
                     ]
                   }
@@ -269,7 +269,7 @@
               ]
             },
             {
-              "name": "Cardápio do Burger Teste",
+              "name": "Cardápio do Teste Burger",
               "request": {
                 "method": "GET",
                 "header": [],
