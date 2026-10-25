@@ -421,6 +421,19 @@ Cartões de teste: `5162306219378829` (aprovado, qualquer validade futura e CVV)
 
 Testes: `python -m pytest testes/teste_pagamento.py testes/teste_pagamento_api.py` (sem banco: o segundo usa SQLite em memória e o gateway simulado) e a coleção [`postman/Teste_Pagamento.postman_collection.json`](postman/Teste_Pagamento.postman_collection.json) (cartão aprovado e recusado, PIX, dinheiro, método inválido, outro cliente, nota fiscal e sem login).
 
+### Cancelamento do pedido pelo cliente (Sprint 4 — RN04)
+
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| `POST` | `/pedidos/{id}/cancelar` | cliente dono | Cancela o pedido **enquanto ele aguarda o aceite** do restaurante |
+
+- Depois do aceite o cliente recebe 400 e só o restaurante cancela (`PATCH /pedidos/{id}/status` com `cancelado`, como antes).
+- Pagamento do pedido cancelado (pelo cliente ou pelo restaurante): `aprovado` → **estorno no Asaas** (`estornado`); `pendente` (PIX não pago) → cobrança removida (`cancelado`); `a_receber` (dinheiro) → `cancelado`.
+- Logo depois da aprovação o Asaas às vezes pede para tentar o estorno mais tarde: o pedido é cancelado na hora, o pagamento fica `estorno_pendente` e o estorno é refeito em segundo plano e a cada `GET /pagamentos/pedidos/{id}`.
+- O cliente e o restaurante recebem push avisando do cancelamento.
+
+Testes: `python -m pytest testes/teste_cancelamento_cliente.py testes/teste_pagamento_api.py` e a pasta CT-09 da coleção `Teste_Pagamento`.
+
 ### Variáveis de ambiente do pagamento
 
 | Variável | Exemplo | Para que serve |

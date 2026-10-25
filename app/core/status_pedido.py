@@ -79,6 +79,9 @@ QUEM_CONFIRMA_ENTREGA = {
     "retirada": {"restaurante"},
 }
 
+# RN04: o cliente so cancela o proprio pedido enquanto ele aguarda o aceite.
+CLIENTE_PODE_CANCELAR = {AGUARDANDO_ACEITE}
+
 # Tipos de usuario que operam pedidos (restaurante, entregador e admin).
 OPERADORES = {"restaurante", "entregador", "admin"}
 
@@ -174,6 +177,24 @@ def validar_confirmacao_entrega(
 
     if tipo_usuario != "admin" and tipo_usuario not in permitidos:
         return f"Usuario do tipo '{tipo_usuario}' nao pode confirmar esta entrega."
+
+    return None
+
+
+def validar_cancelamento_cliente(status_atual: str) -> str | None:
+    """RN04: confere se o cliente ainda pode cancelar o pedido.
+
+    Retorna a mensagem de erro, ou None se o cancelamento e permitido.
+    """
+
+    if status_atual == CANCELADO:
+        return "O pedido ja esta cancelado."
+
+    if status_atual not in CLIENTE_PODE_CANCELAR:
+        return (
+            f"O pedido ja esta '{rotulo(status_atual)}'. O cliente so pode "
+            "cancelar enquanto o pedido aguarda o aceite do restaurante."
+        )
 
     return None
 

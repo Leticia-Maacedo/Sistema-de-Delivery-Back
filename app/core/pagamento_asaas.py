@@ -247,6 +247,22 @@ class ClienteAsaas:
 
         self._chamar("DELETE", f"/payments/{cobranca_id}")
 
+    def estornar(self, cobranca_id: str) -> None:
+        """Devolve o dinheiro de uma cobranca paga (pedido cancelado).
+
+        Cartao e PIX pagos: POST /payments/{id}/refund. Cobranca marcada
+        como recebida "em dinheiro" (simulacao do PIX no sandbox) nao aceita
+        refund: desfaz o recebimento e remove a cobranca.
+        """
+
+        cobranca = self._chamar("GET", f"/payments/{cobranca_id}")
+
+        if cobranca.get("status") == "RECEIVED_IN_CASH":
+            self._chamar("POST", f"/payments/{cobranca_id}/undoReceivedInCash")
+            self._chamar("DELETE", f"/payments/{cobranca_id}")
+        else:
+            self._chamar("POST", f"/payments/{cobranca_id}/refund", json={})
+
     def confirmar_recebimento_em_dinheiro(self, cobranca_id: str, valor: Decimal) -> None:
         """Marca a cobranca como recebida. So usado no sandbox para simular o PIX pago."""
 

@@ -14,6 +14,7 @@ As regras ficam em app/core/pagamento_regras.py e o gateway (Asaas ou
 simulado) em app/core/pagamento_gateway.py.
 """
 
+import time
 from datetime import datetime
 
 import segno
@@ -22,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.core import pagamento_gateway as gateway
 from app.core import pagamento_regras as regras
-from app.core.database import get_db
+from app.core.database import SessionLocal, get_db
 from app.core.nota_fiscal import ao_aprovar_pagamento, gerar_pdf, montar_dados
 from app.core.security import obter_usuario_logado
 from app.core.status_pedido import AGUARDANDO_ACEITE, status_finalizado
@@ -221,6 +222,75 @@ def receber_pagamento_na_entrega(
 
     pagamento.atualizar_status(db, status=regras.APROVADO, mensagem="Recebido em dinheiro na entrega.")
     ao_aprovar_pagamento(db, pedido, tarefas)
+
+
+TENTATIVAS_ESTORNO = 8
+INTERVALO_ESTORNO_SEGUNDOS = 15
+
+
+def tentar_estornar(db: Session, pagamento: Pagamento) -> bool:
+    """Pede o estorno ao gateway. True = estornado; False = fica pendente."""
+
+    try:
+        gateway.estornar(pagamento.transacao_externa_id)
+    except (gateway.AsaasErro, gateway.AsaasIndisponivel) as erro:
+        pagamento.atualizar_status(
+            db,
+            status=regras.ESTORNO_PENDENTE,
+            mensagem=f"Estorno em andamento: {erro}",
+        )
+        return False
+
+    pagamento.atualizar_status(db, status=regras.ESTORNADO, mensagem="Valor estornado: pedido cancelado.")
+    return True
+
+
+def estornar_em_segundo_plano(pedido_id: int) -> None:
+    """Refaz o estorno pendente algumas vezes (o Asaas libera segundos depois)."""
+
+    db = SessionLocal()
+    try:
+        for _ in range(TENTATIVAS_ESTORNO):
+            pagamento = Pagamento.buscar_por_pedido(db, pedido_id)
+            if pagamento is None or pagamento.status != regras.ESTORNO_PENDENTE:
+                return
+            if tentar_estornar(db, pagamento):
+                return
+            time.sleep(INTERVALO_ESTORNO_SEGUNDOS)
+    finally:
+        db.close()
+
+
+def cancelar_pagamento_do_pedido(
+    db: Session,
+    pedido: Pedido,
+    tarefas: BackgroundTasks | None = None,
+) -> str | None:
+    """Pedido cancelado: devolve ou cancela o pagamento e devolve o novo status.
+
+    - aprovado (cartao/PIX pago) -> estorno no Asaas -> "estornado"
+      (ou "estorno_pendente", refeito em segundo plano e na consulta);
+    - pendente (PIX nao pago)    -> cobranca removida -> "cancelado";
+    - a_receber (dinheiro)       -> "cancelado".
+
+    Nunca impede o cancelamento do pedido.
+    """
+
+    pagamento = Pagamento.buscar_por_pedido(db, pedido.id)
+
+    if pagamento is None:
+        return None
+
+    if pagamento.status == regras.APROVADO:
+        if not tentar_estornar(db, pagamento) and tarefas is not None:
+            tarefas.add_task(estornar_em_segundo_plano, pedido.id)
+    elif pagamento.status == regras.PENDENTE:
+        gateway.cancelar(pagamento.transacao_externa_id)  # melhor esforco
+        pagamento.atualizar_status(db, status=regras.CANCELADO, mensagem="Cobranca cancelada: pedido cancelado.")
+    elif pagamento.status == regras.A_RECEBER:
+        pagamento.atualizar_status(db, status=regras.CANCELADO, mensagem="Pedido cancelado antes da entrega.")
+
+    return pagamento.status
 
 
 # ------------------------------------------------------------------ rotas
@@ -440,6 +510,9 @@ def consultar_pagamento(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Este pedido ainda nao possui pagamento.",
         )
+
+    if pagamento.status == regras.ESTORNO_PENDENTE:
+        tentar_estornar(db, pagamento)  # pedido cancelado: tenta de novo o estorno
 
     if pagamento.status == regras.PENDENTE:
         try:
