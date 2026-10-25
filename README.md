@@ -174,6 +174,15 @@ Fica em http://localhost:5173 — já vem configurado pra falar com a API em `ht
 
 O arquivo [`postman/EntregaFood.postman_collection.json`](postman/EntregaFood.postman_collection.json) tem todos os endpoints prontos para importar (Postman → Import → arraste o arquivo). Ele já vem organizado em pastas (Autenticação, Usuários, Locais, Restaurantes, Produtos, Consultas) e os requests de criação (`POST`) salvam automaticamente o `id` retornado — e o login salva o `token` — em variáveis da coleção, então dá pra rodar a coleção inteira em sequência (Cadastrar usuário → Login → Local → Restaurante → Produto → Consultas) sem copiar/colar nada manualmente. A única variável que costuma precisar de ajuste é `base_url` (padrão `http://localhost:8000`).
 
+**Consulta, status e cancelamento do pedido (Sprint 4).** A coleção [`postman/Teste_Consulta_Status_Cancelamento.postman_collection.json`](postman/Teste_Consulta_Status_Cancelamento.postman_collection.json) roda contra uma API local com banco SQLite de teste, sem tocar no Neon. O script [`postman/servidor_local_teste.py`](postman/servidor_local_teste.py) sobe essa API, cria as contas de teste com senhas aleatórias e grava o ambiente do Postman em `%TEMP%\entregafood-teste`:
+
+```bash
+python postman/servidor_local_teste.py 8011
+postman collection run postman/Teste_Consulta_Status_Cancelamento.postman_collection.json --environment %TEMP%/entregafood-teste/ambiente_local.postman_environment.json
+```
+
+Rode a coleção logo depois de subir o script (o banco é recriado a cada vez e as asserções contam os pedidos da própria execução).
+
 ---
 
 ## Publicar a API no Render
