@@ -23,7 +23,7 @@ API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115
 | 6 | Consulta de Itens/Cardápio (visão do cliente) | `GET /consultas/restaurantes/{id}/cardapio` | ✅ |
 | 7 | Listagem e busca de Restaurantes (`?busca=`) | `GET /consultas/restaurantes?busca=` | ✅ |
 | 8 | CRUD de Local (endereço) | `/locais` | ✅ |
-| 9 | Login por telefone com código OTP + cadastro por telefone | `/auth/telefone/*` | ✅ |
+| 9 | Login por telefone com código OTP + cadastro por telefone; o código chega por e-mail (Brevo) | `/auth/telefone/*` | ✅ |
 | 10 | Login social (Google/Facebook) | `/auth/google`, `/auth/facebook` | ✅ implementado (ver Limitações sobre uso em modo de teste) |
 | 11 | Coleção Postman com todos os endpoints acima | [`postman/EntregaFood.postman_collection.json`](postman/EntregaFood.postman_collection.json) | ✅ |
 | 12 | Cesta (incluir, consultar, alterar quantidade, excluir) com limite de 99 unidades e restaurante único | `/cesta`, `/cesta/itens` | ✅ |
@@ -528,7 +528,7 @@ python testes/teste_consulta_cardapio.py
 ## Limitações conhecidas
 
 - **Login social (Google/Facebook)**: implementado (`/auth/google`, `/auth/facebook` + callback). Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Pra demonstração, o caminho garantido continua sendo e-mail/senha.
-- **Verificação por SMS**: o OTP de telefone (`/auth/telefone/*`) gera e valida o código no próprio backend, mas não envia SMS de verdade — o endpoint devolve o código em `codigo_dev` pra facilitar teste/demonstração. Integração real com Twilio foi avaliada, mas a conta trial não permite nem buscar números disponíveis sem upgrade (cartão de crédito).
+- **Código de validação (OTP)**: no login e no cadastro por telefone (`/auth/telefone/*`) o código de 6 dígitos é enviado **por e-mail** pelo mesmo SMTP da nota fiscal (`app/core/otp_envio.py`): no login vai para o e-mail da conta; no cadastro, para o e-mail informado na tela. A resposta mostra o e-mail mascarado e não traz mais o código. Sem `SMTP_HOST` (rodando local, testes) o código volta em `codigo_dev`, como antes; `OTP_MOSTRAR_CODIGO=true` devolve o código mesmo com o e-mail enviado (só para demonstração). Conta antiga sem e-mail entra com telefone e senha. SMS de verdade não foi feito: o Twilio trial e o SMS do Brevo exigem pagamento. Testes: `testes/teste_otp_email.py`.
 - **Autorização em Restaurante e Produto**: só as rotas de `/usuarios` checam dono-ou-admin. `PUT`/`DELETE` de `/restaurantes/{id}` e `/produtos/{id}` ainda não exigem login — qualquer requisição altera qualquer registro pelo `id`. Funciona porque o front só deixa quem é `restaurante` chegar na tela de Produtos, mas a API em si confiaria em qualquer chamada — vale estender a mesma checagem de `usuario_controller.py` pra esses dois controllers numa próxima sprint.
 - **Pagamento**: cartão e PIX vão para o Asaas **sandbox** (sem dinheiro de verdade). Não há webhook (o status do PIX é atualizado na consulta) nem estorno automático quando um pedido pago é cancelado. Débito, parcelamento e Mercado Pago ficaram de fora.
 - **Nota fiscal**: simulada em PDF; a emissão real (NFC-e pela SEFAZ) é o item 28 do Backlog.
