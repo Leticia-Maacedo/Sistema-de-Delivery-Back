@@ -11,7 +11,8 @@ Cobre:
   restaurante ou o admin;
 - cesta: produto de restaurante nao aprovado, pausado ou fechado nao entra;
 - /consultas/restaurantes com latitude/longitude: so quem entrega no
-  endereco, do mais perto para o mais longe.
+  endereco, do mais perto para o mais longe;
+- encerrar conta: sem historico apaga; com pedidos anonimiza e mantem o pedido.
 
 Executar:  python -m pytest testes/teste_seguranca_cadastros.py -v
 """
@@ -25,6 +26,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core import nota_fiscal, notificacoes_pedido
 from app.core.database import Base, get_db
 from app.core.security import obter_usuario_logado
 from app.main import app
@@ -38,10 +40,13 @@ CAMPINAS = {"latitude": "-22.905560", "longitude": "-47.060830"}
 
 
 @pytest.fixture
-def ambiente():
+def ambiente(monkeypatch):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     Sessao = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    # notificacoes e nota fiscal rodam em segundo plano com a propria sessao
+    monkeypatch.setattr(notificacoes_pedido, "SessionLocal", Sessao)
+    monkeypatch.setattr(nota_fiscal, "SessionLocal", Sessao)
     logado = {"id": None}
 
     def db_de_teste():
@@ -266,3 +271,41 @@ def test_consulta_pode_incluir_quem_nao_entrega(ambiente):
 
 def test_consulta_longe_de_tudo_fica_vazia(ambiente):
     assert TestClient(app).get("/consultas/restaurantes", params=CAMPINAS).json() == []
+
+
+# ------------------------------------------------------ encerrar conta (RF06)
+def test_encerrar_conta_sem_historico_apaga(ambiente):
+    como, ids = ambiente
+    assert como("outro_cliente").delete(f"/usuarios/{ids['outro_cliente']}").status_code == 204
+    assert como("admin").get(f"/usuarios/{ids['outro_cliente']}").status_code == 404
+
+
+def test_encerrar_conta_com_pedido_anonimiza_e_mantem_o_pedido(ambiente):
+    como, ids = ambiente
+    cliente = como("cliente")
+    assert cliente.post("/cesta/itens", json={"produto_id": ids["produto_Burger"], "quantidade": 1}).status_code == 201
+    pedido = cliente.post("/pedidos", json={"forma_pagamento": "dinheiro", "tipo_entrega": "delivery"})
+    assert pedido.status_code == 201
+    assert cliente.delete(f"/usuarios/{ids['cliente']}").status_code == 204
+
+    admin = como("admin")
+    conta = admin.get(f"/usuarios/{ids['cliente']}").json()
+    assert conta["nome"] == "Conta encerrada"
+    assert conta["email"] == f"conta.encerrada.{ids['cliente']}@entregafood.com" and conta["telefone"] is None
+    assert admin.get(f"/pedidos/{pedido.json()['id']}").status_code == 200  # o pedido continua
+    assert admin.get(f"/locais?usuario_id={ids['cliente']}").json() == []  # enderecos de entrega saem
+
+
+def test_conta_encerrada_nao_entra_mais(ambiente):
+    como, ids = ambiente
+    cliente = como("cliente")
+    cliente.post("/cesta/itens", json={"produto_id": ids["produto_Burger"], "quantidade": 1})
+    cliente.post("/pedidos", json={"forma_pagamento": "dinheiro", "tipo_entrega": "delivery"})
+    cliente.delete(f"/usuarios/{ids['cliente']}")
+    r = _sem_login().post("/auth/login", json={"email": "cliente@teste.com", "senha": "qualquer123"})
+    assert r.status_code == 401
+
+
+def test_nao_encerra_conta_de_outro(ambiente):
+    como, ids = ambiente
+    assert como("outro_cliente").delete(f"/usuarios/{ids['cliente']}").status_code == 403

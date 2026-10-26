@@ -8,7 +8,7 @@ para o lugar errado — ela pertence ao Controller.
 """
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, String, func, select
+from sqlalchemy import CheckConstraint, DateTime, String, delete, func, inspect, select, text, update
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.core.database import Base
@@ -156,6 +156,47 @@ class Usuario(Base):
         return self
 
     def remover(self, db: Session) -> None:
-        """Encerramento de conta (RF06)."""
-        db.delete(self)
+        """Encerramento de conta (RF06).
+
+        A cesta, as inscricoes de notificacao e os enderecos de entrega saem
+        sempre. Sem historico, a conta e apagada. Com pedidos, entregas ou
+        restaurante, a conta e anonimizada: nome, e-mail, telefone, senha e
+        login social saem e a conta nao entra mais, mas os pedidos continuam
+        integros para o restaurante e para os relatorios.
+        """
+        from app.models.entrega import Entrega
+        from app.models.local import Local
+        from app.models.pedido import Pedido
+        from app.models.pedido_status_historico import PedidoStatusHistorico
+        from app.models.push_inscricao import PushInscricao
+        from app.models.restaurante import Restaurante
+        from app.models.sacola import ItemSacola, Sacola
+
+        sacolas = select(Sacola.id).where(Sacola.cliente_id == self.id)
+        db.execute(delete(ItemSacola).where(ItemSacola.sacola_id.in_(sacolas)))
+        db.execute(delete(Sacola).where(Sacola.cliente_id == self.id))
+        db.execute(delete(PushInscricao).where(PushInscricao.usuario_id == self.id))
+        db.execute(delete(Local).where(Local.usuario_id == self.id, Local.id.not_in(select(Restaurante.local_id))))
+
+        referencias = [
+            (Pedido, Pedido.cliente_id), (Restaurante, Restaurante.usuario_id), (Entrega, Entrega.entregador_id),
+            (PedidoStatusHistorico, PedidoStatusHistorico.alterado_por), (Local, Local.usuario_id),
+        ]
+        tem_historico = any(
+            db.scalar(select(func.count()).select_from(tabela).where(coluna == self.id)) for tabela, coluna in referencias
+        )
+        if not tem_historico and inspect(db.get_bind()).has_table("avaliacao"):
+            tem_historico = bool(db.scalar(
+                text("SELECT count(*) FROM avaliacao WHERE avaliador_id = :id OR avaliado_id = :id"), {"id": self.id}
+            ))
+
+        if tem_historico:
+            self.nome = "Conta encerrada"
+            self.email = f"conta.encerrada.{self.id}@entregafood.com"  # unico e sem dono real
+            self.telefone = None
+            self.senha_hash = None
+            self.oauth_provider = None
+            db.execute(update(Restaurante).where(Restaurante.usuario_id == self.id).values(ativo=False))
+        else:
+            db.delete(self)
         db.commit()
