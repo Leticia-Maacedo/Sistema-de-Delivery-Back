@@ -20,9 +20,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.core.database import SessionLocal, engine
+from app.core.security import obter_usuario_logado
 from app.main import app
+from app.models.usuario import Usuario
 
 CNPJ_TESTE = "99.999.999/0001-99"
+# As rotas de Local, Restaurante e escrita de Produto exigem login:
+# o script age como administrador, que pode cadastrar para qualquer usuario.
+app.dependency_overrides[obter_usuario_logado] = lambda: Usuario(id=0, nome="Admin (teste)", tipo="admin")
 cliente = TestClient(app)
 
 falhas = 0
