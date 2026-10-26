@@ -15,8 +15,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
+from app.core.security import obter_usuario_logado
 from app.main import app
+from app.models.usuario import Usuario
 
+# As rotas de Local, Restaurante e escrita de Produto exigem login:
+# o script age como administrador, que pode cadastrar para qualquer usuario.
+app.dependency_overrides[obter_usuario_logado] = lambda: Usuario(id=0, nome="Admin (teste)", tipo="admin")
 cliente = TestClient(app)
 
 falhas = 0
