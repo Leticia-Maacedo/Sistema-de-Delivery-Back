@@ -106,3 +106,23 @@ def exigir_admin(usuario: Usuario = Depends(obter_usuario_logado)) -> Usuario:
             detail="Apenas administradores podem acessar este recurso.",
         )
     return usuario
+
+
+def exigir_cliente(usuario: Usuario = Depends(obter_usuario_logado)) -> Usuario:
+    """Cesta e pedido sao so do cliente: restaurante e entregador nao compram."""
+    if usuario.tipo != "cliente":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Somente contas de cliente podem fazer compras.",
+        )
+    return usuario
+
+
+def exigir_restaurante(usuario: Usuario = Depends(obter_usuario_logado)) -> Usuario:
+    """Portal do Parceiro: so contas do tipo restaurante."""
+    if usuario.tipo != "restaurante":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Somente contas de restaurante acessam o Portal do Parceiro.",
+        )
+    return usuario

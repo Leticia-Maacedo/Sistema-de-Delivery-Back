@@ -1,6 +1,9 @@
 """CONTROLLER — Local.
 
 CRUD de locais/enderecos do EntregaFood.
+
+Todas as rotas exigem login. Cada usuario ve e altera so os proprios
+enderecos; o admin acessa os de qualquer usuario.
 """
 
 from fastapi import (
@@ -15,7 +18,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.geocoding import geocodificar_endereco
+from app.core.security import obter_usuario_logado
 from app.models.local import Local
+from app.models.usuario import Usuario
 from app.schemas.local import (
     LocalCreate,
     LocalOut,
@@ -28,6 +33,29 @@ router = APIRouter(
 )
 
 
+def _pode_acessar(usuario: Usuario, usuario_id: int) -> bool:
+    return usuario.tipo == "admin" or usuario.id == usuario_id
+
+
+def _buscar_local_do_usuario(db: Session, local_id: int, usuario: Usuario) -> Local:
+    """Local pelo id, se existir e for do usuario logado (ou se ele for admin)."""
+    local = Local.buscar_por_id(db, local_id)
+
+    if local is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Local nao encontrado.",
+        )
+
+    if not _pode_acessar(usuario, local.usuario_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Voce nao possui acesso a este endereco.",
+        )
+
+    return local
+
+
 @router.post(
     "",
     response_model=LocalOut,
@@ -37,7 +65,16 @@ router = APIRouter(
 def criar_local(
     dados: LocalCreate,
     db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> Local:
+    usuario_id = dados.usuario_id or usuario_logado.id
+
+    if not _pode_acessar(usuario_logado, usuario_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Voce so pode cadastrar enderecos na sua propria conta.",
+        )
+
     latitude = dados.latitude
     longitude = dados.longitude
 
@@ -50,7 +87,7 @@ def criar_local(
 
     return Local.criar(
         db,
-        usuario_id=dados.usuario_id,
+        usuario_id=usuario_id,
         endereco=dados.endereco,
         tipo=dados.tipo,
         latitude=latitude,
@@ -66,7 +103,18 @@ def criar_local(
 def listar_locais(
     usuario_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> list[Local]:
+    # Sem filtro: o admin ve todos; os demais, so os proprios enderecos.
+    if usuario_id is None and usuario_logado.tipo != "admin":
+        usuario_id = usuario_logado.id
+
+    if usuario_id is not None and not _pode_acessar(usuario_logado, usuario_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Voce nao possui acesso aos enderecos deste usuario.",
+        )
+
     return Local.listar(
         db,
         usuario_id=usuario_id,
@@ -81,19 +129,9 @@ def listar_locais(
 def obter_local(
     local_id: int,
     db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> Local:
-    local = Local.buscar_por_id(
-        db,
-        local_id,
-    )
-
-    if local is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Local nao encontrado.",
-        )
-
-    return local
+    return _buscar_local_do_usuario(db, local_id, usuario_logado)
 
 
 @router.put(
@@ -105,17 +143,9 @@ def atualizar_local(
     local_id: int,
     dados: LocalUpdate,
     db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> Local:
-    local = Local.buscar_por_id(
-        db,
-        local_id,
-    )
-
-    if local is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Local nao encontrado.",
-        )
+    local = _buscar_local_do_usuario(db, local_id, usuario_logado)
 
     alteracoes = dados.model_dump(
         exclude_unset=True
@@ -143,17 +173,9 @@ def atualizar_local(
 def excluir_local(
     local_id: int,
     db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> Response:
-    local = Local.buscar_por_id(
-        db,
-        local_id,
-    )
-
-    if local is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Local nao encontrado.",
-        )
+    local = _buscar_local_do_usuario(db, local_id, usuario_logado)
 
     local.excluir(db)
 

@@ -1,19 +1,35 @@
 {
   "info": {
     "name": "EntregaFood API",
-    "description": "Coleção completa da API EntregaFood: autenticação (e-mail/senha + JWT), CRUD de Usuário, Local, Restaurante e Produto, e as consultas do cliente (Restaurante e Cardápio).\n\nFluxo sugerido para testar do zero: Cadastrar usuário → Login → Criar local → Criar restaurante → Criar produto → Consultar restaurante/cardápio como cliente.\n\nOs requests de CREATE guardam automaticamente o id criado numa variável de coleção (usuario_id, local_id, restaurante_id, produto_id) e o login guarda o token em `token`, então a coleção inteira roda em sequência sem precisar copiar/colar valores.",
+    "description": "Coleção completa da API EntregaFood: autenticação (e-mail/senha + JWT), CRUD de Usuário, Local, Restaurante e Produto, e as consultas do cliente (Restaurante e Cardápio).\n\nFluxo sugerido para testar do zero: Cadastrar usuário (conta de restaurante) → Login → Criar local → Criar restaurante → Criar produto → Consultar restaurante/cardápio.\n\nLocais, Restaurantes e Produtos exigem o token do login: cada usuário mexe só nos próprios endereços, restaurantes e cardápios. Listar todos os restaurantes e aprovar (status_aprovacao) é só do admin; o restaurante criado nasce pendente e só aparece em Consultas depois de aprovado.\n\nOs requests de CREATE guardam automaticamente o id criado numa variável de coleção (usuario_id, local_id, restaurante_id, produto_id) e o login guarda o token em `token`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-
   "variable": [
-    { "key": "base_url", "value": "http://localhost:8000" },
-    { "key": "token", "value": "" },
-    { "key": "usuario_id", "value": "" },
-    { "key": "local_id", "value": "" },
-    { "key": "restaurante_id", "value": "" },
-    { "key": "produto_id", "value": "" }
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "usuario_id",
+      "value": ""
+    },
+    {
+      "key": "local_id",
+      "value": ""
+    },
+    {
+      "key": "restaurante_id",
+      "value": ""
+    },
+    {
+      "key": "produto_id",
+      "value": ""
+    }
   ],
-
   "item": [
     {
       "name": "Autenticação",
@@ -22,11 +38,24 @@
           "name": "Cadastrar usuário (RF01)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/usuarios", "host": ["{{base_url}}"], "path": ["usuarios"] },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nome\": \"Geovane Soares\",\n  \"email\": \"geovane@entregafood.com\",\n  \"senha\": \"senha123\",\n  \"telefone\": \"11999998888\",\n  \"tipo\": \"cliente\"\n}"
+              "raw": "{\n  \"nome\": \"Geovane Soares\",\n  \"email\": \"geovane@entregafood.com\",\n  \"senha\": \"senha123\",\n  \"telefone\": \"11999998888\",\n  \"tipo\": \"restaurante\"\n}"
             }
           },
           "event": [
@@ -47,8 +76,22 @@
           "name": "Login por e-mail e senha",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"geovane@entregafood.com\",\n  \"senha\": \"senha123\"\n}"
@@ -75,8 +118,22 @@
           "name": "Login inválido (credenciais erradas)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"geovane@entregafood.com\",\n  \"senha\": \"senha-errada\"\n}"
@@ -85,7 +142,11 @@
           "event": [
             {
               "listen": "test",
-              "script": { "exec": ["pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"] }
+              "script": {
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+                ]
+              }
             }
           ]
         },
@@ -93,13 +154,31 @@
           "name": "Dados do usuário logado",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": { "raw": "{{base_url}}/auth/eu", "host": ["{{base_url}}"], "path": ["auth", "eu"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/eu",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "eu"
+              ]
+            }
           },
           "event": [
             {
               "listen": "test",
-              "script": { "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"] }
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
             }
           ]
         }
@@ -112,8 +191,21 @@
           "name": "Listar usuários (admin)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": { "raw": "{{base_url}}/usuarios", "host": ["{{base_url}}"], "path": ["usuarios"] },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios"
+              ]
+            },
             "description": "Exige token de uma conta tipo 'admin'. Se você rodar a coleção em sequência a partir de 'Cadastrar usuário', o {{token}} salvo é de um cliente comum e este request vai devolver 403 — faça login manualmente com uma conta admin antes de rodar este request isoladamente."
           }
         },
@@ -121,8 +213,22 @@
           "name": "Consultar usuário por id",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": { "raw": "{{base_url}}/usuarios/{{usuario_id}}", "host": ["{{base_url}}"], "path": ["usuarios", "{{usuario_id}}"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios/{{usuario_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios",
+                "{{usuario_id}}"
+              ]
+            }
           }
         },
         {
@@ -130,19 +236,51 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
-            "url": { "raw": "{{base_url}}/usuarios/{{usuario_id}}", "host": ["{{base_url}}"], "path": ["usuarios", "{{usuario_id}}"] },
-            "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Geovane Soares Atualizado\"\n}" }
+            "url": {
+              "raw": "{{base_url}}/usuarios/{{usuario_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios",
+                "{{usuario_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Geovane Soares Atualizado\"\n}"
+            }
           }
         },
         {
           "name": "Excluir usuário (RF06)",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": { "raw": "{{base_url}}/usuarios/{{usuario_id}}", "host": ["{{base_url}}"], "path": ["usuarios", "{{usuario_id}}"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios/{{usuario_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios",
+                "{{usuario_id}}"
+              ]
+            }
           }
         }
       ]
@@ -154,8 +292,25 @@
           "name": "Cadastrar local",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/locais", "host": ["{{base_url}}"], "path": ["locais"] },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/locais",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "locais"
+              ]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"usuario_id\": {{usuario_id}},\n  \"endereco\": \"Rua das Flores, 123\",\n  \"tipo\": \"restaurante\",\n  \"latitude\": \"-23.550520\",\n  \"longitude\": \"-46.633308\"\n}"
@@ -179,30 +334,95 @@
           "name": "Listar locais",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/locais", "host": ["{{base_url}}"], "path": ["locais"] }
+            "url": {
+              "raw": "{{base_url}}/locais",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "locais"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
           }
         },
         {
           "name": "Consultar local por id",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/locais/{{local_id}}", "host": ["{{base_url}}"], "path": ["locais", "{{local_id}}"] }
+            "url": {
+              "raw": "{{base_url}}/locais/{{local_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "locais",
+                "{{local_id}}"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
           }
         },
         {
           "name": "Atualizar local",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/locais/{{local_id}}", "host": ["{{base_url}}"], "path": ["locais", "{{local_id}}"] },
-            "body": { "mode": "raw", "raw": "{\n  \"endereco\": \"Rua das Flores, 456\"\n}" }
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/locais/{{local_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "locais",
+                "{{local_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"endereco\": \"Rua das Flores, 456\"\n}"
+            }
           }
         },
         {
           "name": "Excluir local",
           "request": {
             "method": "DELETE",
-            "url": { "raw": "{{base_url}}/locais/{{local_id}}", "host": ["{{base_url}}"], "path": ["locais", "{{local_id}}"] }
+            "url": {
+              "raw": "{{base_url}}/locais/{{local_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "locais",
+                "{{local_id}}"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
           }
         }
       ]
@@ -214,8 +434,25 @@
           "name": "Cadastrar restaurante",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/restaurantes", "host": ["{{base_url}}"], "path": ["restaurantes"] },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/restaurantes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "restaurantes"
+              ]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"local_id\": {{local_id}},\n  \"nome_fantasia\": \"Cantinho do Chef\",\n  \"cnpj\": \"12.345.678/0001-90\",\n  \"taxa_entrega_km\": \"2.50\"\n}"
@@ -241,36 +478,103 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/restaurantes?limite=100&pular=0",
-              "host": ["{{base_url}}"],
-              "path": ["restaurantes"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "restaurantes"
+              ],
               "query": [
-                { "key": "limite", "value": "100" },
-                { "key": "pular", "value": "0" }
+                {
+                  "key": "limite",
+                  "value": "100"
+                },
+                {
+                  "key": "pular",
+                  "value": "0"
+                }
               ]
-            }
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
           }
         },
         {
           "name": "Consultar restaurante por id",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/restaurantes/{{restaurante_id}}", "host": ["{{base_url}}"], "path": ["restaurantes", "{{restaurante_id}}"] }
+            "url": {
+              "raw": "{{base_url}}/restaurantes/{{restaurante_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "restaurantes",
+                "{{restaurante_id}}"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
           }
         },
         {
           "name": "Atualizar restaurante",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/restaurantes/{{restaurante_id}}", "host": ["{{base_url}}"], "path": ["restaurantes", "{{restaurante_id}}"] },
-            "body": { "mode": "raw", "raw": "{\n  \"status_aprovacao\": \"aprovado\"\n}" }
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/restaurantes/{{restaurante_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "restaurantes",
+                "{{restaurante_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status_aprovacao\": \"aprovado\"\n}"
+            }
           }
         },
         {
           "name": "Remover restaurante",
           "request": {
             "method": "DELETE",
-            "url": { "raw": "{{base_url}}/restaurantes/{{restaurante_id}}", "host": ["{{base_url}}"], "path": ["restaurantes", "{{restaurante_id}}"] }
+            "url": {
+              "raw": "{{base_url}}/restaurantes/{{restaurante_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "restaurantes",
+                "{{restaurante_id}}"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
           }
         }
       ]
@@ -282,8 +586,25 @@
           "name": "Cadastrar produto",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/produtos", "host": ["{{base_url}}"], "path": ["produtos"] },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/produtos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "produtos"
+              ]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"restaurante_id\": {{restaurante_id}},\n  \"nome\": \"X-Salada\",\n  \"descricao\": \"Pão, hambúrguer, queijo e salada\",\n  \"preco\": \"24.90\",\n  \"disponivel\": true\n}"
@@ -309,9 +630,18 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/produtos?restaurante_id={{restaurante_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["produtos"],
-              "query": [{ "key": "restaurante_id", "value": "{{restaurante_id}}" }]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "produtos"
+              ],
+              "query": [
+                {
+                  "key": "restaurante_id",
+                  "value": "{{restaurante_id}}"
+                }
+              ]
             }
           }
         },
@@ -319,23 +649,68 @@
           "name": "Consultar produto por id",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/produtos/{{produto_id}}", "host": ["{{base_url}}"], "path": ["produtos", "{{produto_id}}"] }
+            "url": {
+              "raw": "{{base_url}}/produtos/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "produtos",
+                "{{produto_id}}"
+              ]
+            }
           }
         },
         {
           "name": "Atualizar produto",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/produtos/{{produto_id}}", "host": ["{{base_url}}"], "path": ["produtos", "{{produto_id}}"] },
-            "body": { "mode": "raw", "raw": "{\n  \"preco\": \"27.90\",\n  \"disponivel\": true\n}" }
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/produtos/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "produtos",
+                "{{produto_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"preco\": \"27.90\",\n  \"disponivel\": true\n}"
+            }
           }
         },
         {
           "name": "Remover produto",
           "request": {
             "method": "DELETE",
-            "url": { "raw": "{{base_url}}/produtos/{{produto_id}}", "host": ["{{base_url}}"], "path": ["produtos", "{{produto_id}}"] }
+            "url": {
+              "raw": "{{base_url}}/produtos/{{produto_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "produtos",
+                "{{produto_id}}"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
           }
         }
       ]
@@ -347,7 +722,43 @@
           "name": "Consultar restaurantes disponíveis",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/consultas/restaurantes", "host": ["{{base_url}}"], "path": ["consultas", "restaurantes"] }
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Restaurantes que entregam no endereço (raio)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes?latitude=-23.550520&longitude=-46.633308",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes"
+              ],
+              "query": [
+                {
+                  "key": "latitude",
+                  "value": "-23.550520"
+                },
+                {
+                  "key": "longitude",
+                  "value": "-46.633308"
+                }
+              ]
+            },
+            "description": "Com a latitude e a longitude do endereço do cliente, só vêm os restaurantes cujo raio de entrega cobre o endereço, do mais perto para o mais longe, com distancia_km. Use incluir_fora_do_raio=true para ver também os que não entregam."
           }
         },
         {
@@ -356,9 +767,19 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/consultas/restaurantes?busca=burger",
-              "host": ["{{base_url}}"],
-              "path": ["consultas", "restaurantes"],
-              "query": [{ "key": "busca", "value": "burger" }]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes"
+              ],
+              "query": [
+                {
+                  "key": "busca",
+                  "value": "burger"
+                }
+              ]
             }
           }
         },
@@ -368,8 +789,14 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["consultas", "restaurantes", "{{restaurante_id}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes",
+                "{{restaurante_id}}"
+              ]
             }
           }
         },
@@ -379,8 +806,15 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
-              "host": ["{{base_url}}"],
-              "path": ["consultas", "restaurantes", "{{restaurante_id}}", "cardapio"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes",
+                "{{restaurante_id}}",
+                "cardapio"
+              ]
             }
           }
         }
@@ -401,8 +835,12 @@
             ],
             "url": {
               "raw": "{{base_url}}/cesta",
-              "host": ["{{base_url}}"],
-              "path": ["cesta"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta"
+              ]
             },
             "description": "Consulta a cesta do usuário autenticado e retorna os produtos, quantidades, subtotais e o valor total."
           },

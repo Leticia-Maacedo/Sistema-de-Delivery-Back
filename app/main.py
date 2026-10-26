@@ -18,6 +18,7 @@ from app.controllers import (
     local_controller,
     notificacao_controller,
     pagamento_controller,
+    parceiro_controller,
     pedido_controller,
     produto_controller,
     restaurante_controller,
@@ -31,10 +32,10 @@ settings = get_settings()
 app = FastAPI(
     title="EntregaFood API",
     description=(
-        "API REST da plataforma EntregaFood. "
-        "Sprint 1 â€” CRUD de UsuÃ¡rio e autenticaÃ§Ã£o por e-mail/senha. "
-        "Sprint 2 â€” consulta de Restaurante e CardÃ¡pio pelo cliente. "
-        "Extra â€” CRUD de Restaurante e Produto."
+        "API REST da plataforma EntregaFood: cadastro e autenticação (e-mail, telefone com código, "
+        "Google e Facebook), endereços, restaurantes e cardápio, cesta, fechamento do pedido com taxa "
+        "de entrega pela distância, pagamento (cartão, PIX e dinheiro), nota fiscal, acompanhamento da "
+        "entrega com notificações e rastreio, e portal do parceiro."
     ),
     version="1.0.0",
 )
@@ -60,9 +61,10 @@ app.include_router(pedido_controller.router)
 app.include_router(pagamento_controller.router)
 app.include_router(entrega_controller.router)
 app.include_router(notificacao_controller.router)
+app.include_router(parceiro_controller.router)
 
 
-@app.get("/", tags=["Status"], summary="VerificaÃ§Ã£o de saÃºde da API")
+@app.get("/", tags=["Status"], summary="Verificação de saúde da API")
 def raiz() -> dict[str, str]:
     return {"status": "ok", "aplicacao": "EntregaFood API", "versao": "1.0.0"}
 

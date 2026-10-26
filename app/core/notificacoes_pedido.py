@@ -91,5 +91,20 @@ def notificar_pedido_criado(pedido_id: int) -> None:
     _enviar(pedido_id, lambda p: avisos_pedido_criado(p.id, p.tipo_entrega))
 
 
+def avisos_cancelamento_cliente(pedido_id: int) -> list[Aviso]:
+    """RN04: o cliente cancelou enquanto o pedido aguardava o aceite."""
+
+    return [
+        Aviso("cliente", f"Pedido #{pedido_id} cancelado",
+              "Você cancelou o pedido. Se já tinha pago, o valor será estornado."),
+        Aviso("restaurante", f"Pedido #{pedido_id} cancelado pelo cliente",
+              "O cliente desistiu antes do aceite. Não é preciso preparar."),
+    ]
+
+
+def notificar_cancelamento_cliente(pedido_id: int) -> None:
+    _enviar(pedido_id, lambda p: avisos_cancelamento_cliente(p.id))
+
+
 def notificar_mudanca_status(pedido_id: int) -> None:
     _enviar(pedido_id, lambda p: avisos_mudanca_status(p.id, p.status, p.tipo_entrega))

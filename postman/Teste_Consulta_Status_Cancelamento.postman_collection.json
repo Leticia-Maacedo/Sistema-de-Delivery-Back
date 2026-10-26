@@ -1,0 +1,2661 @@
+{
+  "info": {
+    "name": "EntregaFood — Teste: consulta, alteração de status e cancelamento do pedido",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Consulta de pedidos (cliente, restaurante, painel), alteração de status com as regras do fluxo e cancelamento pelo cliente (RN04) e pelo restaurante. Rode a coleção inteira, em ordem, com um ambiente que tenha base_url e as contas de teste (email_* e senha_*)."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8011"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Preparação",
+      "item": [
+        {
+          "name": "00.1 Login das contas de teste",
+          "item": [
+            {
+              "name": "Login cliente A",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_cliente_a}}\",\n  \"senha\": \"{{senha_cliente_a}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_cliente_a', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login cliente B",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_cliente_b}}\",\n  \"senha\": \"{{senha_cliente_b}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_cliente_b', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login dono do Teste Burger",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_dono_1}}\",\n  \"senha\": \"{{senha_dono_1}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_dono_1', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login dono da Teste Pizzaria",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_dono_2}}\",\n  \"senha\": \"{{senha_dono_2}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_dono_2', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login entregador",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_entregador}}\",\n  \"senha\": \"{{senha_entregador}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('token_entregador', pm.response.json().access_token);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.2 Restaurante e produto",
+          "item": [
+            {
+              "name": "Restaurantes aprovados",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/consultas/restaurantes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "consultas",
+                    "restaurantes"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const r = pm.response.json().find(x => x.nome_fantasia === 'Teste Burger');",
+                      "pm.test('Teste Burger encontrado', () => pm.expect(r).to.be.an('object'));",
+                      "pm.collectionVariables.set('restaurante_id', r.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cardápio do Teste Burger",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "consultas",
+                    "restaurantes",
+                    "{{restaurante_id}}",
+                    "cardapio"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('produto_id', pm.response.json().itens[0].id);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "00.3 Quatro pedidos do cliente A",
+          "item": [
+            {
+              "name": "Pedido 1 (fluxo completo): X-Burger × 2 na cesta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido 1 (fluxo completo): criar pedido (dinheiro)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"delivery\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "const j = pm.response.json();",
+                      "pm.collectionVariables.set('p1', j.id);",
+                      "pm.test('Nasce aguardando o restaurante', () => pm.expect(j.status).to.eql('aguardando_aceite'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido 1 (fluxo completo): escolher pagamento dinheiro",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/pedidos/{{p1}}/metodo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "pedidos",
+                    "{{p1}}",
+                    "metodo"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"metodo\": \"dinheiro\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido 2 (cancelar em dinheiro): X-Burger × 2 na cesta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido 2 (cancelar em dinheiro): criar pedido (dinheiro)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"delivery\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "const j = pm.response.json();",
+                      "pm.collectionVariables.set('p2', j.id);",
+                      "pm.test('Nasce aguardando o restaurante', () => pm.expect(j.status).to.eql('aguardando_aceite'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido 2 (cancelar em dinheiro): escolher pagamento dinheiro",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/pedidos/{{p2}}/metodo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "pedidos",
+                    "{{p2}}",
+                    "metodo"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"metodo\": \"dinheiro\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido 3 (cancelar pago): X-Burger × 2 na cesta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido 3 (cancelar pago): criar pedido (cartao)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "const j = pm.response.json();",
+                      "pm.collectionVariables.set('p3', j.id);",
+                      "pm.test('Nasce aguardando o restaurante', () => pm.expect(j.status).to.eql('aguardando_aceite'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido 3 (cancelar pago): escolher pagamento cartao",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/pedidos/{{p3}}/metodo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "pedidos",
+                    "{{p3}}",
+                    "metodo"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"metodo\": \"cartao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido 3 (cancelar pago): pagar com cartão (gateway simulado)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/cartao",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "cartao"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pedido_id\": \"{{p3}}\",\n  \"metodo\": \"cartao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "pm.test('Pagamento aprovado', () => pm.expect(pm.response.json().status).to.eql('aprovado'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido 4 (cancelar depois do aceite): X-Burger × 2 na cesta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido 4 (cancelar depois do aceite): criar pedido (dinheiro)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"delivery\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "const j = pm.response.json();",
+                      "pm.collectionVariables.set('p4', j.id);",
+                      "pm.test('Nasce aguardando o restaurante', () => pm.expect(j.status).to.eql('aguardando_aceite'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido 4 (cancelar depois do aceite): escolher pagamento dinheiro",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/pedidos/{{p4}}/metodo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "pedidos",
+                    "{{p4}}",
+                    "metodo"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"metodo\": \"dinheiro\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Casos de teste",
+      "item": [
+        {
+          "name": "CT-01 Cliente lista os próprios pedidos",
+          "item": [
+            {
+              "name": "Cliente A: GET /pedidos",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('Quatro pedidos', () => pm.expect(j.length).to.eql(4));",
+                      "pm.test('Mais recente primeiro', () => pm.expect(j[0].id).to.eql(pm.collectionVariables.get('p4')) && pm.expect(j[3].id).to.eql(pm.collectionVariables.get('p1')));",
+                      "pm.test('Campos do resumo', () => pm.expect(j[0]).to.include.keys('status', 'status_rotulo', 'valor_total', 'restaurante_nome', 'endereco_entrega'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-02 Outro cliente não vê esses pedidos",
+          "item": [
+            {
+              "name": "Cliente B: GET /pedidos",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_b}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Lista vazia', () => pm.expect(pm.response.json()).to.eql([]));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-03 Cliente consulta o detalhe do pedido",
+          "item": [
+            {
+              "name": "Cliente A: GET /pedidos/{p1}",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('Código de entrega de 4 dígitos', () => pm.expect(j.codigo_entrega).to.match(/^\\d{4}$/));",
+                      "pm.collectionVariables.set('codigo_p1', j.codigo_entrega);",
+                      "pm.test('Seis etapas, só a primeira concluída', () => { pm.expect(j.etapas.length).to.eql(6); pm.expect(j.etapas.filter(e => e.concluida).length).to.eql(1); });",
+                      "pm.test('Itens com o preço do momento', () => pm.expect(j.itens[0]).to.include({quantidade: 2}));",
+                      "pm.test('Endereço gravado no pedido', () => pm.expect(j.endereco_entrega).to.include('Praça da Sé'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-04 Outro cliente não abre o pedido",
+          "item": [
+            {
+              "name": "Cliente B: GET /pedidos/{p1}",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_b}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                      "pm.test('Mensagem contém \"nao possui acesso\"', () => pm.expect(pm.response.json().detail).to.include('nao possui acesso'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-05 Restaurante dono abre o pedido sem o código",
+          "item": [
+            {
+              "name": "Dono do Burger: GET /pedidos/{p1}",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Código de entrega oculto para o restaurante', () => pm.expect(pm.response.json().codigo_entrega).to.be.null);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-06 Restaurante de outro dono não abre o pedido",
+          "item": [
+            {
+              "name": "Dono da Pizzaria: GET /pedidos/{p1}",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_2}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-07 Painel do restaurante",
+          "item": [
+            {
+              "name": "Dono do Burger: GET /pedidos/painel",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/painel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "painel"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('Os quatro pedidos no painel', () => pm.expect(j.map(p => p.id)).to.include.members([pm.collectionVariables.get('p1'), pm.collectionVariables.get('p2'), pm.collectionVariables.get('p3'), pm.collectionVariables.get('p4')]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Dono da Pizzaria: GET /pedidos/painel",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_2}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/painel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "painel"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Nenhum pedido do Burger', () => pm.expect(pm.response.json().map(p => p.id)).to.not.include(pm.collectionVariables.get('p1')));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente: GET /pedidos/painel",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/painel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "painel"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-08 Pedido inexistente e sem login",
+          "item": [
+            {
+              "name": "GET /pedidos/999999",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/999999",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "999999"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('Mensagem contém \"nao encontrado\"', () => pm.expect(pm.response.json().detail).to.include('nao encontrado'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET /pedidos sem token",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-09 Restaurante aceita o pedido",
+          "item": [
+            {
+              "name": "Dono do Burger: aceito",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"aceito\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('Status aceito', () => pm.expect(j.status).to.eql('aceito'));",
+                      "pm.test('Próximo: em preparação', () => pm.expect(j.proximo_status).to.eql('em_preparacao'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-10 Não pode pular etapa",
+          "item": [
+            {
+              "name": "Dono do Burger: pular para pronto",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"pronto_para_entrega\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('Mensagem contém \"Mudanca invalida\"', () => pm.expect(pm.response.json().detail).to.include('Mudanca invalida'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-11 Entregador não faz a etapa do restaurante",
+          "item": [
+            {
+              "name": "Entregador: em_preparacao",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entregador}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"em_preparacao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('Mensagem contém \"nao pode marcar\"', () => pm.expect(pm.response.json().detail).to.include('nao pode marcar'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-12 Cliente não altera status",
+          "item": [
+            {
+              "name": "Cliente A: em_preparacao",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"em_preparacao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-13 Restaurante não altera pedido de outro",
+          "item": [
+            {
+              "name": "Dono da Pizzaria: em_preparacao",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_2}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"em_preparacao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-14 Status inexistente e corpo inválido",
+          "item": [
+            {
+              "name": "status = voando",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"voando\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "corpo sem status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-15 Restaurante prepara e deixa pronto",
+          "item": [
+            {
+              "name": "Dono do Burger: em_preparacao",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"em_preparacao\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Dono do Burger: pronto_para_entrega",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"pronto_para_entrega\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('Pronto para entrega', () => pm.expect(j.status).to.eql('pronto_para_entrega'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-16 Só o entregador marca a saída",
+          "item": [
+            {
+              "name": "Dono do Burger: em_transito",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"em_transito\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('Mensagem contém \"nao pode marcar\"', () => pm.expect(pm.response.json().detail).to.include('nao pode marcar'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Entregador: em_transito",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entregador}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"em_transito\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('Saiu para entrega', () => pm.expect(j.status).to.eql('em_transito'));",
+                      "pm.test('Entregador gravado na entrega', () => pm.expect(j.entregador_id).to.be.a('number'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-17 Confirmação com o código de entrega",
+          "item": [
+            {
+              "name": "Entregador: código errado",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entregador}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/entrega/confirmar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "entrega",
+                    "confirmar"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigo\": \"0000\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Código de teste diferente do real', () => pm.expect(pm.collectionVariables.get('codigo_p1')).to.not.eql('0000'));",
+                      "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('Mensagem contém \"incorreto\"', () => pm.expect(pm.response.json().detail).to.include('incorreto'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Entregador: código do cliente",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_entregador}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/entrega/confirmar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "entrega",
+                    "confirmar"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigo\": \"{{codigo_p1}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('Entregue e finalizado', () => { pm.expect(j.status).to.eql('entregue'); pm.expect(j.finalizado).to.be.true; });",
+                      "pm.test('Todas as etapas concluídas', () => pm.expect(j.etapas.every(e => e.concluida)).to.be.true);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-18 Pedido entregue não muda mais",
+          "item": [
+            {
+              "name": "Dono do Burger: cancelar entregue",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p1}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p1}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"cancelado\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('Mensagem contém \"nao pode mudar\"', () => pm.expect(pm.response.json().detail).to.include('nao pode mudar'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-19 Cliente cancela enquanto aguarda o aceite",
+          "item": [
+            {
+              "name": "Cliente A: POST /pedidos/{p2}/cancelar",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p2}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p2}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('Cancelado', () => pm.expect(j.status).to.eql('cancelado'));",
+                      "pm.test('Etapa Cancelado na linha do tempo', () => pm.expect(j.etapas.map(e => e.status)).to.include('cancelado'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pagamento do pedido 2",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/pedidos/{{p2}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "pedidos",
+                    "{{p2}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Pagamento em dinheiro cancelado', () => pm.expect(pm.response.json().status).to.eql('cancelado'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-20 Não cancela duas vezes",
+          "item": [
+            {
+              "name": "Cliente A: cancelar de novo",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p2}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p2}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('Mensagem contém \"ja esta cancelado\"', () => pm.expect(pm.response.json().detail).to.include('ja esta cancelado'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-21 Outro cliente não cancela",
+          "item": [
+            {
+              "name": "Cliente B: cancelar pedido 3",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_b}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p3}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p3}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                      "pm.test('Mensagem contém \"nao possui acesso\"', () => pm.expect(pm.response.json().detail).to.include('nao possui acesso'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-22 Restaurante não usa o cancelamento do cliente",
+          "item": [
+            {
+              "name": "Dono do Burger: POST cancelar",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p3}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p3}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                      "pm.test('Mensagem contém \"cliente\"', () => pm.expect(pm.response.json().detail).to.include('cliente'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-23 Pedido pago é cancelado e estornado",
+          "item": [
+            {
+              "name": "Cliente A: cancelar pedido 3 (pago)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p3}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p3}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Cancelado', () => pm.expect(pm.response.json().status).to.eql('cancelado'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pagamento do pedido 3",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/pedidos/{{p3}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "pedidos",
+                    "{{p3}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Pagamento estornado', () => pm.expect(pm.response.json().status).to.eql('estornado'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-24 Depois do aceite só o restaurante cancela",
+          "item": [
+            {
+              "name": "Dono do Burger: aceita o pedido 4",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p4}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p4}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"aceito\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente A: tenta cancelar",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p4}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p4}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('Mensagem contém \"aguarda o aceite\"', () => pm.expect(pm.response.json().detail).to.include('aguarda o aceite'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Dono do Burger: cancela",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p4}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p4}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"cancelado\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('Cancelado pelo restaurante', () => pm.expect(j.status).to.eql('cancelado'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-25 Cancelamento de pedido inexistente e sem login",
+          "item": [
+            {
+              "name": "POST /pedidos/999999/cancelar",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/999999/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "999999",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST cancelar sem token",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p4}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p4}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "CT-26 Finalizados só aparecem com o filtro",
+          "item": [
+            {
+              "name": "Painel sem filtro",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/painel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "painel"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Nenhum pedido em andamento', () => pm.expect(pm.response.json().length).to.eql(0));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Painel com incluir_finalizados",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_dono_1}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/painel?incluir_finalizados=true",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "painel"
+                  ],
+                  "query": [
+                    {
+                      "key": "incluir_finalizados",
+                      "value": "true"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "const s = Object.fromEntries(j.map(p => [p.id, p.status]));",
+                      "pm.test('1 entregue e 3 cancelados', () => { pm.expect(s[pm.collectionVariables.get('p1')]).to.eql('entregue'); pm.expect([s[pm.collectionVariables.get('p2')], s[pm.collectionVariables.get('p3')], s[pm.collectionVariables.get('p4')]]).to.eql(['cancelado', 'cancelado', 'cancelado']); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente A: status final dos pedidos",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_cliente_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('entregue + 3 cancelados', () => pm.expect(pm.response.json().map(p => p.status).sort()).to.eql(['cancelado', 'cancelado', 'cancelado', 'entregue']));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

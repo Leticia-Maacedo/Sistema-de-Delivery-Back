@@ -19,6 +19,13 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.email import smtp_ativo
+from app.core.otp_envio import (
+    EnvioIndisponivel,
+    codigo_na_resposta,
+    enviar_codigo,
+    mascarar_email,
+)
 from app.core.security import (
     criar_token_acesso,
     gerar_hash_senha,
@@ -50,6 +57,32 @@ settings = get_settings()
 def normalizar_telefone(telefone: str) -> str:
     """Mantém apenas os números do telefone."""
     return "".join(filter(str.isdigit, telefone))
+
+
+def enviar_codigo_ou_erro(
+    *,
+    para: str | None,
+    nome: str | None,
+    codigo: str,
+    finalidade: str,
+) -> bool:
+    """Manda o OTP por e-mail; se o SMTP falhar, responde 502 (o código não sai)."""
+
+    try:
+        return enviar_codigo(
+            para=para,
+            nome=nome,
+            codigo=codigo,
+            finalidade=finalidade,
+        )
+    except EnvioIndisponivel as erro:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Não foi possível enviar o código por e-mail agora. "
+                "Tente novamente em instantes."
+            ),
+        ) from erro
 
 def get_facebook_redirect_uri(request: Request) -> str:
     """Retorna o callback do Facebook conforme o ambiente."""
@@ -236,6 +269,15 @@ def solicitar_codigo_otp(
             detail="Não existe usuário cadastrado com este telefone.",
         )
 
+    if smtp_ativo() and not usuario.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Esta conta não tem e-mail para receber o código. "
+                "Entre com o telefone e a senha."
+            ),
+        )
+
     codigo = f"{secrets.randbelow(1_000_000):06d}"
 
     registro_otp = db.get(
@@ -265,9 +307,22 @@ def solicitar_codigo_otp(
 
     db.commit()
 
+    # O código vai para o e-mail da conta (Brevo). Sem SMTP, volta na resposta.
+    enviado = enviar_codigo_ou_erro(
+        para=usuario.email,
+        nome=usuario.nome,
+        codigo=codigo,
+        finalidade="login",
+    )
+
     return OTPResponse(
-        detalhe="Código OTP gerado. Validade de 5 minutos.",
-        codigo_dev=codigo,
+        detalhe=(
+            f"Enviamos o código para {mascarar_email(usuario.email)}. "
+            "Validade de 5 minutos."
+            if enviado
+            else "Código OTP gerado. Validade de 5 minutos."
+        ),
+        codigo_dev=codigo_na_resposta(codigo, enviado),
     )
 
 
@@ -411,6 +466,18 @@ def solicitar_codigo_cadastro_telefone(
             ),
         )
 
+    if smtp_ativo() and not dados.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Informe o e-mail para receber o código de confirmação.",
+        )
+
+    if dados.email and Usuario.email_ja_cadastrado(db, str(dados.email)):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Já existe uma conta cadastrada com este e-mail.",
+        )
+
     codigo = f"{secrets.randbelow(1_000_000):06d}"
 
     registro_otp = db.get(
@@ -440,12 +507,22 @@ def solicitar_codigo_cadastro_telefone(
 
     db.commit()
 
+    # O código de confirmação vai para o e-mail informado no cadastro.
+    enviado = enviar_codigo_ou_erro(
+        para=str(dados.email) if dados.email else None,
+        nome=dados.nome,
+        codigo=codigo,
+        finalidade="cadastro",
+    )
+
     return OTPResponse(
         detalhe=(
-            "Código OTP de cadastro gerado. "
+            f"Enviamos o código para {mascarar_email(str(dados.email))}. "
             "Validade de 5 minutos."
+            if enviado
+            else "Código OTP de cadastro gerado. Validade de 5 minutos."
         ),
-        codigo_dev=codigo,
+        codigo_dev=codigo_na_resposta(codigo, enviado),
     )
 
 

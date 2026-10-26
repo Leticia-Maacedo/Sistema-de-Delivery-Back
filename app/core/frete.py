@@ -84,8 +84,10 @@ def medir_distancia(origem, destino) -> Distancia:
     return Distancia(km=(reta * fator).quantize(Decimal("0.001")), metodo="estimada")
 
 
-def entrega_no_raio(distancia_km: Decimal) -> bool:
-    return distancia_km <= Decimal(str(settings.FRETE_RAIO_MAX_KM))
+def entrega_no_raio(distancia_km: Decimal, raio_km: float | None = None) -> bool:
+    """Dentro do raio do restaurante (ou do limite da plataforma)."""
+    limite = raio_km if raio_km is not None else settings.FRETE_RAIO_MAX_KM
+    return distancia_km <= Decimal(str(limite))
 
 
 def calcular_taxa_entrega(distancia_km: Decimal, valor_km: Decimal) -> Decimal:

@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     SMTP_SENHA: str = ""
     SMTP_REMETENTE: str = ""
 
+    # Codigo de validacao (OTP) do login e do cadastro - app/core/otp_envio.py
+    # Com SMTP o codigo vai so por e-mail; true devolve tambem na resposta.
+    OTP_MOSTRAR_CODIGO: bool = False
+
     @property
     def cors_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

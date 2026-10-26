@@ -116,6 +116,8 @@ class CadastroTelefoneRequest(BaseModel):
         examples=["senha123"],
     )
     tipo: TipoUsuario = Field(default="cliente")
+    # E-mail que recebe o código de confirmação (obrigatório com SMTP ativo).
+    email: EmailStr | None = None
 
 
 class ConfirmarCadastroTelefoneRequest(BaseModel):

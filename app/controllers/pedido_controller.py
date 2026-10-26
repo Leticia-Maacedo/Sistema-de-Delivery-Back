@@ -14,12 +14,16 @@ from decimal import Decimal
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.controllers.pagamento_controller import receber_pagamento_na_entrega
+from app.controllers.pagamento_controller import cancelar_pagamento_do_pedido, receber_pagamento_na_entrega
 from app.controllers.sacola_controller import preparar_fechamento
 from app.core import pagamento_regras, status_pedido
 from app.core.database import get_db
-from app.core.notificacoes_pedido import notificar_mudanca_status, notificar_pedido_criado
-from app.core.security import obter_usuario_logado
+from app.core.notificacoes_pedido import (
+    notificar_cancelamento_cliente,
+    notificar_mudanca_status,
+    notificar_pedido_criado,
+)
+from app.core.security import exigir_cliente, obter_usuario_logado
 from app.models.entrega import Entrega
 from app.models.item_pedido import ItemPedido
 from app.models.pagamento import Pagamento
@@ -105,6 +109,7 @@ def montar_resumo(db: Session, pedido: Pedido) -> PedidoResumoOut:
     """Dados do pedido para as listagens."""
 
     restaurante = Restaurante.buscar_por_id(db, pedido.restaurante_id)
+    cliente = db.get(Usuario, pedido.cliente_id)
     itens = ItemPedido.listar_por_pedido(db, pedido.id)
     proximo = status_pedido.proximo_status(pedido.status, pedido.tipo_entrega)
 
@@ -112,6 +117,7 @@ def montar_resumo(db: Session, pedido: Pedido) -> PedidoResumoOut:
         id=pedido.id,
         restaurante_id=pedido.restaurante_id,
         restaurante_nome=restaurante.nome_fantasia if restaurante else None,
+        cliente_nome=cliente.nome if cliente else None,
         status=pedido.status,
         status_rotulo=status_pedido.rotulo(pedido.status),
         tipo_entrega=pedido.tipo_entrega,
@@ -212,7 +218,7 @@ def criar_pedido(
     dados: PedidoCriarIn,
     tarefas: BackgroundTasks,
     db: Session = Depends(get_db),
-    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    usuario_logado: Usuario = Depends(exigir_cliente),
 ) -> Pedido:
     """Fecha a cesta do usuário autenticado e cria o pedido.
 
@@ -373,6 +379,9 @@ def alterar_status_pedido(
             detail=problema,
         )
 
+    if dados.status == status_pedido.CANCELADO:
+        cancelar_pagamento_do_pedido(db, pedido, tarefas)  # estorna ou cancela a cobranca
+
     pedido.alterar_status(db, dados.status, usuario_id=usuario_logado.id)
     tarefas.add_task(notificar_mudanca_status, pedido.id)  # push a cada mudanca
 
@@ -436,5 +445,53 @@ def confirmar_entrega(
     pedido.alterar_status(db, status_pedido.ENTREGUE, usuario_id=usuario_logado.id)
     receber_pagamento_na_entrega(db, pedido, tarefas)  # dinheiro: vira "aprovado" e emite a NF
     tarefas.add_task(notificar_mudanca_status, pedido.id)
+
+    return montar_detalhe(db, pedido, usuario_logado)
+
+
+@router.post(
+    "/{pedido_id}/cancelar",
+    response_model=PedidoDetalheOut,
+    summary="Cancelar meu pedido (cliente, enquanto aguarda aceite)",
+)
+def cancelar_pedido_cliente(
+    pedido_id: int,
+    tarefas: BackgroundTasks,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(exigir_cliente),
+) -> PedidoDetalheOut:
+    """RN04: o cliente cancela o próprio pedido enquanto ele aguarda o aceite.
+
+    Depois que o restaurante aceita, só o restaurante pode cancelar.
+    Se o pedido já estava pago (cartão ou PIX), o valor é estornado no
+    Asaas; se o Asaas pedir para esperar, o estorno fica "estorno_pendente"
+    e é refeito em segundo plano.
+    """
+
+    pedido = Pedido.buscar_por_id(db, pedido_id)
+
+    if pedido is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pedido nao encontrado.",
+        )
+
+    if pedido.cliente_id != usuario_logado.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Voce nao possui acesso a este pedido.",
+        )
+
+    problema = status_pedido.validar_cancelamento_cliente(pedido.status)
+
+    if problema is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=problema,
+        )
+
+    cancelar_pagamento_do_pedido(db, pedido, tarefas)
+    pedido.alterar_status(db, status_pedido.CANCELADO, usuario_id=usuario_logado.id)
+    tarefas.add_task(notificar_cancelamento_cliente, pedido.id)  # avisa cliente e restaurante
 
     return montar_detalhe(db, pedido, usuario_logado)

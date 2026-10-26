@@ -5,26 +5,53 @@ As quatro operacoes do CRUD, uma por verbo HTTP:
     READ    ->  GET    /produtos  e  GET /produtos/{id}
     UPDATE  ->  PUT    /produtos/{id}
     DELETE  ->  DELETE /produtos/{id}
+
+A leitura e publica (o cardapio e aberto). Cadastrar, alterar e remover
+exigem login do dono do restaurante ou do admin.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import obter_usuario_logado
 from app.models.produto import Produto
 from app.models.restaurante import Restaurante
+from app.models.usuario import Usuario
 from app.schemas.produto import ProdutoCreate, ProdutoOut, ProdutoUpdate
 
 router = APIRouter(prefix="/produtos", tags=["Produtos"])
 
 
+def _exigir_dono(restaurante: Restaurante, usuario: Usuario) -> None:
+    if usuario.tipo != "admin" and restaurante.usuario_id != usuario.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Somente o dono do restaurante altera o cardápio.",
+        )
+
+
+def _buscar_produto_do_usuario(db: Session, produto_id: int, usuario: Usuario) -> Produto:
+    produto = Produto.buscar_por_id(db, produto_id)
+    if produto is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto não encontrado.")
+    _exigir_dono(Restaurante.buscar_por_id(db, produto.restaurante_id), usuario)
+    return produto
+
+
 # ---------------------------------------------------------------- CREATE
 @router.post("", response_model=ProdutoOut, status_code=status.HTTP_201_CREATED, summary="Cadastrar produto")
-def criar_produto(dados: ProdutoCreate, db: Session = Depends(get_db)) -> Produto:
-    if Restaurante.buscar_por_id(db, dados.restaurante_id) is None:
+def criar_produto(
+    dados: ProdutoCreate,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> Produto:
+    restaurante = Restaurante.buscar_por_id(db, dados.restaurante_id)
+    if restaurante is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Restaurante informado não existe.",
         )
+    _exigir_dono(restaurante, usuario_logado)
     return Produto.criar(
         db,
         restaurante_id=dados.restaurante_id,
@@ -56,17 +83,22 @@ def obter_produto(produto_id: int, db: Session = Depends(get_db)) -> Produto:
 
 # ---------------------------------------------------------------- UPDATE
 @router.put("/{produto_id}", response_model=ProdutoOut, summary="Alterar produto")
-def atualizar_produto(produto_id: int, dados: ProdutoUpdate, db: Session = Depends(get_db)) -> Produto:
-    produto = Produto.buscar_por_id(db, produto_id)
-    if produto is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto não encontrado.")
+def atualizar_produto(
+    produto_id: int,
+    dados: ProdutoUpdate,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> Produto:
+    produto = _buscar_produto_do_usuario(db, produto_id, usuario_logado)
     return produto.atualizar(db, **dados.model_dump(exclude_unset=True))
 
 
 # ---------------------------------------------------------------- DELETE
 @router.delete("/{produto_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Remover produto")
-def remover_produto(produto_id: int, db: Session = Depends(get_db)) -> None:
-    produto = Produto.buscar_por_id(db, produto_id)
-    if produto is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto não encontrado.")
+def remover_produto(
+    produto_id: int,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> None:
+    produto = _buscar_produto_do_usuario(db, produto_id, usuario_logado)
     produto.remover(db)

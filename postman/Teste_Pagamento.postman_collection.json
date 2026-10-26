@@ -1,13 +1,58 @@
 {
   "info": {
-    "name": "EntregaFood — Teste: pagamento (cartão, PIX, dinheiro) e nota fiscal",
-    "description": "Backlog 18, 19 e 22 da Sprint 3: tipo de pagamento, cobrança no Asaas sandbox (ou gateway simulado sem ASAAS_API_KEY), consulta do PIX, dinheiro na entrega e nota fiscal em PDF (/pagamentos). Rode a coleção inteira em ordem. Única variável a ajustar: base_url.",
+    "name": "EntregaFood — Teste: pagamento (cartão, PIX, dinheiro), nota fiscal e cancelamento pelo cliente",
+    "description": "Backlog 18, 19 e 22 da Sprint 3: tipo de pagamento, cobrança no Asaas sandbox (ou gateway simulado sem ASAAS_API_KEY), consulta do PIX, dinheiro na entrega, nota fiscal em PDF (/pagamentos) e Sprint 4 RN04: cancelamento pelo cliente com estorno. Rode a coleção inteira em ordem. Única variável a ajustar: base_url.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
       "name": "0. Preparação",
       "item": [
+        {
+          "name": "00.0 Login do administrador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_admin}}\",\n  \"senha\": \"{{senha_admin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Conta admin do ambiente (variáveis email_admin e senha_admin). Aprova restaurantes e altera produtos dos restaurantes de exemplo, que não têm dono."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin logado', () => pm.response.to.have.status(200));",
+                  "pm.test('Conta do tipo admin', () => pm.expect(pm.response.json().usuario.tipo).to.eql('admin'));",
+                  "pm.collectionVariables.set('token_admin', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
         {
           "name": "00.1 Cliente A",
           "item": [
@@ -468,6 +513,10 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_admin}}"
                   }
                 ],
                 "url": {
@@ -510,6 +559,10 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_admin}}"
                   }
                 ],
                 "url": {
@@ -915,6 +968,192 @@
                     "exec": [
                       "pm.test('201', () => pm.response.to.have.status(201));",
                       "pm.collectionVariables.set('p_sem_pagamento', pm.response.json().id);",
+                      "pm.test('Pedido aguardando aceite', () => pm.expect(pm.response.json().status).to.eql('aguardando_aceite'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Adicionar produto na cesta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Criar pedido (delivery)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('p_cancelar', pm.response.json().id);",
+                      "pm.test('Pedido aguardando aceite', () => pm.expect(pm.response.json().status).to.eql('aguardando_aceite'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Adicionar produto na cesta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cesta/itens",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cesta",
+                    "itens"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Criar pedido (retirada)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"retirada\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('p_cancelar_dinheiro', pm.response.json().id);",
                       "pm.test('Pedido aguardando aceite', () => pm.expect(pm.response.json().status).to.eql('aguardando_aceite'));"
                     ]
                   }
@@ -2252,6 +2491,364 @@
           ]
         },
         {
+          "name": "CT-09 RN04 - Cliente cancela enquanto aguarda aceite",
+          "item": [
+            {
+              "name": "Pagar o pedido no cartão",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/cartao",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "cartao"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pedido_id\": \"{{p_cancelar}}\",\n  \"cpf\": \"529.982.247-25\",\n  \"cep\": \"01310-100\",\n  \"numero_endereco\": \"100\",\n  \"telefone\": \"11999998888\",\n  \"cartao\": {\n    \"titular\": \"CLIENTE TESTE\",\n    \"numero\": \"5162306219378829\",\n    \"mes_validade\": \"05\",\n    \"ano_validade\": \"2030\",\n    \"cvv\": \"318\"\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201', () => pm.response.to.have.status(201));",
+                      "pm.test('aprovado', () => pm.expect(pm.response.json().status).to.eql('aprovado'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Outro cliente tenta cancelar",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_b}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p_cancelar}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p_cancelar}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Restaurante não usa esta rota",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p_cancelar}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p_cancelar}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente cancela o pedido pago",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p_cancelar}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p_cancelar}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const p = pm.response.json();",
+                      "pm.test('cancelado', () => pm.expect(p.status).to.eql('cancelado'));",
+                      "pm.test('Pagamento estornado (ou estorno em andamento)', () => pm.expect(['estornado', 'estorno_pendente']).to.include(p.pagamento_status));",
+                      "pm.test('Linha do tempo termina em cancelado', () => pm.expect(p.etapas[p.etapas.length - 1].status).to.eql('cancelado'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cancelar de novo",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p_cancelar}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p_cancelar}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));",
+                      "pm.test('Mensagem de já cancelado', () => pm.expect(pm.response.json().detail).to.include('cancelado'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Restaurante não aceita pedido cancelado",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_rest}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p_cancelar}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p_cancelar}}",
+                    "status"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"aceito\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente não cancela depois do aceite",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p_cartao}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p_cartao}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('400', () => pm.response.to.have.status(400));",
+                      "pm.test('Explica a RN04', () => pm.expect(pm.response.json().detail).to.include('aguarda o aceite'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pedido em dinheiro",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagamentos/pedidos/{{p_cancelar_dinheiro}}/metodo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagamentos",
+                    "pedidos",
+                    "{{p_cancelar_dinheiro}}",
+                    "metodo"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"metodo\": \"dinheiro\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cliente cancela pedido em dinheiro",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token_a}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p_cancelar_dinheiro}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p_cancelar_dinheiro}}",
+                    "cancelar"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "pm.test('Pagamento cancelado', () => pm.expect(pm.response.json().pagamento_status).to.eql('cancelado'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
           "name": "CT-08 Sem login (401)",
           "item": [
             {
@@ -2311,6 +2908,35 @@
                       "language": "json"
                     }
                   }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('401', () => pm.response.to.have.status(401));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cancelar sem token",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pedidos/{{p_cancelar}}/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pedidos",
+                    "{{p_cancelar}}",
+                    "cancelar"
+                  ]
                 }
               },
               "event": [
