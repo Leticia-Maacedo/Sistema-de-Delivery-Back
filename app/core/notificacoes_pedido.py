@@ -13,6 +13,7 @@ from sqlalchemy import select
 from app.core import status_pedido
 from app.core.database import SessionLocal
 from app.core.push import enviar_para_usuario, push_ativo
+from app.core.push_fcm import enviar_para_usuario_fcm, fcm_ativo
 
 
 @dataclass
@@ -69,7 +70,10 @@ def _destinatarios(db, pedido, para: str) -> list[int]:
 
 
 def _enviar(pedido_id: int, gerar) -> None:
-    if not push_ativo():
+    """Manda cada aviso pelos dois canais: navegador (Web Push) e app (FCM)."""
+
+    web, app_mobile = push_ativo(), fcm_ativo()
+    if not web and not app_mobile:
         return
     from app.models.pedido import Pedido
 
@@ -81,8 +85,14 @@ def _enviar(pedido_id: int, gerar) -> None:
         for aviso in gerar(pedido):
             url = "/" if aviso.para == "cliente" else "/?painel=1"
             for usuario_id in _destinatarios(db, pedido, aviso.para):
-                enviar_para_usuario(db, usuario_id, titulo=aviso.titulo, corpo=aviso.corpo,
-                                    url=url, tag=f"pedido-{pedido_id}")
+                if web:
+                    enviar_para_usuario(db, usuario_id, titulo=aviso.titulo, corpo=aviso.corpo,
+                                        url=url, tag=f"pedido-{pedido_id}")
+                if app_mobile:
+                    # O app abre o pedido certo ao tocar na notificacao (dados.pedido_id).
+                    enviar_para_usuario_fcm(db, usuario_id, titulo=aviso.titulo, corpo=aviso.corpo,
+                                            dados={"pedido_id": pedido_id, "status": pedido.status,
+                                                   "destino": aviso.para})
     finally:
         db.close()
 
