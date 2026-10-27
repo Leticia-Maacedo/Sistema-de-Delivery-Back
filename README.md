@@ -500,6 +500,43 @@ O pedido de entrega **grava uma cópia do endereço** (`pedido.endereco_entrega`
 
 ---
 
+## Endpoints da Sprint 4 — relatórios de vendas
+
+Três relatórios para o painel do administrador e do parceiro. Todos aceitam `data_inicio` e `data_fim` (AAAA-MM-DD, o último dia entra inteiro); sem datas, o período é todo o histórico.
+
+| Método | Rota | O que responde |
+|---|---|---|
+| `GET` | `/relatorios/receita-por-restaurante` | Receita bruta de cada restaurante e participação % no total (maior primeiro), mais o total geral |
+| `GET` | `/relatorios/pedidos-por-restaurante` | Quantidade de pedidos, faturamento e ticket médio por restaurante, mais os totais. Ordenação: `ordenar_por` = `quantidade_pedidos`, `faturamento` (padrão), `ticket_medio` ou `restaurante_nome`; `ordem` = `desc` (padrão) ou `asc` |
+| `GET` | `/relatorios/pagamentos-por-tipo` | Cartão, PIX e dinheiro em quantidade e em valor, com o percentual de cada um (para o gráfico de pizza). Os três métodos sempre aparecem |
+
+**Regras** (`app/core/relatorios.py`, iguais nos três):
+
+- Entra no relatório o pedido **aceito pelo restaurante** (de `aceito` até `entregue`). Pedidos aguardando aceite e cancelados ficam de fora.
+- Receita bruta = faturamento = soma do valor total dos pedidos (produtos + taxa de entrega).
+- Ticket médio = faturamento ÷ quantidade de pedidos. Valores e percentuais com 2 casas.
+- Quem vê: **admin** vê todos os restaurantes; **restaurante** vê só os seus; cliente e entregador recebem 403.
+- Data inicial depois da final → 400. Período sem pedidos → listas vazias e totais zerados.
+- Cada resposta traz o `periodo` aplicado e a `regra` em texto, para quem lê saber o que foi somado.
+
+Exemplo — `GET /relatorios/receita-por-restaurante?data_inicio=2026-11-01&data_fim=2026-11-30`:
+
+```json
+{
+  "periodo": {"data_inicio": "2026-11-01", "data_fim": "2026-11-30"},
+  "regra": "Considera os pedidos aceitos pelo restaurante (de 'aceito' até 'entregue'). ...",
+  "total_geral": "200.00",
+  "restaurantes": [
+    {"restaurante_id": 2, "restaurante_nome": "Sushi", "receita_bruta": "120.00", "participacao_percentual": "60.00"},
+    {"restaurante_id": 1, "restaurante_nome": "Pizzaria", "receita_bruta": "80.00", "participacao_percentual": "40.00"}
+  ]
+}
+```
+
+MVC: a leitura do banco fica no Model (`Pedido.listar_vendas`), os cálculos em `app/core/relatorios.py`, o formato da resposta nos schemas (`app/schemas/relatorio.py`) e as rotas em `app/controllers/relatorio_controller.py`. Testes: `python -m pytest testes/teste_relatorios.py`.
+
+---
+
 ## Casos de teste cobertos
 
 | ID | Caso | Verificação |
