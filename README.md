@@ -527,8 +527,8 @@ Exemplo — `GET /relatorios/receita-por-restaurante?data_inicio=2026-11-01&data
   "regra": "Considera os pedidos aceitos pelo restaurante (de 'aceito' até 'entregue'). ...",
   "total_geral": "200.00",
   "restaurantes": [
-    {"restaurante_id": 2, "restaurante_nome": "Sushi", "receita_bruta": "100.00", "participacao_percentual": "50.00"},
-    {"restaurante_id": 1, "restaurante_nome": "Pizzaria", "receita_bruta": "100.00", "participacao_percentual": "50.00"}
+    {"restaurante_id": 2, "restaurante_nome": "Sushi", "receita_bruta": "120.00", "participacao_percentual": "60.00"},
+    {"restaurante_id": 1, "restaurante_nome": "Pizzaria", "receita_bruta": "80.00", "participacao_percentual": "40.00"}
   ]
 }
 ```
