@@ -61,6 +61,28 @@ def validar_disponibilidade(produto: Produto) -> None:
         )
 
 
+def validar_restaurante_recebe_pedidos(db: Session, produto: Produto) -> None:
+    """Impede incluir produto de restaurante nao aprovado, pausado ou fechado.
+
+    A mesma regra vale no fechamento (preparar_fechamento); aqui ela evita
+    que o cliente monte uma cesta que nunca vai poder fechar.
+    """
+
+    restaurante = Restaurante.buscar_por_id(db, produto.restaurante_id)
+
+    if restaurante is None or restaurante.status_aprovacao != APROVADO:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="O restaurante deste produto nao esta disponivel para pedidos.",
+        )
+
+    if not restaurante.aberto_agora():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=restaurante.motivo_fechado(),
+        )
+
+
 def validar_restaurante_cesta(
     db: Session,
     sacola: Sacola,
@@ -387,6 +409,7 @@ def adicionar_produto_cesta(
 
     validar_disponibilidade(produto)
     validar_quantidade(dados.quantidade)
+    validar_restaurante_recebe_pedidos(db, produto)
 
     sacola = Sacola.buscar_por_cliente(db, usuario_logado.id)
 

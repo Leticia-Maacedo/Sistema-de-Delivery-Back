@@ -109,6 +109,7 @@ def montar_resumo(db: Session, pedido: Pedido) -> PedidoResumoOut:
     """Dados do pedido para as listagens."""
 
     restaurante = Restaurante.buscar_por_id(db, pedido.restaurante_id)
+    cliente = db.get(Usuario, pedido.cliente_id)
     itens = ItemPedido.listar_por_pedido(db, pedido.id)
     proximo = status_pedido.proximo_status(pedido.status, pedido.tipo_entrega)
 
@@ -116,6 +117,7 @@ def montar_resumo(db: Session, pedido: Pedido) -> PedidoResumoOut:
         id=pedido.id,
         restaurante_id=pedido.restaurante_id,
         restaurante_nome=restaurante.nome_fantasia if restaurante else None,
+        cliente_nome=cliente.nome if cliente else None,
         status=pedido.status,
         status_rotulo=status_pedido.rotulo(pedido.status),
         tipo_entrega=pedido.tipo_entrega,

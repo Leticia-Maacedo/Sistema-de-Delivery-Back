@@ -85,6 +85,7 @@ class PedidoResumoOut(BaseModel):
     id: int
     restaurante_id: int
     restaurante_nome: str | None
+    cliente_nome: str | None = None
     status: str
     status_rotulo: str
     tipo_entrega: str

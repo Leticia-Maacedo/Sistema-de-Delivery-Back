@@ -9,6 +9,51 @@
       "name": "0. Preparação",
       "item": [
         {
+          "name": "00.0 Login do administrador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_admin}}\",\n  \"senha\": \"{{senha_admin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Conta admin do ambiente (variáveis email_admin e senha_admin). Aprova restaurantes e altera produtos dos restaurantes de exemplo, que não têm dono."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin logado', () => pm.response.to.have.status(200));",
+                  "pm.test('Conta do tipo admin', () => pm.expect(pm.response.json().usuario.tipo).to.eql('admin'));",
+                  "pm.collectionVariables.set('token_admin', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "00.1 Cadastrar cliente A (teste)",
           "request": {
             "method": "POST",
@@ -245,7 +290,12 @@
           "name": "00.7 Restaurante não aprovado",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
             "url": {
               "raw": "{{base_url}}/restaurantes",
               "host": [
@@ -279,6 +329,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
               }
             ],
             "url": {
@@ -1344,7 +1398,7 @@
           ]
         },
         {
-          "name": "CT-19 Produto de restaurante não aprovado (observação)",
+          "name": "CT-19 Produto de restaurante não aprovado é recusado",
           "request": {
             "method": "POST",
             "header": [
@@ -1384,7 +1438,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Resposta registrada (201 = aceito, 4xx = bloqueado)', () => pm.expect([201, 400, 403, 404, 422]).to.include(pm.response.code));"
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensagem do restaurante indisponível', () => pm.expect(pm.response.json().detail).to.include('nao esta disponivel'));"
                 ]
               }
             }
@@ -1623,7 +1678,12 @@
           "name": "99.6 Apagar produto temporário",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
             "url": {
               "raw": "{{base_url}}/produtos/{{produto_rest_pendente}}",
               "host": [

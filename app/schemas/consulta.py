@@ -36,6 +36,9 @@ class RestauranteConsultaOut(BaseModel):
     aberto: bool = True
     horario_abertura: time | None = None
     horario_fechamento: time | None = None
+    # So vem quando a consulta recebe latitude/longitude do endereco do cliente.
+    distancia_km: Decimal | None = None
+    entrega_no_endereco: bool | None = None
 
 
 class ItemCardapioOut(BaseModel):
