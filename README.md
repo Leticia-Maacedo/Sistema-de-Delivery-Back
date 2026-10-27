@@ -404,6 +404,22 @@ Antes de usar, rode `sql/07_sprint3_push.sql` no banco e configure `VAPID_PUBLIC
 
 Testes: `python -m pytest testes/teste_notificacoes_rastreio.py`.
 
+### Push no app mobile — Firebase Cloud Messaging (Sprint 4)
+
+O app Android recebe os mesmos avisos do site pelo Firebase (FCM). Antes de usar, rode `sql/11_sprint4_push_fcm.sql` no banco e coloque no Render a variável `FIREBASE_CREDENCIAIS` com o JSON da conta de serviço do projeto Firebase (Configurações do projeto → Contas de serviço → Gerar nova chave privada; o JSON inteiro numa linha ou em base64). Sem ela tudo funciona, só não envia para o app.
+
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| `POST` | `/notificacoes/fcm` | logado | Registra o token do celular (`{"token": "...", "plataforma": "android"}`). Token novo → 201; já conhecido → 200 (atualiza a conta e a plataforma) |
+| `DELETE` | `/notificacoes/fcm` | logado | Remove o token (logout no app) |
+
+- Tabela `push_token_fcm`: um token por celular (único), ligado ao usuário; as inscrições do navegador continuam em `push_inscricao`.
+- `app/core/push_fcm.py` autentica com a conta de serviço (JWT RS256 → token OAuth2, reaproveitado até expirar) e envia pela API HTTP v1 (`/v1/projects/<projeto>/messages:send`).
+- Cada aviso do pedido (`app/core/notificacoes_pedido.py`) vai pelos dois canais. No app a mensagem leva `pedido_id`, `status` e `destino` em `data`, para o toque abrir o pedido certo.
+- Token que o Firebase diz que não vale mais (`UNREGISTERED`) é apagado sozinho. Falha do Firebase nunca afeta o pedido.
+
+Testes: `python -m pytest testes/teste_push_fcm.py` (Google simulado, sem Firebase real).
+
 ---
 
 ## Endpoints da Sprint 3 — pagamento e nota fiscal

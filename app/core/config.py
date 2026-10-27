@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     VAPID_PRIVATE_KEY: str = ""
     VAPID_SUBJECT: str = "mailto:contato@entregafood.com"
 
+    # Push no app mobile (Firebase Cloud Messaging) - app/core/push_fcm.py
+    # JSON da conta de servico do Firebase (uma linha ou base64). Vazio = sem FCM.
+    FIREBASE_CREDENCIAIS: str = ""
+
     # Pagamento com Asaas - app/core/pagamento_asaas.py
     # Sem a chave, o pagamento usa o gateway simulado (app/core/pagamento_cartao.py).
     ASAAS_API_KEY: str = ""
