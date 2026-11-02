@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -20,6 +21,17 @@ class InscricaoPushIn(BaseModel):
 
 class CancelarPushIn(BaseModel):
     endpoint: str = Field(min_length=10, max_length=600)
+
+
+class TokenFcmIn(BaseModel):
+    """Token do Firebase que o app mobile recebe ao abrir (FirebaseMessaging.getToken())."""
+
+    token: str = Field(min_length=20, max_length=512)
+    plataforma: Literal["android", "ios", "web"] = "android"
+
+
+class CancelarTokenFcmIn(BaseModel):
+    token: str = Field(min_length=20, max_length=512)
 
 
 class ChavePublicaOut(BaseModel):

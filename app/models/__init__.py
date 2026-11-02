@@ -5,6 +5,7 @@ from app.models.local import Local
 from app.models.pedido_status_historico import PedidoStatusHistorico
 from app.models.produto import Produto
 from app.models.push_inscricao import PushInscricao
+from app.models.push_token_fcm import PushTokenFCM
 from app.models.restaurante import Restaurante
 from app.models.usuario import Usuario
 
@@ -16,6 +17,7 @@ __all__ = [
     "PedidoStatusHistorico",
     "Produto",
     "PushInscricao",
+    "PushTokenFCM",
     "Restaurante",
     "Usuario",
 ]
