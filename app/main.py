@@ -21,6 +21,7 @@ from app.controllers import (
     parceiro_controller,
     pedido_controller,
     produto_controller,
+    relatorio_controller,
     restaurante_controller,
     sacola_controller,
     usuario_controller,
@@ -62,6 +63,7 @@ app.include_router(pagamento_controller.router)
 app.include_router(entrega_controller.router)
 app.include_router(notificacao_controller.router)
 app.include_router(parceiro_controller.router)
+app.include_router(relatorio_controller.router)
 
 
 @app.get("/", tags=["Status"], summary="Verificação de saúde da API")

@@ -204,6 +204,41 @@ class Pedido(Base):
         return list(db.execute(consulta).scalars())
 
     @staticmethod
+    def listar_vendas(
+        db: Session,
+        *,
+        inicio: datetime | None = None,
+        fim: datetime | None = None,
+        dono_restaurante_id: int | None = None,
+    ) -> list[tuple[int, str, str, Decimal]]:
+        """Pedidos aceitos no periodo, para os relatorios (Sprint 4).
+
+        Retorna (restaurante_id, nome do restaurante, forma de pagamento,
+        valor total). Fora: aguardando aceite e cancelados. `fim` e
+        exclusivo. Com `dono_restaurante_id`, so os restaurantes desse dono.
+        """
+
+        consulta = (
+            select(
+                Pedido.restaurante_id,
+                Restaurante.nome_fantasia,
+                Pedido.forma_pagamento,
+                Pedido.valor_total,
+            )
+            .join(Restaurante, Restaurante.id == Pedido.restaurante_id)
+            .where(Pedido.status.not_in([AGUARDANDO_ACEITE, CANCELADO]))
+        )
+
+        if inicio is not None:
+            consulta = consulta.where(Pedido.criado_em >= inicio)
+        if fim is not None:
+            consulta = consulta.where(Pedido.criado_em < fim)
+        if dono_restaurante_id is not None:
+            consulta = consulta.where(Restaurante.usuario_id == dono_restaurante_id)
+
+        return [tuple(linha) for linha in db.execute(consulta)]
+
+    @staticmethod
     def listar_para_operacao(
         db: Session,
         *,
