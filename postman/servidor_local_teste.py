@@ -7,6 +7,14 @@ Pagamento, e-mail e push ficam no modo simulado (sem ASAAS_API_KEY, SMTP e VAPID
 
 Uso (na pasta Sistema-de-Delivery-Back, com o venv ativo):
     python postman/servidor_local_teste.py 8011
+
+Com `--push` (colecao Teste_Notificacoes_Push), o push fica LIGADO: chaves
+VAPID e conta do Firebase de teste geradas na hora, e um servico de push falso
+(postman/servico_push_falso.py) na porta seguinte (8012) recebe, decifra e
+guarda cada notificacao para o Postman conferir:
+    python postman/servidor_local_teste.py 8011 --push
+
+A variavel HOST muda o endereco de escuta (ex.: HOST=0.0.0.0 dentro do Docker).
 """
 import json
 import os
@@ -18,7 +26,11 @@ from decimal import Decimal
 from pathlib import Path
 
 BACK = Path(__file__).resolve().parent.parent
-PORTA = int(sys.argv[1]) if len(sys.argv) > 1 else 8011
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+PORTA = int(ARGS[0]) if ARGS else 8011
+PUSH = "--push" in sys.argv
+PORTA_PUSH = PORTA + 1
+HOST = os.environ.get("HOST", "127.0.0.1")
 PASTA = Path(tempfile.gettempdir()) / "entregafood-teste"
 PASTA.mkdir(exist_ok=True)
 BANCO = PASTA / "entregafood_teste.db"
@@ -28,8 +40,17 @@ BANCO.unlink(missing_ok=True)
 # Precisa vir antes de importar o app: o config le essas variaveis na importacao
 os.environ.update({"DATABASE_URL": f"sqlite:///{BANCO.as_posix()}", "CORS_ORIGINS": "http://localhost:5173",
                    "ASAAS_API_KEY": "", "SMTP_HOST": "", "VAPID_PUBLIC_KEY": "", "VAPID_PRIVATE_KEY": "",
-                   "JWT_SECRET": secrets.token_urlsafe(32), "JWT_EXPIRE_MINUTES": "120"})
+                   "JWT_SECRET": secrets.token_urlsafe(32), "JWT_EXPIRE_MINUTES": "120",
+                   "FIREBASE_CREDENCIAIS": ""})
 sys.path.insert(0, str(BACK))
+
+if PUSH:
+    sys.path.insert(0, str(BACK / "postman"))
+    import servico_push_falso  # noqa: E402
+
+    vapid_publica, vapid_privada = servico_push_falso.gerar_vapid()
+    os.environ.update({"VAPID_PUBLIC_KEY": vapid_publica, "VAPID_PRIVATE_KEY": vapid_privada,
+                       "FIREBASE_CREDENCIAIS": servico_push_falso.gerar_credenciais_firebase(PORTA_PUSH)})
 
 import uvicorn  # noqa: E402
 
@@ -41,6 +62,25 @@ from app.models.local import Local  # noqa: E402
 from app.models.produto import Produto  # noqa: E402
 from app.models.restaurante import Restaurante  # noqa: E402
 from app.models.usuario import Usuario  # noqa: E402
+
+if PUSH:
+    # So o transporte muda: o endereco https:// da inscricao de teste e o do
+    # FCM passam a apontar para o servico falso local. Cifragem, VAPID, JWT e
+    # as regras do back continuam as de verdade.
+    import app.core.push as push_web  # noqa: E402
+    import app.core.push_fcm as push_fcm  # noqa: E402
+
+    _webpush_real = push_web.webpush
+
+    def _webpush_local(subscription_info, *args, **kwargs):
+        destino = dict(subscription_info)
+        destino["endpoint"] = destino["endpoint"].replace(servico_push_falso.HOST_FALSO,
+                                                          f"http://127.0.0.1:{PORTA_PUSH}")
+        return _webpush_real(destino, *args, **kwargs)
+
+    push_web.webpush = _webpush_local
+    push_fcm.URL_ENVIO = f"http://127.0.0.1:{PORTA_PUSH}/fcm/v1/projects/{{projeto}}/messages:send"
+    servico_push_falso.iniciar(PORTA_PUSH, HOST)
 
 Base.metadata.create_all(engine)
 
@@ -112,9 +152,12 @@ with SessionLocal() as db:
     db.commit()
 
 ambiente = {"name": "EntregaFood — teste local", "values":
-            [{"key": "base_url", "value": f"http://127.0.0.1:{PORTA}", "enabled": True}]
+            [{"key": "base_url", "value": f"http://127.0.0.1:{PORTA}", "enabled": True},
+             {"key": "push_url", "value": f"http://127.0.0.1:{PORTA_PUSH}", "enabled": True}]
             + [{"key": f"email_{k}", "value": email(k), "enabled": True} for k in CONTAS]
             + [{"key": f"senha_{k}", "value": v, "type": "secret", "enabled": True} for k, v in senhas.items()]}
 AMBIENTE.write_text(json.dumps(ambiente, ensure_ascii=False, indent=1), encoding="utf-8")
 print(f"Banco de teste: {BANCO}\nAmbiente do Postman: {AMBIENTE}\nAPI em http://127.0.0.1:{PORTA}", flush=True)
-uvicorn.run(app, host="127.0.0.1", port=PORTA, log_level="warning")
+if PUSH:
+    print(f"Push LIGADO: servico falso em http://127.0.0.1:{PORTA_PUSH}", flush=True)
+uvicorn.run(app, host=HOST, port=PORTA, log_level="warning")
