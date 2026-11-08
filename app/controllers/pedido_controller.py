@@ -29,7 +29,7 @@ from app.models.item_pedido import ItemPedido
 from app.models.pagamento import Pagamento
 from app.models.pedido import Pedido
 from app.models.pedido_status_historico import PedidoStatusHistorico
-from app.models.produto import Produto
+from app.models.produto import EstoqueInsuficiente, Produto
 from app.models.restaurante import Restaurante
 from app.models.usuario import Usuario
 from app.schemas.pedido import (
@@ -246,21 +246,25 @@ def criar_pedido(
             detail=fechamento.problema,
         )
 
-    pedido = Pedido.criar_a_partir_da_cesta(
-        db,
-        cliente_id=usuario_logado.id,
-        restaurante_id=fechamento.restaurante.id,
-        tipo_entrega=dados.tipo_entrega,
-        forma_pagamento=dados.forma_pagamento,
-        subtotal=fechamento.subtotal,
-        taxa_entrega=fechamento.taxa_entrega,
-        itens=[
-            (produto.id, item.quantidade, produto.preco)
-            for item, produto in fechamento.itens
-        ],
-        sacola=fechamento.sacola,
-        local_entrega=fechamento.local if dados.tipo_entrega == "delivery" else None,
-    )
+    try:
+        pedido = Pedido.criar_a_partir_da_cesta(
+            db,
+            cliente_id=usuario_logado.id,
+            restaurante_id=fechamento.restaurante.id,
+            tipo_entrega=dados.tipo_entrega,
+            forma_pagamento=dados.forma_pagamento,
+            subtotal=fechamento.subtotal,
+            taxa_entrega=fechamento.taxa_entrega,
+            itens=[
+                (produto.id, item.quantidade, produto.preco)
+                for item, produto in fechamento.itens
+            ],
+            sacola=fechamento.sacola,
+            local_entrega=fechamento.local if dados.tipo_entrega == "delivery" else None,
+        )
+    except EstoqueInsuficiente as erro:
+        # Outro pedido levou as ultimas unidades entre o resumo e a criacao.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(erro)) from erro
     tarefas.add_task(notificar_pedido_criado, pedido.id)  # push ao cliente e ao restaurante
     return pedido
 

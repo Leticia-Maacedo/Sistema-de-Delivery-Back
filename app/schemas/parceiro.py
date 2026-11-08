@@ -81,6 +81,8 @@ class ProdutoParceiroIn(BaseModel):
     descricao: str | None = Field(default=None, max_length=300)
     preco: Decimal = Field(gt=0, le=9999, examples=["24.90"])
     disponivel: bool = True
+    # Sprint 4: null = sem controle de estoque.
+    estoque: int | None = Field(default=None, ge=0, le=99999, examples=[20])
 
 
 class ProdutoParceiroUpdate(BaseModel):
@@ -88,6 +90,8 @@ class ProdutoParceiroUpdate(BaseModel):
     descricao: str | None = Field(default=None, max_length=300)
     preco: Decimal | None = Field(default=None, gt=0, le=9999)
     disponivel: bool | None = None
+    # Enviar null desliga o controle de estoque; omitir nao mexe.
+    estoque: int | None = Field(default=None, ge=0, le=99999)
 
 
 class ResumoParceiroOut(BaseModel):
