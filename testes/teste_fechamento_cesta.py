@@ -13,6 +13,7 @@ from app.controllers.sacola_controller import (
     QUANTIDADE_MAXIMA_POR_PRODUTO,
     validar_itens_para_fechamento,
 )
+from app.models.produto import Produto
 from app.core.frete import (
     calcular_taxa_entrega,
     distancia_linha_reta_km,
@@ -89,8 +90,8 @@ def _item(quantidade=1):
     return SimpleNamespace(quantidade=quantidade)
 
 
-def _produto(nome="X-Salada", disponivel=True, restaurante_id=1):
-    return SimpleNamespace(nome=nome, disponivel=disponivel, restaurante_id=restaurante_id)
+def _produto(nome="X-Salada", disponivel=True, restaurante_id=1, estoque=None):
+    return Produto(nome=nome, disponivel=disponivel, restaurante_id=restaurante_id, estoque=estoque)
 
 
 def test_itens_validos_podem_fechar():
