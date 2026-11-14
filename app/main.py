@@ -16,11 +16,13 @@ from app.controllers import (
     consulta_controller,
     entrega_controller,
     local_controller,
+    nota_fiscal_controller,
     notificacao_controller,
     pagamento_controller,
     parceiro_controller,
     pedido_controller,
     produto_controller,
+    relatorio_controller,
     restaurante_controller,
     sacola_controller,
     usuario_controller,
@@ -59,9 +61,11 @@ app.include_router(consulta_controller.router)
 app.include_router(sacola_controller.router)
 app.include_router(pedido_controller.router)
 app.include_router(pagamento_controller.router)
+app.include_router(nota_fiscal_controller.router)
 app.include_router(entrega_controller.router)
 app.include_router(notificacao_controller.router)
 app.include_router(parceiro_controller.router)
+app.include_router(relatorio_controller.router)
 
 
 @app.get("/", tags=["Status"], summary="Verificação de saúde da API")

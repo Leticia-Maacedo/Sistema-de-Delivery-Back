@@ -7,6 +7,19 @@ Pagamento, e-mail e push ficam no modo simulado (sem ASAAS_API_KEY, SMTP e VAPID
 
 Uso (na pasta Sistema-de-Delivery-Back, com o venv ativo):
     python postman/servidor_local_teste.py 8011
+
+Com `--push` (colecao Teste_Notificacoes_Push), o push fica LIGADO: chaves
+VAPID e conta do Firebase de teste geradas na hora, e um servico de push falso
+(postman/servico_push_falso.py) na porta seguinte (8012) recebe, decifra e
+guarda cada notificacao para o Postman conferir:
+    python postman/servidor_local_teste.py 8011 --push
+
+Com `--fiscal` (colecao Teste_Emissao_Fiscal), a nota fiscal usa o provedor
+REAL (Focus NFe, NFC-e) apontando para um servico local no formato da API de
+homologacao da Focus (postman/servico_fiscal_falso.py), duas portas acima (8013):
+    python postman/servidor_local_teste.py 8011 --fiscal
+
+A variavel HOST muda o endereco de escuta (ex.: HOST=0.0.0.0 dentro do Docker).
 """
 import json
 import os
@@ -18,7 +31,13 @@ from decimal import Decimal
 from pathlib import Path
 
 BACK = Path(__file__).resolve().parent.parent
-PORTA = int(sys.argv[1]) if len(sys.argv) > 1 else 8011
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+PORTA = int(ARGS[0]) if ARGS else 8011
+PUSH = "--push" in sys.argv
+PORTA_PUSH = PORTA + 1
+FISCAL = "--fiscal" in sys.argv
+PORTA_FISCAL = PORTA + 2
+HOST = os.environ.get("HOST", "127.0.0.1")
 PASTA = Path(tempfile.gettempdir()) / "entregafood-teste"
 PASTA.mkdir(exist_ok=True)
 BANCO = PASTA / "entregafood_teste.db"
@@ -28,8 +47,28 @@ BANCO.unlink(missing_ok=True)
 # Precisa vir antes de importar o app: o config le essas variaveis na importacao
 os.environ.update({"DATABASE_URL": f"sqlite:///{BANCO.as_posix()}", "CORS_ORIGINS": "http://localhost:5173",
                    "ASAAS_API_KEY": "", "SMTP_HOST": "", "VAPID_PUBLIC_KEY": "", "VAPID_PRIVATE_KEY": "",
-                   "JWT_SECRET": secrets.token_urlsafe(32), "JWT_EXPIRE_MINUTES": "120"})
+                   "JWT_SECRET": secrets.token_urlsafe(32), "JWT_EXPIRE_MINUTES": "120",
+                   "FIREBASE_CREDENCIAIS": ""})
 sys.path.insert(0, str(BACK))
+
+if FISCAL:
+    sys.path.insert(0, str(BACK / "postman"))
+    import servico_fiscal_falso  # noqa: E402
+
+    token_fiscal = "homolog-" + secrets.token_urlsafe(12)
+    # tempo limite curto para o teste do servico lento nao demorar
+    os.environ.update({"FISCAL_PROVEDOR": "focusnfe", "FOCUSNFE_TOKEN": token_fiscal, "FOCUSNFE_AMBIENTE": "homologacao",
+                       "FOCUSNFE_BASE_URL": f"http://127.0.0.1:{PORTA_FISCAL}/v2", "FISCAL_TIMEOUT": "3"})
+    servico_fiscal_falso.configurar(token_fiscal, atraso_lento=5)
+    servico_fiscal_falso.iniciar(PORTA_FISCAL, HOST)
+
+if PUSH:
+    sys.path.insert(0, str(BACK / "postman"))
+    import servico_push_falso  # noqa: E402
+
+    vapid_publica, vapid_privada = servico_push_falso.gerar_vapid()
+    os.environ.update({"VAPID_PUBLIC_KEY": vapid_publica, "VAPID_PRIVATE_KEY": vapid_privada,
+                       "FIREBASE_CREDENCIAIS": servico_push_falso.gerar_credenciais_firebase(PORTA_PUSH)})
 
 import uvicorn  # noqa: E402
 
@@ -41,6 +80,25 @@ from app.models.local import Local  # noqa: E402
 from app.models.produto import Produto  # noqa: E402
 from app.models.restaurante import Restaurante  # noqa: E402
 from app.models.usuario import Usuario  # noqa: E402
+
+if PUSH:
+    # So o transporte muda: o endereco https:// da inscricao de teste e o do
+    # FCM passam a apontar para o servico falso local. Cifragem, VAPID, JWT e
+    # as regras do back continuam as de verdade.
+    import app.core.push as push_web  # noqa: E402
+    import app.core.push_fcm as push_fcm  # noqa: E402
+
+    _webpush_real = push_web.webpush
+
+    def _webpush_local(subscription_info, *args, **kwargs):
+        destino = dict(subscription_info)
+        destino["endpoint"] = destino["endpoint"].replace(servico_push_falso.HOST_FALSO,
+                                                          f"http://127.0.0.1:{PORTA_PUSH}")
+        return _webpush_real(destino, *args, **kwargs)
+
+    push_web.webpush = _webpush_local
+    push_fcm.URL_ENVIO = f"http://127.0.0.1:{PORTA_PUSH}/fcm/v1/projects/{{projeto}}/messages:send"
+    servico_push_falso.iniciar(PORTA_PUSH, HOST)
 
 Base.metadata.create_all(engine)
 
@@ -112,9 +170,15 @@ with SessionLocal() as db:
     db.commit()
 
 ambiente = {"name": "EntregaFood — teste local", "values":
-            [{"key": "base_url", "value": f"http://127.0.0.1:{PORTA}", "enabled": True}]
+            [{"key": "base_url", "value": f"http://127.0.0.1:{PORTA}", "enabled": True},
+             {"key": "push_url", "value": f"http://127.0.0.1:{PORTA_PUSH}", "enabled": True},
+             {"key": "fiscal_url", "value": f"http://127.0.0.1:{PORTA_FISCAL}", "enabled": True}]
             + [{"key": f"email_{k}", "value": email(k), "enabled": True} for k in CONTAS]
             + [{"key": f"senha_{k}", "value": v, "type": "secret", "enabled": True} for k, v in senhas.items()]}
 AMBIENTE.write_text(json.dumps(ambiente, ensure_ascii=False, indent=1), encoding="utf-8")
 print(f"Banco de teste: {BANCO}\nAmbiente do Postman: {AMBIENTE}\nAPI em http://127.0.0.1:{PORTA}", flush=True)
-uvicorn.run(app, host="127.0.0.1", port=PORTA, log_level="warning")
+if FISCAL:
+    print(f"Nota fiscal pela Focus NFe (homologacao local) em http://127.0.0.1:{PORTA_FISCAL}", flush=True)
+if PUSH:
+    print(f"Push LIGADO: servico falso em http://127.0.0.1:{PORTA_PUSH}", flush=True)
+uvicorn.run(app, host=HOST, port=PORTA, log_level="warning")

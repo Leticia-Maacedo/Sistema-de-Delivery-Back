@@ -217,6 +217,7 @@ def criar_meu_produto(
         descricao=(dados.descricao or "").strip() or None,
         preco=dados.preco,
         disponivel=dados.disponivel,
+        estoque=dados.estoque,
     )
 
 
@@ -231,6 +232,8 @@ def alterar_meu_produto(
     campos = dados.model_dump(exclude_unset=True)
     if "descricao" in campos:
         produto.descricao = (campos.pop("descricao") or "").strip() or None
+    if "estoque" in campos:
+        produto.estoque = campos.pop("estoque")  # null desliga o controle
     return produto.atualizar(db, **campos)
 
 

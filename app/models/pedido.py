@@ -16,6 +16,7 @@ from app.core.status_pedido import AGUARDANDO_ACEITE, CANCELADO, ENTREGUE, EM_TR
 from app.models.entrega import Entrega
 from app.models.item_pedido import ItemPedido
 from app.models.pedido_status_historico import PedidoStatusHistorico
+from app.models.produto import EstoqueInsuficiente, Produto
 from app.models.restaurante import Restaurante
 
 
@@ -147,6 +148,14 @@ class Pedido(Base):
         db.flush()  # gera o id do pedido para os itens
 
         for produto_id, quantidade, preco_unitario in itens:
+            # Sprint 4: baixa o estoque na mesma transacao. Se outro pedido
+            # levou as ultimas unidades depois da validacao da cesta, desfaz
+            # tudo (nem pedido nem baixa ficam gravados).
+            if not Produto.baixar_estoque(db, produto_id, quantidade):
+                db.rollback()
+                produto = db.get(Produto, produto_id)
+                raise EstoqueInsuficiente(produto.nome if produto else f"#{produto_id}")
+
             db.add(
                 ItemPedido(
                     pedido_id=pedido.id,
@@ -204,6 +213,41 @@ class Pedido(Base):
         return list(db.execute(consulta).scalars())
 
     @staticmethod
+    def listar_vendas(
+        db: Session,
+        *,
+        inicio: datetime | None = None,
+        fim: datetime | None = None,
+        dono_restaurante_id: int | None = None,
+    ) -> list[tuple[int, str, str, Decimal]]:
+        """Pedidos aceitos no periodo, para os relatorios (Sprint 4).
+
+        Retorna (restaurante_id, nome do restaurante, forma de pagamento,
+        valor total). Fora: aguardando aceite e cancelados. `fim` e
+        exclusivo. Com `dono_restaurante_id`, so os restaurantes desse dono.
+        """
+
+        consulta = (
+            select(
+                Pedido.restaurante_id,
+                Restaurante.nome_fantasia,
+                Pedido.forma_pagamento,
+                Pedido.valor_total,
+            )
+            .join(Restaurante, Restaurante.id == Pedido.restaurante_id)
+            .where(Pedido.status.not_in([AGUARDANDO_ACEITE, CANCELADO]))
+        )
+
+        if inicio is not None:
+            consulta = consulta.where(Pedido.criado_em >= inicio)
+        if fim is not None:
+            consulta = consulta.where(Pedido.criado_em < fim)
+        if dono_restaurante_id is not None:
+            consulta = consulta.where(Restaurante.usuario_id == dono_restaurante_id)
+
+        return [tuple(linha) for linha in db.execute(consulta)]
+
+    @staticmethod
     def listar_para_operacao(
         db: Session,
         *,
@@ -242,6 +286,15 @@ class Pedido(Base):
         """
 
         agora = datetime.now()
+
+        # Sprint 4: cancelado devolve as unidades ao estoque. So da pra
+        # cancelar antes do preparo (status_pedido.CANCELAVEIS), entao nada
+        # foi produzido ainda. A checagem do status anterior evita devolver
+        # duas vezes.
+        if novo_status == CANCELADO and self.status != CANCELADO:
+            for item in ItemPedido.listar_por_pedido(db, self.id):
+                Produto.devolver_estoque(db, item.produto_id, item.quantidade)
+
         self.status = novo_status
         self.atualizado_em = agora
 

@@ -1,0 +1,2413 @@
+{
+ "info": {
+  "name": "EntregaFood — Teste: notificações push",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+  "description": "Envio de notificações push (navegador e app mobile), permissões, token/inscrição inválidos e dados do clique. Rodar contra `python postman/servidor_local_teste.py 8011 --push`, que liga o push com chaves de teste e um serviço de push falso em {{push_url}} que decifra e guarda cada notificação."
+ },
+ "item": [
+  {
+   "name": "0. Preparação",
+   "item": [
+    {
+     "name": "00.1 Login das contas de teste",
+     "item": [
+      {
+       "name": "Login cliente A",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/auth/login",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "auth",
+          "login"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"email\": \"{{email_cliente_a}}\",\n  \"senha\": \"{{senha_cliente_a}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('token_cliente_a', pm.response.json().access_token);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Login cliente B",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/auth/login",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "auth",
+          "login"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"email\": \"{{email_cliente_b}}\",\n  \"senha\": \"{{senha_cliente_b}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('token_cliente_b', pm.response.json().access_token);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Login dono do Teste Burger",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/auth/login",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "auth",
+          "login"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"email\": \"{{email_dono_1}}\",\n  \"senha\": \"{{senha_dono_1}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('token_dono_1', pm.response.json().access_token);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Login entregador",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/auth/login",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "auth",
+          "login"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"email\": \"{{email_entregador}}\",\n  \"senha\": \"{{senha_entregador}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('token_entregador', pm.response.json().access_token);"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "00.2 Restaurante, produto e marco do serviço de push",
+     "item": [
+      {
+       "name": "Restaurantes aprovados",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{base_url}}/consultas/restaurantes",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "consultas",
+          "restaurantes"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const r = pm.response.json().find(x => x.nome_fantasia === 'Teste Burger');",
+           "pm.collectionVariables.set('restaurante_id', r.id);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cardápio do Teste Burger",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "consultas",
+          "restaurantes",
+          "{{restaurante_id}}",
+          "cardapio"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const p = pm.response.json().itens.find(x => x.nome === 'X-Burger');",
+           "pm.collectionVariables.set('produto_id', p.id);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço de push sem entregas",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/capturas",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "capturas"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('marco', pm.response.json().total);",
+           "pm.test('Nenhuma entrega antes dos testes', () => pm.expect(pm.response.json().capturas).to.have.length(0));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "1. Casos de teste",
+   "item": [
+    {
+     "name": "CT-01 Servidor informa a chave pública do push",
+     "item": [
+      {
+       "name": "GET /notificacoes/chave-publica",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/chave-publica",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "chave-publica"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const j = pm.response.json();",
+           "pm.test('Push ativo no servidor', () => pm.expect(j.ativo).to.eql(true));",
+           "pm.test('Chave VAPID P-256 (65 bytes em base64url)', () => pm.expect(j.chave_publica).to.match(/^B[A-Za-z0-9_-]{86}$/));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-02 Sem login não ativa notificações",
+     "item": [
+      {
+       "name": "Navegador de teste 'cliente-a' (chaves P-256 + auth)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/inscricoes/cliente-a",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "inscricoes",
+          "cliente-a"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('insc_a', JSON.stringify(pm.response.json()));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "POST /notificacoes/inscricao sem token",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/inscricao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "inscricao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{{insc_a}}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 401', () => pm.response.to.have.status(401));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "POST /notificacoes/fcm sem token",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/fcm",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "fcm"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"token\": \"fcm-token-celular-ana-0123456789abcdef\",\n  \"plataforma\": \"android\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 401', () => pm.response.to.have.status(401));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-03 Inscrição do navegador inválida é recusada",
+     "item": [
+      {
+       "name": "Endpoint sem https",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/inscricao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "inscricao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"endpoint\": \"http://push.exemplo.com/abc\",\n  \"keys\": {\n    \"p256dh\": \"x\",\n    \"auth\": \"y\"\n  }\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 422', () => pm.response.to.have.status(422));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Sem as chaves",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/inscricao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "inscricao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"endpoint\": \"https://push.exemplo.com/abc\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 422', () => pm.response.to.have.status(422));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-04 Cliente, restaurante e entregador ativam no navegador",
+     "item": [
+      {
+       "name": "Cliente A: POST /notificacoes/inscricao",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/inscricao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "inscricao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{{insc_a}}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.collectionVariables.set('id_insc_a', pm.response.json().id);",
+           "pm.test('Mensagem de confirmação', () => pm.expect(pm.response.json().mensagem).to.include('ativadas'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Navegador de teste 'dono-burger' (chaves P-256 + auth)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/inscricoes/dono-burger",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "inscricoes",
+          "dono-burger"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('insc_dono', JSON.stringify(pm.response.json()));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono do Burger: POST /notificacoes/inscricao",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/inscricao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "inscricao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{{insc_dono}}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Navegador de teste 'entregador' (chaves P-256 + auth)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/inscricoes/entregador",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "inscricoes",
+          "entregador"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('insc_entregador', JSON.stringify(pm.response.json()));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Entregador: POST /notificacoes/inscricao",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_entregador}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/inscricao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "inscricao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{{insc_entregador}}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-05 Mesmo navegador inscrito de novo não duplica",
+     "item": [
+      {
+       "name": "Cliente A: inscreve o mesmo navegador outra vez",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/inscricao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "inscricao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{{insc_a}}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.test('Mesmo registro', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('id_insc_a')));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-06 Token do app inválido é recusado na entrada",
+     "item": [
+      {
+       "name": "Token curto",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/fcm",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "fcm"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"token\": \"curto\",\n  \"plataforma\": \"android\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 422', () => pm.response.to.have.status(422));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Plataforma inexistente",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/fcm",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "fcm"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"token\": \"fcm-token-celular-ana-0123456789abcdef\",\n  \"plataforma\": \"windows-phone\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 422', () => pm.response.to.have.status(422));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-07 Cliente registra o celular (app mobile)",
+     "item": [
+      {
+       "name": "Cliente A: POST /notificacoes/fcm",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/fcm",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "fcm"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"token\": \"fcm-token-celular-ana-0123456789abcdef\",\n  \"plataforma\": \"android\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "const j = pm.response.json();",
+           "pm.test('FCM ativo e plataforma android', () => { pm.expect(j.fcm_ativo).to.eql(true); pm.expect(j.plataforma).to.eql('android'); });"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: mesmo token de novo (app reaberto)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/fcm",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "fcm"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"token\": \"fcm-token-celular-ana-0123456789abcdef\",\n  \"plataforma\": \"android\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: token de um celular em que o app foi desinstalado",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/fcm",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "fcm"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"token\": \"invalido-app-desinstalado-0123456789\",\n  \"plataforma\": \"android\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-08 Pedido criado avisa o cliente e o restaurante",
+     "item": [
+      {
+       "name": "Cliente A: X-Burger na cesta",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/cesta/itens",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "cesta",
+          "itens"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 1\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: criar pedido (dinheiro, delivery)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"delivery\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.collectionVariables.set('p1', pm.response.json().id);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: pagamento em dinheiro",
+       "request": {
+        "method": "PUT",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/pedidos/{{p1}}/metodo",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "pedidos",
+          "{{p1}}",
+          "metodo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"metodo\": \"dinheiro\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço de push: entregas recebidas (espera 4)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/capturas?desde={{marco}}&esperar=4",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "capturas"
+         ],
+         "query": [
+          {
+           "key": "desde",
+           "value": "{{marco}}"
+          },
+          {
+           "key": "esperar",
+           "value": "4"
+          }
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const j = pm.response.json();",
+           "pm.collectionVariables.set('marco', j.total);",
+           "const c = j.capturas;",
+           "const web = d => c.filter(x => x.canal === 'web' && x.destino === d);",
+           "const app = t => c.filter(x => x.canal === 'fcm' && x.destino === t);",
+           "const p = pm.collectionVariables.get('p1');",
+           "pm.test('Cliente no navegador: pedido recebido', () => { const m = web('cliente-a'); pm.expect(m).to.have.length(1); pm.expect(m[0].mensagem.titulo).to.eql(`Pedido #${p} recebido`); });",
+           "pm.test('Restaurante no navegador: novo pedido', () => { const m = web('dono-burger'); pm.expect(m).to.have.length(1); pm.expect(m[0].mensagem.titulo).to.eql(`Novo pedido #${p}`); pm.expect(m[0].mensagem.corpo).to.include('aguardando o seu aceite'); });",
+           "pm.test('Cliente no app: mesmo aviso', () => { const m = app('fcm-token-celular-ana-0123456789abcdef'); pm.expect(m).to.have.length(1); pm.expect(m[0].titulo).to.eql(`Pedido #${p} recebido`); pm.expect(m[0].resposta).to.eql(200); });",
+           "pm.test('Mensagens do navegador cifradas e assinadas (aes128gcm + VAPID, TTL 3600)', () => c.filter(x => x.canal === 'web').forEach(x => { pm.expect(x.decifrada).to.eql(true); pm.expect(x.vapid_assinado).to.eql(true); pm.expect(x.content_encoding).to.eql('aes128gcm'); pm.expect(x.ttl).to.eql('3600'); }));",
+           "pm.test('App: envio autenticado no projeto Firebase', () => c.filter(x => x.canal === 'fcm').forEach(x => { pm.expect(x.bearer).to.eql(true); pm.expect(x.projeto).to.eql('entregafood-teste'); }));",
+           "pm.test('Entregador ainda não é avisado', () => pm.expect(web('entregador')).to.have.length(0));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-09 Token do app desinstalado é apagado",
+     "item": [
+      {
+       "name": "Serviço de push: resposta do FCM ao token inválido (no CT-08)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/capturas",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "capturas"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const m = pm.response.json().capturas.filter(x => x.canal === 'fcm' && x.destino === 'invalido-app-desinstalado-0123456789');",
+           "pm.test('FCM respondeu 404 UNREGISTERED uma vez', () => { pm.expect(m).to.have.length(1); pm.expect(m[0].resposta).to.eql(404); });"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono do Burger: aceito",
+       "request": {
+        "method": "PATCH",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p1}}/status",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p1}}",
+          "status"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"status\": \"aceito\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Pedido em aceito', () => pm.expect(pm.response.json().status).to.eql('aceito'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço de push: entregas recebidas (espera 2)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/capturas?desde={{marco}}&esperar=2",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "capturas"
+         ],
+         "query": [
+          {
+           "key": "desde",
+           "value": "{{marco}}"
+          },
+          {
+           "key": "esperar",
+           "value": "2"
+          }
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const j = pm.response.json();",
+           "pm.collectionVariables.set('marco', j.total);",
+           "const c = j.capturas;",
+           "const web = d => c.filter(x => x.canal === 'web' && x.destino === d);",
+           "const app = t => c.filter(x => x.canal === 'fcm' && x.destino === t);",
+           "pm.test('Celular válido continua recebendo', () => pm.expect(app('fcm-token-celular-ana-0123456789abcdef')).to.have.length(1));",
+           "pm.test('Token apagado não recebe mais', () => pm.expect(app('invalido-app-desinstalado-0123456789')).to.have.length(0));",
+           "pm.test('Cliente avisado do aceite', () => pm.expect(web('cliente-a')[0].mensagem.corpo).to.eql('O restaurante aceitou o seu pedido.'));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-10 Cada mudança de status avisa o cliente",
+     "item": [
+      {
+       "name": "Dono do Burger: em_preparacao",
+       "request": {
+        "method": "PATCH",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p1}}/status",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p1}}",
+          "status"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"status\": \"em_preparacao\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Pedido em em_preparacao', () => pm.expect(pm.response.json().status).to.eql('em_preparacao'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço de push: entregas recebidas (espera 2)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/capturas?desde={{marco}}&esperar=2",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "capturas"
+         ],
+         "query": [
+          {
+           "key": "desde",
+           "value": "{{marco}}"
+          },
+          {
+           "key": "esperar",
+           "value": "2"
+          }
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const j = pm.response.json();",
+           "pm.collectionVariables.set('marco', j.total);",
+           "const c = j.capturas;",
+           "const web = d => c.filter(x => x.canal === 'web' && x.destino === d);",
+           "const app = t => c.filter(x => x.canal === 'fcm' && x.destino === t);",
+           "pm.test('Navegador e app do cliente avisados', () => { pm.expect(web('cliente-a')).to.have.length(1); pm.expect(c.filter(x => x.canal === 'fcm')).to.have.length(1); });",
+           "pm.test('Texto da etapa', () => pm.expect(web('cliente-a')[0].mensagem.corpo).to.eql('Seu pedido está sendo preparado.'));",
+           "pm.test('Restaurante não é avisado da própria ação', () => pm.expect(web('dono-burger')).to.have.length(0));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-11 Pedido pronto avisa os entregadores",
+     "item": [
+      {
+       "name": "Dono do Burger: pronto_para_entrega",
+       "request": {
+        "method": "PATCH",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p1}}/status",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p1}}",
+          "status"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"status\": \"pronto_para_entrega\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Pedido em pronto_para_entrega', () => pm.expect(pm.response.json().status).to.eql('pronto_para_entrega'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço de push: entregas recebidas (espera 3)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/capturas?desde={{marco}}&esperar=3",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "capturas"
+         ],
+         "query": [
+          {
+           "key": "desde",
+           "value": "{{marco}}"
+          },
+          {
+           "key": "esperar",
+           "value": "3"
+          }
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const j = pm.response.json();",
+           "pm.collectionVariables.set('marco', j.total);",
+           "const c = j.capturas;",
+           "const web = d => c.filter(x => x.canal === 'web' && x.destino === d);",
+           "const app = t => c.filter(x => x.canal === 'fcm' && x.destino === t);",
+           "const p = pm.collectionVariables.get('p1');",
+           "pm.test('Entregador: entrega disponível', () => { const m = web('entregador'); pm.expect(m).to.have.length(1); pm.expect(m[0].mensagem.titulo).to.eql(`Entrega disponível: pedido #${p}`); });",
+           "pm.test('Cliente também é avisado', () => pm.expect(web('cliente-a')).to.have.length(1));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-12 Navegador que bloqueou as notificações é apagado",
+     "item": [
+      {
+       "name": "Navegador de teste 'expirada-cliente-a' (chaves P-256 + auth)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/inscricoes/expirada-cliente-a",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "inscricoes",
+          "expirada-cliente-a"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('insc_expirada', JSON.stringify(pm.response.json()));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: segundo navegador",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/inscricao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "inscricao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{{insc_expirada}}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Entregador: em_transito",
+       "request": {
+        "method": "PATCH",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_entregador}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p1}}/status",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p1}}",
+          "status"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"status\": \"em_transito\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Pedido em em_transito', () => pm.expect(pm.response.json().status).to.eql('em_transito'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço de push: entregas recebidas (espera 3)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/capturas?desde={{marco}}&esperar=3",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "capturas"
+         ],
+         "query": [
+          {
+           "key": "desde",
+           "value": "{{marco}}"
+          },
+          {
+           "key": "esperar",
+           "value": "3"
+          }
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const j = pm.response.json();",
+           "pm.collectionVariables.set('marco', j.total);",
+           "const c = j.capturas;",
+           "const web = d => c.filter(x => x.canal === 'web' && x.destino === d);",
+           "const app = t => c.filter(x => x.canal === 'fcm' && x.destino === t);",
+           "pm.test('Navegador bloqueado respondeu 410 Gone', () => { const m = web('expirada-cliente-a'); pm.expect(m).to.have.length(1); pm.expect(m[0].resposta).to.eql(410); });",
+           "pm.test('Navegador ativo recebeu o aviso de saída', () => pm.expect(web('cliente-a')[0].mensagem.corpo).to.include('saiu para entrega'));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-13 Outro usuário não desativa o aparelho alheio",
+     "item": [
+      {
+       "name": "Cliente B: DELETE /notificacoes/inscricao do navegador do cliente A",
+       "request": {
+        "method": "DELETE",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_b}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/inscricao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "inscricao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"endpoint\": \"{{insc_a_endpoint}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "prerequest",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.collectionVariables.set('insc_a_endpoint', JSON.parse(pm.collectionVariables.get('insc_a')).endpoint);"
+          ]
+         }
+        },
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 204', () => pm.response.to.have.status(204));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente B: DELETE /notificacoes/fcm do celular do cliente A",
+       "request": {
+        "method": "DELETE",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_b}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/fcm",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "fcm"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"token\": \"fcm-token-celular-ana-0123456789abcdef\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 204', () => pm.response.to.have.status(204));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: código de entrega",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p1}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p1}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('codigo_p1', pm.response.json().codigo_entrega);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Entregador: confirma a entrega com o código",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_entregador}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p1}}/entrega/confirmar",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p1}}",
+          "entrega",
+          "confirmar"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"codigo\": \"{{codigo_p1}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço de push: entregas recebidas (espera 2)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/capturas?desde={{marco}}&esperar=2",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "capturas"
+         ],
+         "query": [
+          {
+           "key": "desde",
+           "value": "{{marco}}"
+          },
+          {
+           "key": "esperar",
+           "value": "2"
+          }
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const j = pm.response.json();",
+           "pm.collectionVariables.set('marco', j.total);",
+           "const c = j.capturas;",
+           "const web = d => c.filter(x => x.canal === 'web' && x.destino === d);",
+           "const app = t => c.filter(x => x.canal === 'fcm' && x.destino === t);",
+           "pm.test('Navegador do cliente A continua inscrito', () => pm.expect(web('cliente-a')[0].mensagem.corpo).to.eql('Pedido entregue. Bom apetite!'));",
+           "pm.test('Celular do cliente A continua registrado', () => pm.expect(app('fcm-token-celular-ana-0123456789abcdef')).to.have.length(1));",
+           "pm.test('Navegador bloqueado (apagado no CT-12) não recebe mais', () => pm.expect(web('expirada-cliente-a')).to.have.length(0));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-14 Cliente desativa as notificações (logout)",
+     "item": [
+      {
+       "name": "Cliente A: DELETE /notificacoes/inscricao",
+       "request": {
+        "method": "DELETE",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/inscricao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "inscricao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"endpoint\": \"{{insc_a_endpoint}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 204', () => pm.response.to.have.status(204));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: DELETE /notificacoes/fcm",
+       "request": {
+        "method": "DELETE",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notificacoes/fcm",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notificacoes",
+          "fcm"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"token\": \"fcm-token-celular-ana-0123456789abcdef\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 204', () => pm.response.to.have.status(204));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: X-Burger na cesta",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/cesta/itens",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "cesta",
+          "itens"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 1\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: criar pedido (dinheiro, delivery)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"delivery\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.collectionVariables.set('p2', pm.response.json().id);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: pagamento em dinheiro",
+       "request": {
+        "method": "PUT",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/pedidos/{{p2}}/metodo",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "pedidos",
+          "{{p2}}",
+          "metodo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"metodo\": \"dinheiro\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço de push: entregas recebidas (espera 1)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/capturas?desde={{marco}}&esperar=1",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "capturas"
+         ],
+         "query": [
+          {
+           "key": "desde",
+           "value": "{{marco}}"
+          },
+          {
+           "key": "esperar",
+           "value": "1"
+          }
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const j = pm.response.json();",
+           "pm.collectionVariables.set('marco', j.total);",
+           "const c = j.capturas;",
+           "const web = d => c.filter(x => x.canal === 'web' && x.destino === d);",
+           "const app = t => c.filter(x => x.canal === 'fcm' && x.destino === t);",
+           "pm.test('Restaurante avisado do novo pedido', () => pm.expect(web('dono-burger')).to.have.length(1));",
+           "pm.test('Cliente desativado não recebe nada', () => { pm.expect(web('cliente-a')).to.have.length(0); pm.expect(c.filter(x => x.canal === 'fcm')).to.have.length(0); });"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-15 Cancelamento pelo cliente avisa o restaurante",
+     "item": [
+      {
+       "name": "Cliente A: POST /pedidos/{p2}/cancelar",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p2}}/cancelar",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p2}}",
+          "cancelar"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço de push: entregas recebidas (espera 1)",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/capturas?desde={{marco}}&esperar=1",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "capturas"
+         ],
+         "query": [
+          {
+           "key": "desde",
+           "value": "{{marco}}"
+          },
+          {
+           "key": "esperar",
+           "value": "1"
+          }
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const j = pm.response.json();",
+           "pm.collectionVariables.set('marco', j.total);",
+           "const c = j.capturas;",
+           "const web = d => c.filter(x => x.canal === 'web' && x.destino === d);",
+           "const app = t => c.filter(x => x.canal === 'fcm' && x.destino === t);",
+           "const p = pm.collectionVariables.get('p2');",
+           "pm.test('Restaurante: cancelado pelo cliente', () => { const m = web('dono-burger'); pm.expect(m).to.have.length(1); pm.expect(m[0].mensagem.titulo).to.eql(`Pedido #${p} cancelado pelo cliente`); pm.expect(m[0].mensagem.corpo).to.include('Não é preciso preparar'); });"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-16 Dados do clique no navegador",
+     "item": [
+      {
+       "name": "Serviço de push: todas as mensagens do navegador",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/capturas",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "capturas"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const web = pm.response.json().capturas.filter(x => x.canal === 'web' && x.resposta === 201);",
+           "pm.test('Toda mensagem decifrada tem título, texto, URL e tag', () => web.forEach(x => ['titulo','corpo','url','tag'].forEach(k => pm.expect(x.mensagem[k]).to.be.a('string').and.not.empty)));",
+           "pm.test('Clique do cliente abre a página inicial (/)', () => web.filter(x => x.destino === 'cliente-a').forEach(x => pm.expect(x.mensagem.url).to.eql('/')));",
+           "pm.test('Clique do restaurante e do entregador abre o painel (/?painel=1)', () => web.filter(x => ['dono-burger','entregador'].includes(x.destino)).forEach(x => pm.expect(x.mensagem.url).to.eql('/?painel=1')));",
+           "pm.test('Tag pedido-{id}: avisos do mesmo pedido substituem o anterior', () => web.forEach(x => pm.expect(x.mensagem.tag).to.match(/^pedido-\\d+$/)));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-17 Dados do clique no app mobile",
+     "item": [
+      {
+       "name": "Serviço de push: todas as mensagens do app",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{push_url}}/capturas",
+         "host": [
+          "{{push_url}}"
+         ],
+         "path": [
+          "capturas"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const app = pm.response.json().capturas.filter(x => x.canal === 'fcm' && x.destino === 'fcm-token-celular-ana-0123456789abcdef');",
+           "pm.test('App recebeu os 6 avisos do pedido 1', () => pm.expect(app).to.have.length(6));",
+           "pm.test('Cada aviso leva pedido_id, status e destino para abrir o pedido certo', () => app.forEach(x => { pm.expect(x.dados.pedido_id).to.eql(String(pm.collectionVariables.get('p1'))); pm.expect(x.dados.status).to.be.a('string').and.not.empty; pm.expect(x.dados.destino).to.eql('cliente'); }));",
+           "pm.test('Status no dado acompanha a etapa', () => pm.expect(app.map(x => x.dados.status)).to.eql(['aguardando_aceite','aceito','em_preparacao','pronto_para_entrega','em_transito','entregue']));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "variable": [
+  {
+   "key": "base_url",
+   "value": "http://127.0.0.1:8011"
+  },
+  {
+   "key": "push_url",
+   "value": "http://127.0.0.1:8012"
+  },
+  {
+   "key": "marco",
+   "value": "0"
+  }
+ ]
+}

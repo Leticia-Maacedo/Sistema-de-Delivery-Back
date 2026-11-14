@@ -6,6 +6,11 @@ As quatro operacoes do CRUD, uma por verbo HTTP:
     UPDATE  ->  PUT    /produtos/{id}
     DELETE  ->  DELETE /produtos/{id}
 
+Estoque (Sprint 4):
+    GET   /produtos/{id}/estoque  consulta (publica)
+    PUT   /produtos/{id}/estoque  define a contagem (null desliga o controle)
+    PATCH /produtos/{id}/estoque  entrada (+) ou saida (-) de unidades
+
 A leitura e publica (o cardapio e aberto). Cadastrar, alterar e remover
 exigem login do dono do restaurante ou do admin.
 """
@@ -17,7 +22,14 @@ from app.core.security import obter_usuario_logado
 from app.models.produto import Produto
 from app.models.restaurante import Restaurante
 from app.models.usuario import Usuario
-from app.schemas.produto import ProdutoCreate, ProdutoOut, ProdutoUpdate
+from app.schemas.produto import (
+    EstoqueAjusteIn,
+    EstoqueDefinirIn,
+    EstoqueOut,
+    ProdutoCreate,
+    ProdutoOut,
+    ProdutoUpdate,
+)
 
 router = APIRouter(prefix="/produtos", tags=["Produtos"])
 
@@ -59,6 +71,7 @@ def criar_produto(
         descricao=dados.descricao,
         preco=dados.preco,
         disponivel=dados.disponivel,
+        estoque=dados.estoque,
     )
 
 
@@ -90,7 +103,10 @@ def atualizar_produto(
     usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> Produto:
     produto = _buscar_produto_do_usuario(db, produto_id, usuario_logado)
-    return produto.atualizar(db, **dados.model_dump(exclude_unset=True))
+    campos = dados.model_dump(exclude_unset=True)
+    if "estoque" in campos:
+        produto.estoque = campos.pop("estoque")  # null desliga o controle
+    return produto.atualizar(db, **campos)
 
 
 # ---------------------------------------------------------------- DELETE
@@ -102,3 +118,71 @@ def remover_produto(
 ) -> None:
     produto = _buscar_produto_do_usuario(db, produto_id, usuario_logado)
     produto.remover(db)
+
+
+# --------------------------------------------------------------- ESTOQUE
+def _estoque_out(produto: Produto) -> EstoqueOut:
+    return EstoqueOut(
+        produto_id=produto.id,
+        nome=produto.nome,
+        disponivel=produto.disponivel,
+        controla_estoque=produto.controla_estoque,
+        estoque=produto.estoque,
+        esgotado=produto.esgotado,
+    )
+
+
+@router.get("/{produto_id}/estoque", response_model=EstoqueOut, summary="Consultar estoque do produto")
+def consultar_estoque(produto_id: int, db: Session = Depends(get_db)) -> EstoqueOut:
+    """Unidades em estoque. `controla_estoque = false` = vende sem limite."""
+
+    produto = Produto.buscar_por_id(db, produto_id)
+    if produto is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto não encontrado.")
+    return _estoque_out(produto)
+
+
+@router.put("/{produto_id}/estoque", response_model=EstoqueOut, summary="Definir estoque do produto")
+def definir_estoque(
+    produto_id: int,
+    dados: EstoqueDefinirIn,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> EstoqueOut:
+    """Contagem do estoque (substitui o valor). `estoque: null` desliga o controle.
+
+    Só o dono do restaurante ou o admin.
+    """
+
+    produto = _buscar_produto_do_usuario(db, produto_id, usuario_logado)
+    return _estoque_out(produto.definir_estoque(db, dados.estoque))
+
+
+@router.patch("/{produto_id}/estoque", response_model=EstoqueOut, summary="Entrada ou saída de estoque")
+def ajustar_estoque(
+    produto_id: int,
+    dados: EstoqueAjusteIn,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> EstoqueOut:
+    """Soma (entrada) ou subtrai (saída) unidades sem deixar o estoque negativo.
+
+    Só o dono do restaurante ou o admin. O produto precisa controlar
+    estoque (defina um valor antes com PUT).
+    """
+
+    produto = _buscar_produto_do_usuario(db, produto_id, usuario_logado)
+
+    if dados.ajuste == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um ajuste diferente de zero.")
+    if not produto.controla_estoque:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Este produto não controla estoque. Defina a quantidade antes (PUT).",
+        )
+    if not produto.ajustar_estoque(db, dados.ajuste):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Saída maior que o estoque atual ({produto.estoque} unidades).",
+        )
+    return _estoque_out(produto)

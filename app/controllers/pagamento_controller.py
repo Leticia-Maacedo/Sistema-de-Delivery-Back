@@ -3,7 +3,7 @@
 Sprint 3 - Fechar Pedido:
     - 18: tipo de pagamento (cartao, PIX ou dinheiro na entrega).
     - 19: cobranca no Asaas sandbox (cartao e PIX) e consulta do status.
-    - 22: nota fiscal em PDF (emitida quando o pagamento e aprovado).
+    - 22: nota fiscal (emitida quando o pagamento e aprovado; app/core/nota_fiscal.py e app/core/fiscal).
 
 Fluxo: POST /pedidos -> PUT /pagamentos/pedidos/{id}/metodo ->
     cartao:   POST /pagamentos/cartao
@@ -19,14 +19,17 @@ from datetime import datetime
 
 import segno
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core import pagamento_gateway as gateway
 from app.core import pagamento_regras as regras
 from app.core.database import SessionLocal, get_db
+from app.core.fiscal import emissao as fiscal_emissao
 from app.core.nota_fiscal import ao_aprovar_pagamento, gerar_pdf, montar_dados
 from app.core.security import obter_usuario_logado
 from app.core.status_pedido import AGUARDANDO_ACEITE, status_finalizado
+from app.models.nota_fiscal import NotaFiscal
 from app.models.pagamento import Pagamento
 from app.models.pedido import Pedido
 from app.models.restaurante import Restaurante
@@ -275,6 +278,11 @@ def cancelar_pagamento_do_pedido(
 
     Nunca impede o cancelamento do pedido.
     """
+
+    try:
+        fiscal_emissao.cancelar(db, pedido)  # nota autorizada e cancelada na SEFAZ
+    except Exception:  # noqa: BLE001 - a nota nunca impede o cancelamento
+        db.rollback()
 
     pagamento = Pagamento.buscar_por_pedido(db, pedido.id)
 
@@ -586,15 +594,28 @@ def baixar_nota_fiscal(
     db: Session = Depends(get_db),
     usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> Response:
-    """PDF da nota fiscal simulada. So o cliente dono, o restaurante dono e o admin."""
+    """Documento da nota: o DANFCe do servico fiscal (redireciona) ou o PDF simulado.
+
+    So o cliente dono, o restaurante dono e o admin.
+    """
 
     pedido = buscar_pedido_para_consulta(db, pedido_id, usuario_logado)
+    nota = NotaFiscal.buscar_por_pedido(db, pedido.id)
+
+    if nota is not None and nota.status != "autorizada":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"A nota fiscal ainda nao esta autorizada ({nota.status}): {nota.mensagem or ''}".strip(),
+        )
 
     if not pedido.cupom_fiscal:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="A nota fiscal e emitida quando o pagamento e aprovado.",
         )
+
+    if nota is not None and nota.url_danfe:
+        return RedirectResponse(nota.url_danfe, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     pdf = gerar_pdf(montar_dados(db, pedido))
 

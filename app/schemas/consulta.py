@@ -50,6 +50,9 @@ class ItemCardapioOut(BaseModel):
     nome: str
     descricao: str | None
     preco: Decimal
+    # Sprint 4: unidades restantes (null = sem controle). Itens esgotados
+    # nem aparecem no cardapio.
+    estoque: int | None = None
 
 
 class CardapioOut(BaseModel):

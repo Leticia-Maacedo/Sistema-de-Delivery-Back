@@ -1,4 +1,4 @@
-"""Controller das notificacoes push (Backlog 21 e 23).
+"""Controller das notificacoes push (Backlog 21 e 23; app mobile na Sprint 4).
 
 O front pede a chave publica, inscreve o navegador no servico de push e
 envia a inscricao para ca. Os avisos em si sao disparados pelo pedido
@@ -11,10 +11,18 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.push import push_ativo
+from app.core.push_fcm import fcm_ativo
 from app.core.security import obter_usuario_logado
 from app.models.push_inscricao import PushInscricao
+from app.models.push_token_fcm import PushTokenFCM
 from app.models.usuario import Usuario
-from app.schemas.entrega import CancelarPushIn, ChavePublicaOut, InscricaoPushIn
+from app.schemas.entrega import (
+    CancelarPushIn,
+    CancelarTokenFcmIn,
+    ChavePublicaOut,
+    InscricaoPushIn,
+    TokenFcmIn,
+)
 
 router = APIRouter(prefix="/notificacoes", tags=["Notificações"])
 
@@ -53,4 +61,48 @@ def cancelar(
     usuario_logado: Usuario = Depends(obter_usuario_logado),
 ) -> Response:
     PushInscricao.remover_por_endpoint(db, dados.endpoint, usuario_logado.id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ------------------------------------------------------------------ app mobile (FCM)
+
+
+@router.post("/fcm", summary="Registrar o token do app mobile (Firebase)")
+def registrar_token_fcm(
+    dados: TokenFcmIn,
+    resposta: Response,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> dict[str, str | int | bool]:
+    """Guarda o token do Firebase do celular para o usuario logado.
+
+    O app chama ao abrir e sempre que o Firebase troca o token. Token novo
+    responde 201; token ja conhecido e so atualizado (200). Se o celular
+    estava com outra conta, o token passa a ser deste usuario.
+    """
+
+    registro, criado = PushTokenFCM.salvar(
+        db,
+        usuario_id=usuario_logado.id,
+        token=dados.token,
+        plataforma=dados.plataforma,
+    )
+    resposta.status_code = status.HTTP_201_CREATED if criado else status.HTTP_200_OK
+    return {
+        "id": registro.id,
+        "plataforma": registro.plataforma,
+        "fcm_ativo": fcm_ativo(),
+        "mensagem": "Notificações ativadas neste celular.",
+    }
+
+
+@router.delete("/fcm", status_code=status.HTTP_204_NO_CONTENT, summary="Remover o token do app mobile")
+def remover_token_fcm(
+    dados: CancelarTokenFcmIn,
+    db: Session = Depends(get_db),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+) -> Response:
+    """Logout no app: o celular para de receber os avisos desta conta."""
+
+    PushTokenFCM.remover(db, dados.token, usuario_logado.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -28,7 +28,8 @@ from app.schemas.sacola import (
 
 router = APIRouter(prefix="/cesta", tags=["Cesta"])
 
-# Regra provisoria do projeto: limite por produto, nao representa estoque.
+# Limite por pedido para qualquer produto. O estoque (Sprint 4) e outra
+# regra: vale so para os produtos em que o restaurante controla estoque.
 QUANTIDADE_MAXIMA_POR_PRODUTO = 99
 
 
@@ -58,6 +59,21 @@ def validar_disponibilidade(produto: Produto) -> None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Produto indisponivel.",
+        )
+
+
+def validar_estoque(produto: Produto, quantidade: int) -> None:
+    """Impede pedir mais unidades do que o estoque do produto (Sprint 4).
+
+    Produto sem controle de estoque (estoque NULL) passa direto.
+    """
+
+    problema = produto.problema_de_estoque(quantidade)
+
+    if problema is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=problema,
         )
 
 
@@ -180,10 +196,11 @@ def obter_local_entrega(
 def validar_itens_para_fechamento(
     itens: list[tuple[ItemSacola, Produto | None]],
 ) -> str | None:
-    """Revalida cada item no momento do fechamento ("estoque").
+    """Revalida cada item no momento do fechamento.
 
-    O banco nao tem coluna de estoque: o produto precisa existir, estar
-    disponivel e respeitar o limite de quantidade por produto.
+    O produto precisa existir, estar disponivel, respeitar o limite de
+    quantidade por produto e, se controla estoque, ter unidades suficientes
+    (Sprint 4). A baixa em si acontece ao criar o pedido.
     """
 
     for item, produto in itens:
@@ -201,6 +218,10 @@ def validar_itens_para_fechamento(
                 f"O produto '{produto.nome}' passou do limite de "
                 f"{QUANTIDADE_MAXIMA_POR_PRODUTO} unidades."
             )
+
+        problema_estoque = produto.problema_de_estoque(item.quantidade)
+        if problema_estoque is not None:
+            return f"{problema_estoque} Ajuste a quantidade na cesta para continuar."
 
     restaurantes = {produto.restaurante_id for _, produto in itens}
 
@@ -409,6 +430,7 @@ def adicionar_produto_cesta(
 
     validar_disponibilidade(produto)
     validar_quantidade(dados.quantidade)
+    validar_estoque(produto, dados.quantidade)
     validar_restaurante_recebe_pedidos(db, produto)
 
     sacola = Sacola.buscar_por_cliente(db, usuario_logado.id)
@@ -428,6 +450,7 @@ def adicionar_produto_cesta(
             )
 
             validar_quantidade(nova_quantidade)
+            validar_estoque(produto, nova_quantidade)
 
             item_existente.quantidade = nova_quantidade
             sacola.atualizado_em = datetime.now()
@@ -506,6 +529,7 @@ def alterar_quantidade_cesta(
 
     validar_disponibilidade(produto)
     validar_quantidade(dados.quantidade)
+    validar_estoque(produto, dados.quantidade)
     validar_restaurante_cesta(db, sacola, produto)
 
     item.quantidade = dados.quantidade

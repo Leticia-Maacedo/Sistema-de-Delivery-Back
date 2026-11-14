@@ -1,11 +1,14 @@
 # EntregaFood — Backend
 
-API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115**, seguindo a arquitetura **MVC**, com persistência em **PostgreSQL 16**.
+API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115**, seguindo a arquitetura **MVC**, com persistência em **PostgreSQL** (16 no Docker local; Neon em produção).
 
 **Sprint 1** — CRUD de Usuário e autenticação por e-mail/senha com JWT.
 **Sprint 2** — Consulta de Restaurante e Cardápio pelo cliente.
+**Sprint 3** — Cesta, fechamento do pedido, taxa de entrega pela distância, pagamento (cartão, PIX e dinheiro), nota fiscal simulada, acompanhamento da entrega, notificações push no navegador, Portal do Parceiro e minha conta.
+**Sprint 4** — Cancelamento pelo cliente, push no app mobile (Firebase), relatórios de vendas e estoque dos produtos.
 **Extra** — CRUD de Restaurante, Produto e Local (endereço, pré-requisito da cadeia).
 **Grupo:** Amigos do Gilberto · Turma A · Faculdade Impacta
+**Produção:** API em `https://entregafood-api.onrender.com` (Render) com banco no Neon — ver [Publicar a API no Render](#publicar-a-api-no-render).
 
 **📚 Documentação detalhada:** [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) (padrão MVC, ciclo de vida da requisição, autenticação, débitos técnicos) · [`docs/BANCO_DE_DADOS.md`](docs/BANCO_DE_DADOS.md) (schema completo, diagrama ER) · [`docs/API.md`](docs/API.md) (todos os endpoints e métodos de Model por trás de cada um).
 
@@ -26,13 +29,21 @@ API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115
 | 9 | Login por telefone com código OTP + cadastro por telefone; o código chega por e-mail (Brevo) | `/auth/telefone/*` | ✅ |
 | 10 | Login social (Google/Facebook) | `/auth/google`, `/auth/facebook` | ✅ implementado (ver Limitações sobre uso em modo de teste) |
 | 11 | Coleção Postman com todos os endpoints acima | [`postman/EntregaFood.postman_collection.json`](postman/EntregaFood.postman_collection.json) | ✅ |
-| 12 | Cesta (incluir, consultar, alterar quantidade, excluir) com limite de 99 unidades e restaurante único | `/cesta`, `/cesta/itens` | ✅ |
+| 12 | Cesta (incluir, consultar, alterar quantidade, excluir) com limite de 99 unidades, estoque e restaurante único | `/cesta`, `/cesta/itens` | ✅ |
 | 13 | Resumo da cesta: subtotal, taxa de entrega pela distância e total | `GET /cesta/resumo` | ✅ |
 | 14 | Fechamento do pedido: valida cesta vazia, disponibilidade, quantidade, endereço e raio; copia os itens para `item_pedido`; esvazia a cesta | `POST /pedidos` | ✅ |
 | 15 | Tipo de pagamento (cartão, PIX ou dinheiro na entrega), cobrança no Asaas sandbox (cartão e PIX, com gateway simulado sem chave) e nota fiscal em PDF por e-mail | `/pagamentos` | ✅ |
 | 16 | Tipo de entrega no fechamento (delivery com taxa pela distância ou retirada no balcão sem taxa) | `POST /pedidos`, `GET /cesta/resumo` | ✅ |
 | 17 | Acompanhamento do pedido: linha do tempo de status, painel do restaurante/entregador e conclusão com código de entrega | `/pedidos`, `/pedidos/painel`, `/pedidos/{id}/status`, `/pedidos/{id}/entrega/confirmar` | ✅ |
-| 18 | Avaliação | — | ❌ não implementado (só tabela no `sql/`) |
+| 18 | Notificações push no navegador (Web Push) a cada etapa do pedido e rastreio do entregador | `/notificacoes`, `/pedidos/{id}/rastreio` | ✅ |
+| 19 | Portal do Parceiro: o dono gerencia o restaurante (horário, pausa, raio) e o cardápio | `/parceiro` | ✅ |
+| 20 | Minha conta: dados, senha e endereços; o pedido guarda uma cópia do endereço | `/usuarios/{id}`, `/locais` | ✅ |
+| 21 | Cancelamento pelo cliente enquanto aguarda o aceite, com estorno no Asaas (RN04) | `POST /pedidos/{id}/cancelar` | ✅ Sprint 4 |
+| 22 | Push no app mobile pelo Firebase Cloud Messaging | `/notificacoes/fcm` | ✅ Sprint 4 (o app ainda não registra o token) |
+| 23 | Relatórios de receita, pedidos e formas de pagamento por período | `/relatorios` | ✅ Sprint 4 |
+| 24 | Estoque dos produtos: validação na cesta, baixa no pedido e devolução no cancelamento | `/produtos/{id}/estoque` | ✅ Sprint 4 |
+| 25 | Emissão fiscal real (NFC-e) | — | ❌ não implementado (nota simulada em PDF) |
+| 26 | Avaliação | — | ❌ não implementado (só tabela no `sql/`) |
 
 Essa tabela é o inventário de referência: toda vez que uma funcionalidade nova entrar no backend, adicione uma linha aqui.
 
@@ -45,27 +56,42 @@ O padrão MVC separa a aplicação em três responsabilidades, e a estrutura de 
 ```
 app/
 ├── models/          MODEL      → SQLAlchemy + regras de negócio
-│   ├── usuario.py              (mapeia a tabela usuario, valida e-mail único, tipo de perfil)
-│   ├── local.py                (mapeia a tabela local — endereço, pré-requisito de Restaurante)
-│   ├── restaurante.py          (mapeia a tabela restaurante, valida CNPJ único)
-│   └── produto.py              (mapeia a tabela produto, vinculado a um restaurante)
+│   ├── usuario.py              (tabela usuario: e-mail único, tipo de perfil, encerrar conta)
+│   ├── codigo_otp.py           (códigos de validação do login/cadastro por telefone)
+│   ├── local.py                (endereço: do cliente ou do restaurante)
+│   ├── restaurante.py          (CNPJ único, dono, horário, pausa e raio de entrega)
+│   ├── produto.py              (cardápio e estoque: baixa e devolução atômicas)
+│   ├── sacola.py               (cesta e itens da cesta)
+│   ├── pedido.py               (cria o pedido a partir da cesta, muda status, devolve estoque)
+│   ├── item_pedido.py          (itens com o preço do momento)
+│   ├── pedido_status_historico.py (linha do tempo do pedido)
+│   ├── entrega.py              (código de entrega, entregador e posição)
+│   ├── pagamento.py            (status do pagamento e id da cobrança no Asaas)
+│   ├── push_inscricao.py       (navegadores inscritos no Web Push)
+│   └── push_token_fcm.py       (celulares inscritos no Firebase)
 ├── schemas/         VIEW       → Pydantic: formato do JSON de entrada e saída
-│   ├── usuario.py              (define o que entra e — importante — o que NÃO sai)
-│   ├── local.py
-│   ├── restaurante.py
-│   ├── produto.py
-│   └── consulta.py             (formato de saída das consultas do cliente)
+│   └── usuario, local, restaurante, produto, consulta, sacola, pedido,
+│       entrega, pagamento, parceiro e relatorio
 ├── controllers/     CONTROLLER → routers FastAPI: recebem HTTP e orquestram
-│   ├── usuario_controller.py   (as 4 operações do CRUD)
 │   ├── auth_controller.py      (login, OTP por telefone, login social e rota protegida)
-│   ├── local_controller.py     (as 4 operações do CRUD)
-│   ├── restaurante_controller.py (as 4 operações do CRUD)
-│   ├── produto_controller.py   (as 4 operações do CRUD)
-│   └── consulta_controller.py  (leitura, visão do cliente: restaurantes aprovados e cardápio)
-└── core/            Infraestrutura de apoio
-    ├── config.py               (lê o .env)
-    ├── database.py             (engine e sessão do SQLAlchemy)
-    └── security.py             (hash de senha, JWT, middleware)
+│   ├── usuario_controller.py, local_controller.py, restaurante_controller.py
+│   ├── produto_controller.py   (CRUD do produto e estoque)
+│   ├── consulta_controller.py  (visão do cliente: restaurantes aprovados e cardápio)
+│   ├── sacola_controller.py    (cesta, resumo e validações do fechamento)
+│   ├── pedido_controller.py    (criar, acompanhar, mudar status, confirmar e cancelar)
+│   ├── entrega_controller.py   (rastreio e posição do entregador)
+│   ├── pagamento_controller.py (cartão, PIX, dinheiro, nota fiscal e estorno)
+│   ├── notificacao_controller.py (inscrição do navegador e token do app)
+│   ├── parceiro_controller.py  (Portal do Parceiro)
+│   └── relatorio_controller.py (relatórios de vendas)
+└── core/            Infraestrutura e regras compartilhadas
+    ├── config.py, database.py, security.py (.env, sessão do banco, senha e JWT)
+    ├── status_pedido.py        (fluxo de status e quem pode mudar cada etapa)
+    ├── frete.py, geocoding.py  (distância, taxa de entrega e coordenadas do endereço)
+    ├── pagamento_regras.py, pagamento_gateway.py, pagamento_asaas.py, pagamento_cartao.py
+    ├── nota_fiscal.py, email.py, otp_envio.py
+    ├── push.py, push_fcm.py, notificacoes_pedido.py (quem recebe cada aviso)
+    └── relatorios.py           (cálculos dos relatórios)
 ```
 
 **A regra que mantém o padrão honesto:** se aparecer `status_code` dentro de `models/`, a regra de negócio vazou para o lugar errado. Se aparecer `db.commit()` dentro de `controllers/`, a persistência vazou. O Controller conversa com o Model; o Model conversa com o banco.
@@ -107,7 +133,7 @@ docker compose up -d
 docker compose ps          # confirmar que o container está saudável
 ```
 
-O `docker-compose.yml` monta a pasta `sql/` em `/docker-entrypoint-initdb.d`, então as 11 tabelas são criadas automaticamente na primeira subida.
+O `docker-compose.yml` monta a pasta `sql/` em `/docker-entrypoint-initdb.d`, então os scripts `01` a `12` rodam em ordem e as 15 tabelas são criadas automaticamente na primeira subida (com um volume já existente, rode os scripts novos à mão — ver [Scripts do banco](#scripts-do-banco)).
 
 **Opção B — [Postgres.app](https://postgresapp.com) (macOS, sem Docker):**
 
@@ -183,6 +209,32 @@ postman collection run postman/Teste_Consulta_Status_Cancelamento.postman_collec
 
 Rode a coleção logo depois de subir o script (o banco é recriado a cada vez e as asserções contam os pedidos da própria execução).
 
+| Coleção (`postman/`) | O que testa |
+|---|---|
+| `Teste_Incluir_Produto_Cesta`, `Teste_Consultar_Itens_Cesta`, `Teste_Alterar_Quantidade_Cesta`, `Teste_Excluir_Produto_Cesta` | Operações da cesta |
+| `Teste_Subtotal_Total_Cesta`, `Teste_Validacoes_Cesta`, `Teste_Tipo_Entrega` | Resumo, validações e tipo de entrega no fechamento |
+| `Teste_Acompanhamento_Entrega` | Linha do tempo, painel e código de entrega |
+| `Teste_Pagamento` | Cartão aprovado/recusado, PIX, dinheiro, nota fiscal e estorno |
+| `Teste_Consulta_Status_Cancelamento` | Consulta, mudança de status e cancelamento (Sprint 4) |
+| `Teste_Notificacoes_Push` | Envio, permissões, token inválido e dados do clique (Sprint 4) — precisa do `--push`, abaixo |
+| `Teste_Emissao_Fiscal` | NFC-e pela Focus NFe: autorização, rejeição, serviço fora do ar e reenvio, cancelamento (Sprint 4) — precisa do `--fiscal`, abaixo |
+
+**Notificações push (Sprint 4).** Com `--push`, o servidor de teste liga o push com chaves VAPID e conta do Firebase de teste geradas na hora e sobe, na porta seguinte (8012), um serviço de push falso ([`postman/servico_push_falso.py`](postman/servico_push_falso.py)). Ele faz o papel do navegador e do Firebase: recebe e **decifra** cada notificação e guarda tudo em `GET /capturas`, que a coleção consulta. Só o transporte é trocado; cifragem, VAPID, JWT e as regras de quem recebe são o código real.
+
+```bash
+python postman/servidor_local_teste.py 8011 --push
+postman collection run postman/Teste_Notificacoes_Push.postman_collection.json --environment %TEMP%/entregafood-teste/ambiente_local.postman_environment.json
+```
+
+No Docker, use `HOST=0.0.0.0` e publique as portas 8011 e 8012 para o Postman do Windows enxergar a API e o serviço falso.
+
+**Emissão fiscal (Sprint 4).** Com `--fiscal`, o servidor de teste liga o provedor fiscal **real** (`FISCAL_PROVEDOR=focusnfe`, ambiente de homologação) e sobe, duas portas acima (8013), um serviço no formato da API v2 da Focus NFe ([`postman/servico_fiscal_falso.py`](postman/servico_fiscal_falso.py)). Ele confere o token e os campos da NFC-e e responde autorizando, rejeitando (704), fora do ar (503), com limite (429), sem responder ou recusando o cancelamento, conforme `POST /controle/modo`; `GET /capturas` mostra o que a API enviou. Só o servidor da Focus é trocado; montagem da nota, reenvio e cancelamento são o código real.
+
+```bash
+python postman/servidor_local_teste.py 8011 --fiscal
+postman collection run postman/Teste_Emissao_Fiscal.postman_collection.json --environment %TEMP%/entregafood-teste/ambiente_local.postman_environment.json
+```
+
 ---
 
 ## Publicar a API no Render
@@ -201,6 +253,20 @@ A API roda no Render (plano gratuito, Docker) e o banco no **Neon** (PostgreSQL)
 5. Login social: cadastre `https://entregafood-api.onrender.com/auth/google/callback` no Google Cloud e `.../auth/facebook/callback` no Meta for Developers.
 
 Mudança de banco (`sql/NN_*.sql`): rode o script no Neon (SQL Editor) **antes** do merge que precisa dele — os scripts são idempotentes e só acrescentam colunas/tabelas.
+
+### Scripts do banco
+
+| Script | O que faz | No Neon |
+|---|---|---|
+| `01_create_tables.sql` | Cria as 11 tabelas base | ✅ |
+| `02_sprint2_telefone.sql`, `03_create_codigo_otp.sql` | Telefone no cadastro e códigos OTP | ✅ |
+| `04_seed_cardapio.sql` | Dados de exemplo (restaurantes e cardápio) | opcional |
+| `05` a `10` (Sprint 3) | Acompanhamento, dono/entregador, push no navegador, pagamento e NF, endereço no pedido, Portal do Parceiro | ✅ |
+| `11_sprint4_push_fcm.sql` | Tabela `push_token_fcm` (push no app) | ✅ 08/11/2026 |
+| `12_sprint4_estoque.sql` | Coluna `produto.estoque` (NULL = sem controle) | ✅ 08/11/2026 |
+| `13_sprint4_nota_fiscal.sql` | Tabela `nota_fiscal` (situação da emissão de cada pedido) | ⏳ rodar antes do deploy |
+
+Ao criar um script novo, acrescente uma linha aqui e marque quando ele for aplicado no Neon.
 
 ---
 
@@ -315,7 +381,7 @@ As rotas de `/restaurantes` e `/produtos` acima são de **cadastro e administra�
 |---|---|---|---|
 | `GET` | `/consultas/restaurantes` | Só restaurantes `status_aprovacao = 'aprovado'`, com o endereço embutido. Filtra por nome com `?busca=`. Com `?latitude=&longitude=` do endereço do cliente, só vêm os que entregam ali (raio de entrega de cada restaurante; distância estimada em linha reta × `FRETE_FATOR_CIRCUITO`), do mais perto ao mais longe, com `distancia_km` e `entrega_no_endereco`; `incluir_fora_do_raio=true` lista também os que não entregam | `200` |
 | `GET` | `/consultas/restaurantes/{id}` | Um restaurante aprovado + endereço (sem CNPJ) | `200` · `404` se pendente/recusado/inexistente |
-| `GET` | `/consultas/restaurantes/{id}/cardapio` | Dados do restaurante + lista dos itens com `disponivel = true` + `total_itens` | `200` · `404` |
+| `GET` | `/consultas/restaurantes/{id}/cardapio` | Dados do restaurante + lista dos itens com `disponivel = true` e não esgotados (com o `estoque` restante; `null` = sem controle) + `total_itens` | `200` · `404` |
 
 Diferenças em relação ao CRUD: a consulta **não** expõe CNPJ, **não** mostra restaurante não-aprovado e **não** lista item indisponível.
 
@@ -342,8 +408,8 @@ psql -h localhost -U postgres -d entregafood -f sql/04_seed_cardapio.sql
 | Método | Rota | O que faz | Retorno |
 |---|---|---|---|
 | `GET` | `/cesta` | Cesta do usuário logado (itens, subtotais e total) | `200` |
-| `POST` | `/cesta/itens` | Inclui produto (soma se já existir). Bloqueia indisponível, restaurante diferente e mais de 99 unidades | `201` · `400` · `404` |
-| `PUT` | `/cesta/itens/{produto_id}` | Altera a quantidade | `200` · `400` · `404` |
+| `POST` | `/cesta/itens` | Inclui produto (soma se já existir). Bloqueia indisponível, restaurante diferente, mais de 99 unidades e mais que o estoque | `201` · `400` · `404` |
+| `PUT` | `/cesta/itens/{produto_id}` | Altera a quantidade (mesmas validações) | `200` · `400` · `404` |
 | `DELETE` | `/cesta/itens/{produto_id}` | Remove o produto da cesta | `200` · `404` |
 | `GET` | `/cesta/resumo?local_id=&tipo_entrega=` | Subtotal, taxa de entrega, total, distância e se o pedido pode ser fechado (`pode_fechar` + `motivo`) | `200` · `403` · `404` |
 | `POST` | `/pedidos` | Cria o pedido a partir da cesta: recalcula os valores no servidor, copia os itens para `item_pedido` e esvazia a cesta | `201` · `400` |
@@ -403,6 +469,24 @@ Antes de usar, rode `sql/07_sprint3_push.sql` no banco e configure `VAPID_PUBLIC
 **Quem recebe push** (`app/core/notificacoes_pedido.py`, enviado em segundo plano, nunca quebra o pedido): pedido criado → cliente e restaurante dono; cada mudança de status → cliente; `pronto_para_entrega` (delivery) → todos os entregadores. Usa Web Push padrão (`pywebpush`), sem depender de conta em serviço externo.
 
 Testes: `python -m pytest testes/teste_notificacoes_rastreio.py`.
+
+### Push no app mobile — Firebase Cloud Messaging (Sprint 4)
+
+O app Android recebe os mesmos avisos do site pelo Firebase (FCM). Antes de usar, rode `sql/11_sprint4_push_fcm.sql` no banco e coloque no Render a variável `FIREBASE_CREDENCIAIS` com o JSON da conta de serviço do projeto Firebase (Configurações do projeto → Contas de serviço → Gerar nova chave privada; o JSON inteiro numa linha ou em base64). Sem ela tudo funciona, só não envia para o app.
+
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| `POST` | `/notificacoes/fcm` | logado | Registra o token do celular (`{"token": "...", "plataforma": "android"}`). Token novo → 201; já conhecido → 200 (atualiza a conta e a plataforma) |
+| `DELETE` | `/notificacoes/fcm` | logado | Remove o token (logout no app) |
+
+- Tabela `push_token_fcm`: um token por celular (único), ligado ao usuário; as inscrições do navegador continuam em `push_inscricao`.
+- `app/core/push_fcm.py` autentica com a conta de serviço (JWT RS256 → token OAuth2, reaproveitado até expirar) e envia pela API HTTP v1 (`/v1/projects/<projeto>/messages:send`).
+- Cada aviso do pedido (`app/core/notificacoes_pedido.py`) vai pelos dois canais. No app a mensagem leva `pedido_id`, `status` e `destino` em `data`, para o toque abrir o pedido certo.
+- Token que o Firebase diz que não vale mais (`UNREGISTERED`) é apagado sozinho. Falha do Firebase nunca afeta o pedido.
+
+Testes: `python -m pytest testes/teste_push_fcm.py` (Google simulado, sem Firebase real) e a coleção `Teste_Notificacoes_Push` (ver [Testar com Postman](#6-testar-com-postman)).
+
+**Clique na notificação:** no navegador, o `public/sw.js` do front abre a `url` da mensagem (`/` para o cliente, `/?painel=1` para restaurante e entregador) ou foca a aba do site se ela já estiver aberta. O teste da Sprint 4 apontou melhorias ainda não feitas: o cliente cai na tela inicial e não no acompanhamento do pedido, o front não lê o `?painel=1` e, com a aba aberta, ela só ganha foco sem navegar.
 
 ---
 
@@ -500,6 +584,95 @@ O pedido de entrega **grava uma cópia do endereço** (`pedido.endereco_entrega`
 
 ---
 
+## Endpoints da Sprint 4 — relatórios de vendas
+
+Três relatórios para o painel do administrador e do parceiro. Todos aceitam `data_inicio` e `data_fim` (AAAA-MM-DD, o último dia entra inteiro); sem datas, o período é todo o histórico.
+
+| Método | Rota | O que responde |
+|---|---|---|
+| `GET` | `/relatorios/receita-por-restaurante` | Receita bruta de cada restaurante e participação % no total (maior primeiro), mais o total geral |
+| `GET` | `/relatorios/pedidos-por-restaurante` | Quantidade de pedidos, faturamento e ticket médio por restaurante, mais os totais. Ordenação: `ordenar_por` = `quantidade_pedidos`, `faturamento` (padrão), `ticket_medio` ou `restaurante_nome`; `ordem` = `desc` (padrão) ou `asc` |
+| `GET` | `/relatorios/pagamentos-por-tipo` | Cartão, PIX e dinheiro em quantidade e em valor, com o percentual de cada um (para o gráfico de pizza). Os três métodos sempre aparecem |
+
+**Regras** (`app/core/relatorios.py`, iguais nos três):
+
+- Entra no relatório o pedido **aceito pelo restaurante** (de `aceito` até `entregue`). Pedidos aguardando aceite e cancelados ficam de fora.
+- Receita bruta = faturamento = soma do valor total dos pedidos (produtos + taxa de entrega).
+- Ticket médio = faturamento ÷ quantidade de pedidos. Valores e percentuais com 2 casas.
+- Quem vê: **admin** vê todos os restaurantes; **restaurante** vê só os seus; cliente e entregador recebem 403.
+- Data inicial depois da final → 400. Período sem pedidos → listas vazias e totais zerados.
+- Cada resposta traz o `periodo` aplicado e a `regra` em texto, para quem lê saber o que foi somado.
+
+Exemplo — `GET /relatorios/receita-por-restaurante?data_inicio=2026-11-01&data_fim=2026-11-30`:
+
+```json
+{
+  "periodo": {"data_inicio": "2026-11-01", "data_fim": "2026-11-30"},
+  "regra": "Considera os pedidos aceitos pelo restaurante (de 'aceito' até 'entregue'). ...",
+  "total_geral": "200.00",
+  "restaurantes": [
+    {"restaurante_id": 2, "restaurante_nome": "Sushi", "receita_bruta": "120.00", "participacao_percentual": "60.00"},
+    {"restaurante_id": 1, "restaurante_nome": "Pizzaria", "receita_bruta": "80.00", "participacao_percentual": "40.00"}
+  ]
+}
+```
+
+MVC: a leitura do banco fica no Model (`Pedido.listar_vendas`), os cálculos em `app/core/relatorios.py`, o formato da resposta nos schemas (`app/schemas/relatorio.py`) e as rotas em `app/controllers/relatorio_controller.py`. Testes: `python -m pytest testes/teste_relatorios.py`.
+
+---
+
+## Endpoints da Sprint 4 — estoque dos produtos
+
+Antes do deploy, rode `sql/12_sprint4_estoque.sql` no banco: o model já lê a coluna `produto.estoque` e, sem ela, as rotas de produto dão 500.
+
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| `GET` | `/produtos/{id}/estoque` | público | `estoque`, `controla_estoque` e `esgotado` |
+| `PUT` | `/produtos/{id}/estoque` | dono do restaurante · admin | Define a contagem (`{"estoque": 30}`); `{"estoque": null}` desliga o controle |
+| `PATCH` | `/produtos/{id}/estoque` | dono do restaurante · admin | Entrada (`{"ajuste": 10}`) ou saída (`{"ajuste": -2}`); não deixa ficar negativo (`400`) |
+
+O campo `estoque` também é aceito em `POST`/`PUT /produtos` e `/parceiro/produtos` (omitir não mexe; `null` desliga).
+
+**Regras** (`app/models/produto.py` e `app/models/pedido.py`):
+
+- `estoque = NULL`: o restaurante não controla estoque daquele produto e ele vende sem limite, como antes. Os produtos que já existiam ficaram assim.
+- Cesta (incluir e alterar) e fechamento (`GET /cesta/resumo`, `POST /pedidos`) recusam quantidade maior que o estoque (`"So ha 3 unidades de 'Lanche' em estoque."`).
+- Criar o pedido **baixa o estoque na mesma transação**, com um `UPDATE` condicional: se outro pedido levou as últimas unidades depois do resumo, a API responde `409` e nada é gravado.
+- Pedido **cancelado** (pelo cliente ou pelo restaurante) devolve as unidades. Como só dá para cancelar antes do preparo, nada foi produzido; um pedido nunca devolve duas vezes.
+- Estoque `0` = esgotado: o produto some do cardápio do cliente.
+
+Testes: `python -m pytest testes/teste_estoque.py -v` (15 testes).
+
+---
+
+## Endpoints da Sprint 4 — emissão fiscal (NFC-e)
+
+Antes do deploy, rode `sql/13_sprint4_nota_fiscal.sql` no banco: a emissão da nota (pagamento aprovado) grava na tabela `nota_fiscal`.
+
+A nota fica no pacote [`app/core/fiscal/`](app/core/fiscal): `dados.py` (o que vai na nota), `pdf_simulado.py` (PDF sem valor fiscal), `provedores.py` (provedor simulado e integração real com a **Focus NFe**, escolhida na pesquisa PSQ-FIS-01) e `emissao.py` (emissão, rejeição, serviço fora do ar e reenvio). O resto do sistema chama `app/core/nota_fiscal.py`.
+
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| `GET` | `/notas-fiscais/pedidos/{id}` | cliente dono, restaurante dono, admin | Situação da nota; se ela esperava o serviço voltar e a hora chegou, tenta de novo antes de responder |
+| `POST` | `/notas-fiscais/pedidos/{id}/emitir` | restaurante dono, admin | Nova emissão depois de rejeição ou falha (`409` se já autorizada, `400` sem pagamento aprovado) |
+| `POST` | `/notas-fiscais/reprocessar` | admin | Tenta de novo as pendentes cuja hora chegou (para um Cron Job em produção) |
+| `GET` | `/pagamentos/pedidos/{id}/nota-fiscal` | cliente dono, restaurante dono, admin | DANFCe do serviço (`307`) ou PDF simulado; `409` se a nota não está autorizada |
+
+Situações: `autorizada` (número também em `pedido.cupom_fiscal`) · `rejeitada` (código e motivo da SEFAZ; não tenta sozinha) · `pendente_reenvio` (serviço fora do ar, 429 ou tempo esgotado; esperas de 1, 5, 15, 60 e 240 min) · `falhou` (depois de 6 tentativas) · `cancelada` (pedido cancelado; a NFC-e só pode ser cancelada até 30 min após a emissão — se a SEFAZ recusar, o pedido é cancelado mesmo assim e o motivo fica na nota). A referência enviada é sempre `pedido-{id}`, então repetir a emissão nunca gera duas notas. A falha da nota nunca bloqueia o pagamento nem o pedido.
+
+A NFC-e sai no CNPJ do restaurante, com presença 4 (delivery) ou 1 (retirada), a taxa de entrega rateada no frete dos itens (Resposta à Consulta SEFAZ-SP 31987/2025) e o EntregaFood como intermediador quando `FISCAL_CNPJ_INTERMEDIADOR` está preenchido.
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `FISCAL_PROVEDOR` | `simulado` | `simulado` (PDF, como antes) ou `focusnfe` |
+| `FOCUSNFE_TOKEN` / `FOCUSNFE_AMBIENTE` | (vazio) / `homologacao` | Token da empresa na Focus NFe e ambiente (`homologacao` ou `producao`); sem token, volta para o simulado |
+| `FISCAL_NCM_PADRAO` / `FISCAL_CFOP` / `FISCAL_SITUACAO_ICMS` | `21069090` / `5102` / `102` | Códigos fiscais dos itens — confirmar com o contador do restaurante |
+| `FISCAL_CNPJ_INTERMEDIADOR` | (vazio) | CNPJ do EntregaFood como intermediador (NT 2020.006) |
+
+Testes: `python -m pytest testes/teste_emissao_fiscal.py -v` (27 testes) e a coleção `Teste_Emissao_Fiscal` (ver [Testar com Postman](#6-testar-com-postman)).
+
+---
+
 ## Casos de teste cobertos
 
 | ID | Caso | Verificação |
@@ -528,6 +701,14 @@ A consulta da Sprint 2 tem a bateria `teste_consulta_cardapio.py` — monta um r
 python testes/teste_consulta_cardapio.py
 ```
 
+As baterias das Sprints 3 e 4 (cesta, fechamento, status, pagamento, cancelamento, push, Portal do Parceiro, conta, relatórios e estoque) usam **SQLite em memória** e não precisam de banco. Para rodar todas de uma vez (precisa do `pytest`):
+
+```bash
+python -m pytest testes/teste_*.py -q
+```
+
+Sem Python 3.12 instalado, dá para rodar no container do back: `docker run --rm -v "%cd%:/app" -w /app entregafood-backend sh -c "pip install -q -r requirements.txt pytest && python -m pytest testes/teste_*.py -q"`. (`python -m pytest testes` sozinho não acha nada: os arquivos começam com `teste_`, não `test_`.)
+
 ---
 
 ## Segurança
@@ -546,8 +727,9 @@ python testes/teste_consulta_cardapio.py
 - **Login social (Google/Facebook)**: implementado (`/auth/google`, `/auth/facebook` + callback). Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Pra demonstração, o caminho garantido continua sendo e-mail/senha.
 - **Código de validação (OTP)**: no login e no cadastro por telefone (`/auth/telefone/*`) o código de 6 dígitos é enviado **por e-mail** pelo mesmo SMTP da nota fiscal (`app/core/otp_envio.py`): no login vai para o e-mail da conta; no cadastro, para o e-mail informado na tela. A resposta mostra o e-mail mascarado e não traz mais o código. Sem `SMTP_HOST` (rodando local, testes) o código volta em `codigo_dev`, como antes; `OTP_MOSTRAR_CODIGO=true` devolve o código mesmo com o e-mail enviado (só para demonstração). Conta antiga sem e-mail entra com telefone e senha. SMS de verdade não foi feito: o Twilio trial e o SMS do Brevo exigem pagamento. Testes: `testes/teste_otp_email.py`.
 - **Pagamento**: cartão e PIX vão para o Asaas **sandbox** (sem dinheiro de verdade). Não há webhook (o status do PIX é atualizado na consulta). O cancelamento de pedido pago pede o estorno ao gateway (`estorno_pendente` se ele falhar). Débito, parcelamento e Mercado Pago ficaram de fora.
-- **Nota fiscal**: simulada em PDF; a emissão real (NFC-e pela SEFAZ) é o item 28 do Backlog.
-- **Estoque**: não há coluna de estoque; no fechamento são revalidados disponibilidade e o limite de 99 unidades por produto.
+- **Nota fiscal**: o padrão continua sendo a nota simulada em PDF. A integração real com a Focus NFe (NFC-e) está pronta e testada contra um serviço no formato da homologação da Focus; a homologação oficial exige um restaurante com CNPJ, inscrição estadual credenciada, certificado A1 e CSC. O CPF do cliente ainda não vai na nota (o pedido não guarda CPF).
+- **Estoque**: opcional por produto (`NULL` = sem controle). Não há tela no front ainda: o dono ajusta pelo Swagger/Postman ou pelo campo `estoque` do Portal do Parceiro na API.
+- **Push no app mobile**: a API está pronta e testada, mas o app ainda não chama `POST /notificacoes/fcm`.
 - **Avaliação**: tabela só no `sql/`, sem model/controller/endpoint.
 
 ---
@@ -570,9 +752,14 @@ python testes/teste_consulta_cardapio.py
 ## Convenção de branches
 
 ```
-main                    ← protegida, entra só via Pull Request
-sprint1/crud-usuario    ← Geovane
-sprint1/autenticacao    ← Letícia
-sprint1/infra-banco     ← Richard
-sprint1/testes-api      ← Anna
+main                    ← protegida, entra só via Pull Request (vindo da DEV)
+DEV                     ← integração; o Render publica a API a cada merge aqui
+feat/<assunto>          ← funcionalidade nova     (ex.: feat/estoque)
+fix/<assunto>           ← correção                (ex.: fix/defeitos-professor)
+test/<assunto>          ← testes e coleções       (ex.: test/notificacoes-push)
+docs/<assunto>          ← documentação            (ex.: docs/readme-sprint4)
 ```
+
+Cada branch sai da `DEV` atualizada e volta por Pull Request com 1 aprovação. Se o PR precisar de script novo no banco, rode-o no Neon antes do merge (ver [Scripts do banco](#scripts-do-banco)).
+
+Na Sprint 1 as branches eram por pessoa (`sprint1/crud-usuario`, `sprint1/autenticacao`, `sprint1/infra-banco`, `sprint1/testes-api`).
