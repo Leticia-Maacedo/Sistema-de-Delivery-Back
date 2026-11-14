@@ -14,6 +14,11 @@ VAPID e conta do Firebase de teste geradas na hora, e um servico de push falso
 guarda cada notificacao para o Postman conferir:
     python postman/servidor_local_teste.py 8011 --push
 
+Com `--fiscal` (colecao Teste_Emissao_Fiscal), a nota fiscal usa o provedor
+REAL (Focus NFe, NFC-e) apontando para um servico local no formato da API de
+homologacao da Focus (postman/servico_fiscal_falso.py), duas portas acima (8013):
+    python postman/servidor_local_teste.py 8011 --fiscal
+
 A variavel HOST muda o endereco de escuta (ex.: HOST=0.0.0.0 dentro do Docker).
 """
 import json
@@ -30,6 +35,8 @@ ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
 PORTA = int(ARGS[0]) if ARGS else 8011
 PUSH = "--push" in sys.argv
 PORTA_PUSH = PORTA + 1
+FISCAL = "--fiscal" in sys.argv
+PORTA_FISCAL = PORTA + 2
 HOST = os.environ.get("HOST", "127.0.0.1")
 PASTA = Path(tempfile.gettempdir()) / "entregafood-teste"
 PASTA.mkdir(exist_ok=True)
@@ -43,6 +50,17 @@ os.environ.update({"DATABASE_URL": f"sqlite:///{BANCO.as_posix()}", "CORS_ORIGIN
                    "JWT_SECRET": secrets.token_urlsafe(32), "JWT_EXPIRE_MINUTES": "120",
                    "FIREBASE_CREDENCIAIS": ""})
 sys.path.insert(0, str(BACK))
+
+if FISCAL:
+    sys.path.insert(0, str(BACK / "postman"))
+    import servico_fiscal_falso  # noqa: E402
+
+    token_fiscal = "homolog-" + secrets.token_urlsafe(12)
+    # tempo limite curto para o teste do servico lento nao demorar
+    os.environ.update({"FISCAL_PROVEDOR": "focusnfe", "FOCUSNFE_TOKEN": token_fiscal, "FOCUSNFE_AMBIENTE": "homologacao",
+                       "FOCUSNFE_BASE_URL": f"http://127.0.0.1:{PORTA_FISCAL}/v2", "FISCAL_TIMEOUT": "3"})
+    servico_fiscal_falso.configurar(token_fiscal, atraso_lento=5)
+    servico_fiscal_falso.iniciar(PORTA_FISCAL, HOST)
 
 if PUSH:
     sys.path.insert(0, str(BACK / "postman"))
@@ -153,11 +171,14 @@ with SessionLocal() as db:
 
 ambiente = {"name": "EntregaFood — teste local", "values":
             [{"key": "base_url", "value": f"http://127.0.0.1:{PORTA}", "enabled": True},
-             {"key": "push_url", "value": f"http://127.0.0.1:{PORTA_PUSH}", "enabled": True}]
+             {"key": "push_url", "value": f"http://127.0.0.1:{PORTA_PUSH}", "enabled": True},
+             {"key": "fiscal_url", "value": f"http://127.0.0.1:{PORTA_FISCAL}", "enabled": True}]
             + [{"key": f"email_{k}", "value": email(k), "enabled": True} for k in CONTAS]
             + [{"key": f"senha_{k}", "value": v, "type": "secret", "enabled": True} for k, v in senhas.items()]}
 AMBIENTE.write_text(json.dumps(ambiente, ensure_ascii=False, indent=1), encoding="utf-8")
 print(f"Banco de teste: {BANCO}\nAmbiente do Postman: {AMBIENTE}\nAPI em http://127.0.0.1:{PORTA}", flush=True)
+if FISCAL:
+    print(f"Nota fiscal pela Focus NFe (homologacao local) em http://127.0.0.1:{PORTA_FISCAL}", flush=True)
 if PUSH:
     print(f"Push LIGADO: servico falso em http://127.0.0.1:{PORTA_PUSH}", flush=True)
 uvicorn.run(app, host=HOST, port=PORTA, log_level="warning")
