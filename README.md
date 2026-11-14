@@ -217,6 +217,7 @@ Rode a coleção logo depois de subir o script (o banco é recriado a cada vez e
 | `Teste_Pagamento` | Cartão aprovado/recusado, PIX, dinheiro, nota fiscal e estorno |
 | `Teste_Consulta_Status_Cancelamento` | Consulta, mudança de status e cancelamento (Sprint 4) |
 | `Teste_Notificacoes_Push` | Envio, permissões, token inválido e dados do clique (Sprint 4) — precisa do `--push`, abaixo |
+| `Teste_Emissao_Fiscal` | NFC-e pela Focus NFe: autorização, rejeição, serviço fora do ar e reenvio, cancelamento (Sprint 4) — precisa do `--fiscal`, abaixo |
 
 **Notificações push (Sprint 4).** Com `--push`, o servidor de teste liga o push com chaves VAPID e conta do Firebase de teste geradas na hora e sobe, na porta seguinte (8012), um serviço de push falso ([`postman/servico_push_falso.py`](postman/servico_push_falso.py)). Ele faz o papel do navegador e do Firebase: recebe e **decifra** cada notificação e guarda tudo em `GET /capturas`, que a coleção consulta. Só o transporte é trocado; cifragem, VAPID, JWT e as regras de quem recebe são o código real.
 
@@ -226,6 +227,13 @@ postman collection run postman/Teste_Notificacoes_Push.postman_collection.json -
 ```
 
 No Docker, use `HOST=0.0.0.0` e publique as portas 8011 e 8012 para o Postman do Windows enxergar a API e o serviço falso.
+
+**Emissão fiscal (Sprint 4).** Com `--fiscal`, o servidor de teste liga o provedor fiscal **real** (`FISCAL_PROVEDOR=focusnfe`, ambiente de homologação) e sobe, duas portas acima (8013), um serviço no formato da API v2 da Focus NFe ([`postman/servico_fiscal_falso.py`](postman/servico_fiscal_falso.py)). Ele confere o token e os campos da NFC-e e responde autorizando, rejeitando (704), fora do ar (503), com limite (429), sem responder ou recusando o cancelamento, conforme `POST /controle/modo`; `GET /capturas` mostra o que a API enviou. Só o servidor da Focus é trocado; montagem da nota, reenvio e cancelamento são o código real.
+
+```bash
+python postman/servidor_local_teste.py 8011 --fiscal
+postman collection run postman/Teste_Emissao_Fiscal.postman_collection.json --environment %TEMP%/entregafood-teste/ambiente_local.postman_environment.json
+```
 
 ---
 
@@ -256,6 +264,7 @@ Mudança de banco (`sql/NN_*.sql`): rode o script no Neon (SQL Editor) **antes**
 | `05` a `10` (Sprint 3) | Acompanhamento, dono/entregador, push no navegador, pagamento e NF, endereço no pedido, Portal do Parceiro | ✅ |
 | `11_sprint4_push_fcm.sql` | Tabela `push_token_fcm` (push no app) | ✅ 08/11/2026 |
 | `12_sprint4_estoque.sql` | Coluna `produto.estoque` (NULL = sem controle) | ✅ 08/11/2026 |
+| `13_sprint4_nota_fiscal.sql` | Tabela `nota_fiscal` (situação da emissão de cada pedido) | ⏳ rodar antes do deploy |
 
 Ao criar um script novo, acrescente uma linha aqui e marque quando ele for aplicado no Neon.
 
@@ -636,6 +645,34 @@ Testes: `python -m pytest testes/teste_estoque.py -v` (15 testes).
 
 ---
 
+## Endpoints da Sprint 4 — emissão fiscal (NFC-e)
+
+Antes do deploy, rode `sql/13_sprint4_nota_fiscal.sql` no banco: a emissão da nota (pagamento aprovado) grava na tabela `nota_fiscal`.
+
+A nota fica no pacote [`app/core/fiscal/`](app/core/fiscal): `dados.py` (o que vai na nota), `pdf_simulado.py` (PDF sem valor fiscal), `provedores.py` (provedor simulado e integração real com a **Focus NFe**, escolhida na pesquisa PSQ-FIS-01) e `emissao.py` (emissão, rejeição, serviço fora do ar e reenvio). O resto do sistema chama `app/core/nota_fiscal.py`.
+
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| `GET` | `/notas-fiscais/pedidos/{id}` | cliente dono, restaurante dono, admin | Situação da nota; se ela esperava o serviço voltar e a hora chegou, tenta de novo antes de responder |
+| `POST` | `/notas-fiscais/pedidos/{id}/emitir` | restaurante dono, admin | Nova emissão depois de rejeição ou falha (`409` se já autorizada, `400` sem pagamento aprovado) |
+| `POST` | `/notas-fiscais/reprocessar` | admin | Tenta de novo as pendentes cuja hora chegou (para um Cron Job em produção) |
+| `GET` | `/pagamentos/pedidos/{id}/nota-fiscal` | cliente dono, restaurante dono, admin | DANFCe do serviço (`307`) ou PDF simulado; `409` se a nota não está autorizada |
+
+Situações: `autorizada` (número também em `pedido.cupom_fiscal`) · `rejeitada` (código e motivo da SEFAZ; não tenta sozinha) · `pendente_reenvio` (serviço fora do ar, 429 ou tempo esgotado; esperas de 1, 5, 15, 60 e 240 min) · `falhou` (depois de 6 tentativas) · `cancelada` (pedido cancelado; a NFC-e só pode ser cancelada até 30 min após a emissão — se a SEFAZ recusar, o pedido é cancelado mesmo assim e o motivo fica na nota). A referência enviada é sempre `pedido-{id}`, então repetir a emissão nunca gera duas notas. A falha da nota nunca bloqueia o pagamento nem o pedido.
+
+A NFC-e sai no CNPJ do restaurante, com presença 4 (delivery) ou 1 (retirada), a taxa de entrega rateada no frete dos itens (Resposta à Consulta SEFAZ-SP 31987/2025) e o EntregaFood como intermediador quando `FISCAL_CNPJ_INTERMEDIADOR` está preenchido.
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `FISCAL_PROVEDOR` | `simulado` | `simulado` (PDF, como antes) ou `focusnfe` |
+| `FOCUSNFE_TOKEN` / `FOCUSNFE_AMBIENTE` | (vazio) / `homologacao` | Token da empresa na Focus NFe e ambiente (`homologacao` ou `producao`); sem token, volta para o simulado |
+| `FISCAL_NCM_PADRAO` / `FISCAL_CFOP` / `FISCAL_SITUACAO_ICMS` | `21069090` / `5102` / `102` | Códigos fiscais dos itens — confirmar com o contador do restaurante |
+| `FISCAL_CNPJ_INTERMEDIADOR` | (vazio) | CNPJ do EntregaFood como intermediador (NT 2020.006) |
+
+Testes: `python -m pytest testes/teste_emissao_fiscal.py -v` (27 testes) e a coleção `Teste_Emissao_Fiscal` (ver [Testar com Postman](#6-testar-com-postman)).
+
+---
+
 ## Casos de teste cobertos
 
 | ID | Caso | Verificação |
@@ -690,7 +727,7 @@ Sem Python 3.12 instalado, dá para rodar no container do back: `docker run --rm
 - **Login social (Google/Facebook)**: implementado (`/auth/google`, `/auth/facebook` + callback). Enquanto os apps OAuth ficam em modo de teste nos dois provedores, só e-mails cadastrados manualmente como "tester" conseguem logar — inviável pra qualquer colega ou o professor testar sem antes pedir acesso. Publicar os apps de verdade exigiria mais burocracia (política de privacidade, revisão) do que vale a pena pra esse projeto. Pra demonstração, o caminho garantido continua sendo e-mail/senha.
 - **Código de validação (OTP)**: no login e no cadastro por telefone (`/auth/telefone/*`) o código de 6 dígitos é enviado **por e-mail** pelo mesmo SMTP da nota fiscal (`app/core/otp_envio.py`): no login vai para o e-mail da conta; no cadastro, para o e-mail informado na tela. A resposta mostra o e-mail mascarado e não traz mais o código. Sem `SMTP_HOST` (rodando local, testes) o código volta em `codigo_dev`, como antes; `OTP_MOSTRAR_CODIGO=true` devolve o código mesmo com o e-mail enviado (só para demonstração). Conta antiga sem e-mail entra com telefone e senha. SMS de verdade não foi feito: o Twilio trial e o SMS do Brevo exigem pagamento. Testes: `testes/teste_otp_email.py`.
 - **Pagamento**: cartão e PIX vão para o Asaas **sandbox** (sem dinheiro de verdade). Não há webhook (o status do PIX é atualizado na consulta). O cancelamento de pedido pago pede o estorno ao gateway (`estorno_pendente` se ele falhar). Débito, parcelamento e Mercado Pago ficaram de fora.
-- **Nota fiscal**: simulada em PDF; a emissão real (NFC-e pela SEFAZ) é o item 28 do Backlog. A pesquisa da Sprint 4 (PSQ-FIS-01) concluiu que a NFC-e deve sair no CNPJ do restaurante, com o EntregaFood como intermediador, por um serviço de emissão (Focus NFe recomendada); exige certificado A1 e CSC de cada restaurante.
+- **Nota fiscal**: o padrão continua sendo a nota simulada em PDF. A integração real com a Focus NFe (NFC-e) está pronta e testada contra um serviço no formato da homologação da Focus; a homologação oficial exige um restaurante com CNPJ, inscrição estadual credenciada, certificado A1 e CSC. O CPF do cliente ainda não vai na nota (o pedido não guarda CPF).
 - **Estoque**: opcional por produto (`NULL` = sem controle). Não há tela no front ainda: o dono ajusta pelo Swagger/Postman ou pelo campo `estoque` do Portal do Parceiro na API.
 - **Push no app mobile**: a API está pronta e testada, mas o app ainda não chama `POST /notificacoes/fcm`.
 - **Avaliação**: tabela só no `sql/`, sem model/controller/endpoint.

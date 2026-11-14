@@ -66,6 +66,17 @@ class Settings(BaseSettings):
     # Com SMTP o codigo vai so por e-mail; true devolve tambem na resposta.
     OTP_MOSTRAR_CODIGO: bool = False
 
+    # Nota fiscal - app/core/fiscal. "simulado" (padrao) ou "focusnfe" (NFC-e real).
+    FISCAL_PROVEDOR: str = "simulado"
+    FOCUSNFE_TOKEN: str = ""  # token da empresa na Focus NFe (um por ambiente)
+    FOCUSNFE_AMBIENTE: str = "homologacao"  # homologacao ou producao
+    FOCUSNFE_BASE_URL: str = ""  # vazio = URL oficial do ambiente; preenchido nos testes
+    FISCAL_TIMEOUT: float = 15.0
+    FISCAL_NCM_PADRAO: str = "21069090"  # preparacoes alimenticias; confirmar com o contador
+    FISCAL_CFOP: str = "5102"  # venda de mercadoria dentro do estado
+    FISCAL_SITUACAO_ICMS: str = "102"  # CSOSN 102 (Simples Nacional sem credito)
+    FISCAL_CNPJ_INTERMEDIADOR: str = ""  # CNPJ do EntregaFood como intermediador (NT 2020.006)
+
     @property
     def cors_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

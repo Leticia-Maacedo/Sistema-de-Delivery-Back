@@ -1,0 +1,3427 @@
+{
+ "info": {
+  "name": "EntregaFood — Teste: emissão fiscal (NFC-e, homologação)",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+  "description": "Emissão da NFC-e pela integração com a Focus NFe: autorização, rejeição da SEFAZ, serviço fora do ar, limite, tempo esgotado e reenvio, nova emissão, permissões, DANFCe e cancelamento. Rodar contra `python postman/servidor_local_teste.py 8011 --fiscal`, que liga o provedor focusnfe apontando para o serviço de homologação local em {{fiscal_url}} (formato da API v2 da Focus NFe)."
+ },
+ "item": [
+  {
+   "name": "0. Preparação",
+   "item": [
+    {
+     "name": "00.1 Login das contas de teste",
+     "item": [
+      {
+       "name": "Login cliente A",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/auth/login",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "auth",
+          "login"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"email\": \"{{email_cliente_a}}\",\n  \"senha\": \"{{senha_cliente_a}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('token_cliente_a', pm.response.json().access_token);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Login cliente B",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/auth/login",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "auth",
+          "login"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"email\": \"{{email_cliente_b}}\",\n  \"senha\": \"{{senha_cliente_b}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('token_cliente_b', pm.response.json().access_token);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Login dono do Teste Burger",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/auth/login",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "auth",
+          "login"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"email\": \"{{email_dono_1}}\",\n  \"senha\": \"{{senha_dono_1}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('token_dono_1', pm.response.json().access_token);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Login dono da Teste Pizzaria",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/auth/login",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "auth",
+          "login"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"email\": \"{{email_dono_2}}\",\n  \"senha\": \"{{senha_dono_2}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('token_dono_2', pm.response.json().access_token);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Login entregador",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/auth/login",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "auth",
+          "login"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"email\": \"{{email_entregador}}\",\n  \"senha\": \"{{senha_entregador}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('token_entregador', pm.response.json().access_token);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Login administrador",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/auth/login",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "auth",
+          "login"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"email\": \"{{email_admin}}\",\n  \"senha\": \"{{senha_admin}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('token_admin', pm.response.json().access_token);"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "00.2 Restaurante e produto",
+     "item": [
+      {
+       "name": "Restaurantes aprovados",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{base_url}}/consultas/restaurantes",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "consultas",
+          "restaurantes"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const r = pm.response.json().find(x => x.nome_fantasia === 'Teste Burger');",
+           "pm.collectionVariables.set('restaurante_id', r.id);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cardápio do Teste Burger",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "consultas",
+          "restaurantes",
+          "{{restaurante_id}}",
+          "cardapio"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('produto_id', pm.response.json().itens.find(x => x.nome === 'X-Burger').id);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço fiscal: modo autorizar",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{fiscal_url}}/controle/modo",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "controle",
+          "modo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"modo\": \"autorizar\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Modo autorizar', () => pm.expect(pm.response.json().modo).to.eql('autorizar'));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "1. Casos de teste",
+   "item": [
+    {
+     "name": "CT-01 Pagamento aprovado emite a NFC-e autorizada",
+     "item": [
+      {
+       "name": "Cliente A: X-Burger × 2 na cesta",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/cesta/itens",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "cesta",
+          "itens"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: criar pedido (cartao, delivery)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.collectionVariables.set('p1', pm.response.json().id);",
+           "pm.collectionVariables.set('p1_total', pm.response.json().valor_total);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: método cartao",
+       "request": {
+        "method": "PUT",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/pedidos/{{p1}}/metodo",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "pedidos",
+          "{{p1}}",
+          "metodo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"metodo\": \"cartao\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: pagar com cartão (aprovado)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/cartao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "cartao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"pedido_id\": {{p1}},\n  \"cartao\": {\"titular\": \"ANA TESTE\", \"numero\": \"5162306219378829\", \"mes_validade\": \"05\", \"ano_validade\": \"2030\", \"cvv\": \"318\"}\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.test('Pagamento aprovado', () => pm.expect(pm.response.json().status).to.eql('aprovado'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "cliente_a: GET /notas-fiscais/pedidos/{p1}",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p1}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p1}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const n = pm.response.json();",
+           "pm.test('Autorizada pela Focus NFe em homologação', () => { pm.expect(n.status).to.eql('autorizada'); pm.expect(n.provedor).to.eql('focusnfe'); pm.expect(n.ambiente).to.eql('homologacao'); });",
+           "pm.test('Número, série, chave de 44 dígitos e protocolo', () => { pm.expect(n.numero).to.match(/^\\d+$/); pm.expect(n.serie).to.eql('1'); pm.expect(n.chave).to.match(/^NFe\\d{44}$/); pm.expect(n.protocolo).to.match(/^\\d{15}$/); });",
+           "pm.test('Referência única do pedido e uma tentativa', () => { pm.expect(n.referencia).to.eql('pedido-' + pm.collectionVariables.get('p1')); pm.expect(n.tentativas).to.eql(1); });",
+           "pm.collectionVariables.set('numero_p1', n.numero);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: GET /pagamentos/pedidos/{p1}",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/pedidos/{{p1}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "pedidos",
+          "{{p1}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Número da nota no pagamento', () => pm.expect(pm.response.json().nota_fiscal).to.eql(pm.collectionVariables.get('numero_p1')));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-02 NFC-e enviada no formato da Focus NFe",
+     "item": [
+      {
+       "name": "Serviço fiscal: última requisição recebida",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{fiscal_url}}/capturas",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "capturas"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const cs = pm.response.json(); const c = cs[cs.length - 1];",
+           "const b = c.corpo;",
+           "pm.test('Emitente é o restaurante (CNPJ só com dígitos)', () => pm.expect(b.cnpj_emitente).to.eql('55555555000155'));",
+           "pm.test('Delivery: presença 4, frete do emitente, operação interna', () => { pm.expect(b.presenca_comprador).to.eql('4'); pm.expect(b.modalidade_frete).to.eql('0'); pm.expect(b.local_destino).to.eql('1'); });",
+           "pm.test('Item com NCM, CFOP, CSOSN e quantidade', () => { const i = b.items[0]; pm.expect(i.codigo_ncm).to.eql('21069090'); pm.expect(i.cfop).to.eql('5102'); pm.expect(i.icms_situacao_tributaria).to.eql('102'); pm.expect(i.quantidade_comercial).to.eql(2); });",
+           "pm.test('Taxa de entrega rateada no frete do item', () => pm.expect(b.items[0].valor_frete).to.eql(b.valor_frete));",
+           "pm.test('Cartão de crédito = 03 e valor = total do pedido', () => { pm.expect(b.formas_pagamento[0].forma_pagamento).to.eql('03'); pm.expect(b.formas_pagamento[0].valor_pagamento).to.eql(Number(pm.collectionVariables.get('p1_total'))); });",
+           "pm.test('Itens + frete = valor pago', () => { const s = b.items.reduce((a, i) => a + i.valor_bruto + (i.valor_frete || 0), 0); pm.expect(Math.round(s * 100)).to.eql(Math.round(b.formas_pagamento[0].valor_pagamento * 100)); });"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-03 Download leva ao DANFCe",
+     "item": [
+      {
+       "name": "Cliente A: GET /pagamentos/pedidos/{p1}/nota-fiscal",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/pedidos/{{p1}}/nota-fiscal",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "pedidos",
+          "{{p1}}",
+          "nota-fiscal"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 307', () => pm.response.to.have.status(307));",
+           "pm.test('Redireciona para o DANFCe do serviço', () => pm.expect(pm.response.headers.get('Location')).to.match(/notas_fiscais_consumidor\\/NFe\\d+\\.html$/));"
+          ]
+         }
+        }
+       ],
+       "protocolProfileBehavior": {
+        "followRedirects": false
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-04 Quem pode ver a situação",
+     "item": [
+      {
+       "name": "Cliente B: pedido de outro cliente",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_b}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p1}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p1}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 403', () => pm.response.to.have.status(403));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono da Pizzaria: pedido de outro restaurante",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_2}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p1}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p1}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 403', () => pm.response.to.have.status(403));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "dono_1: GET /notas-fiscais/pedidos/{p1}",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p1}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p1}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const n = pm.response.json();",
+           "pm.test('Restaurante dono vê a nota', () => pm.expect(n.status).to.eql('autorizada'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Sem login",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p1}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p1}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 401', () => pm.response.to.have.status(401));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-05 Nota autorizada não é emitida duas vezes",
+     "item": [
+      {
+       "name": "Dono do Burger: emitir de novo",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p1}}/emitir",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p1}}",
+          "emitir"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 409', () => pm.response.to.have.status(409));",
+           "pm.test('Mensagem com o número', () => pm.expect(pm.response.json().detail).to.include(pm.collectionVariables.get('numero_p1')));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-06 Rejeição da SEFAZ não bloqueia o pagamento",
+     "item": [
+      {
+       "name": "Serviço fiscal: modo rejeitar",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{fiscal_url}}/controle/modo",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "controle",
+          "modo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"modo\": \"rejeitar\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Modo rejeitar', () => pm.expect(pm.response.json().modo).to.eql('rejeitar'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: X-Burger × 2 na cesta",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/cesta/itens",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "cesta",
+          "itens"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: criar pedido (cartao, delivery)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.collectionVariables.set('p2', pm.response.json().id);",
+           "pm.collectionVariables.set('p2_total', pm.response.json().valor_total);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: método cartao",
+       "request": {
+        "method": "PUT",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/pedidos/{{p2}}/metodo",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "pedidos",
+          "{{p2}}",
+          "metodo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"metodo\": \"cartao\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: pagar com cartão (aprovado)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/cartao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "cartao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"pedido_id\": {{p2}},\n  \"cartao\": {\"titular\": \"ANA TESTE\", \"numero\": \"5162306219378829\", \"mes_validade\": \"05\", \"ano_validade\": \"2030\", \"cvv\": \"318\"}\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.test('Pagamento aprovado', () => pm.expect(pm.response.json().status).to.eql('aprovado'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "cliente_a: GET /notas-fiscais/pedidos/{p2}",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p2}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p2}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const n = pm.response.json();",
+           "pm.test('Rejeitada com código e motivo da SEFAZ', () => { pm.expect(n.status).to.eql('rejeitada'); pm.expect(n.mensagem).to.match(/^704 - Rejeição/); });",
+           "pm.test('Não agenda nova tentativa sozinha', () => pm.expect(n.proxima_tentativa_em).to.eql(null));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: download da nota rejeitada",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/pedidos/{{p2}}/nota-fiscal",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "pedidos",
+          "{{p2}}",
+          "nota-fiscal"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 409', () => pm.response.to.have.status(409));",
+           "pm.test('Explica a situação', () => pm.expect(pm.response.json().detail).to.include('rejeitada'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono do Burger: pedido pago pode ser aceito",
+       "request": {
+        "method": "PATCH",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p2}}/status",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p2}}",
+          "status"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"status\": \"aceito\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-07 Só o restaurante dono ou o admin emite de novo",
+     "item": [
+      {
+       "name": "Cliente A: emitir",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p2}}/emitir",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p2}}",
+          "emitir"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 403', () => pm.response.to.have.status(403));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono da Pizzaria: emitir",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_2}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p2}}/emitir",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p2}}",
+          "emitir"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 403', () => pm.response.to.have.status(403));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-08 Restaurante corrige e emite de novo",
+     "item": [
+      {
+       "name": "Serviço fiscal: modo autorizar",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{fiscal_url}}/controle/modo",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "controle",
+          "modo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"modo\": \"autorizar\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Modo autorizar', () => pm.expect(pm.response.json().modo).to.eql('autorizar'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono do Burger: POST /notas-fiscais/pedidos/{p2}/emitir",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p2}}/emitir",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p2}}",
+          "emitir"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const n = pm.response.json();",
+           "pm.test('Autorizada na segunda tentativa', () => { pm.expect(n.status).to.eql('autorizada'); pm.expect(n.tentativas).to.eql(2); });"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-09 Serviço fora do ar: fica pendente e agenda nova tentativa",
+     "item": [
+      {
+       "name": "Serviço fiscal: modo fora_do_ar",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{fiscal_url}}/controle/modo",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "controle",
+          "modo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"modo\": \"fora_do_ar\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Modo fora_do_ar', () => pm.expect(pm.response.json().modo).to.eql('fora_do_ar'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: X-Burger × 2 na cesta",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/cesta/itens",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "cesta",
+          "itens"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: criar pedido (cartao, delivery)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.collectionVariables.set('p3', pm.response.json().id);",
+           "pm.collectionVariables.set('p3_total', pm.response.json().valor_total);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: método cartao",
+       "request": {
+        "method": "PUT",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/pedidos/{{p3}}/metodo",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "pedidos",
+          "{{p3}}",
+          "metodo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"metodo\": \"cartao\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: pagar com cartão (aprovado)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/cartao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "cartao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"pedido_id\": {{p3}},\n  \"cartao\": {\"titular\": \"ANA TESTE\", \"numero\": \"5162306219378829\", \"mes_validade\": \"05\", \"ano_validade\": \"2030\", \"cvv\": \"318\"}\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.test('Pagamento aprovado', () => pm.expect(pm.response.json().status).to.eql('aprovado'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "cliente_a: GET /notas-fiscais/pedidos/{p3}",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p3}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p3}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const n = pm.response.json();",
+           "pm.test('Pendente de reenvio, primeira espera de 1 min', () => { pm.expect(n.status).to.eql('pendente_reenvio'); pm.expect(n.tentativas).to.eql(1); pm.expect(n.mensagem).to.include('HTTP 503').and.include('Nova tentativa em 1 min'); pm.expect(n.proxima_tentativa_em).to.be.a('string'); });"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-10 Limite de requisições e tempo esgotado também esperam",
+     "item": [
+      {
+       "name": "Serviço fiscal: modo limite",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{fiscal_url}}/controle/modo",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "controle",
+          "modo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"modo\": \"limite\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Modo limite', () => pm.expect(pm.response.json().modo).to.eql('limite'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono do Burger: emitir (429)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p3}}/emitir",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p3}}",
+          "emitir"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const n = pm.response.json();",
+           "pm.test('Segunda tentativa: espera de 5 min', () => { pm.expect(n.status).to.eql('pendente_reenvio'); pm.expect(n.tentativas).to.eql(2); pm.expect(n.mensagem).to.include('Limite de requisições').and.include('5 min'); });"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço fiscal: modo lento",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{fiscal_url}}/controle/modo",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "controle",
+          "modo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"modo\": \"lento\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Modo lento', () => pm.expect(pm.response.json().modo).to.eql('lento'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono do Burger: emitir (serviço não responde)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p3}}/emitir",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p3}}",
+          "emitir"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const n = pm.response.json();",
+           "pm.test('Terceira tentativa: tempo esgotado, espera de 15 min', () => { pm.expect(n.tentativas).to.eql(3); pm.expect(n.mensagem).to.include('não respondeu a tempo').and.include('15 min'); });"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-11 Reprocessamento das pendentes é do admin",
+     "item": [
+      {
+       "name": "Serviço fiscal: modo autorizar",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{fiscal_url}}/controle/modo",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "controle",
+          "modo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"modo\": \"autorizar\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Modo autorizar', () => pm.expect(pm.response.json().modo).to.eql('autorizar'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono do Burger: POST /notas-fiscais/reprocessar",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/reprocessar",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "reprocessar"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 403', () => pm.response.to.have.status(403));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Admin: POST /notas-fiscais/reprocessar antes da hora",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_admin}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/reprocessar",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "reprocessar"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Nada para reprocessar antes da hora marcada', () => pm.expect(pm.response.json()).to.eql([]));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Admin: emitir o pedido pendente agora",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_admin}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p3}}/emitir",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p3}}",
+          "emitir"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Autorizada na quarta tentativa', () => { pm.expect(pm.response.json().status).to.eql('autorizada'); pm.expect(pm.response.json().tentativas).to.eql(4); });"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-12 Referência repetida não gera nota duplicada",
+     "item": [
+      {
+       "name": "Serviço fiscal: última requisição recebida",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{fiscal_url}}/capturas",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "capturas"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const cs = pm.response.json(); const c = cs[cs.length - 1];",
+           "pm.test('Mesma referência pedido-{p3} em todas as tentativas', () => { const refs = cs.filter(x => x.corpo).map(x => x.ref).filter(r => r === 'pedido-' + pm.collectionVariables.get('p3')); pm.expect(refs.length).to.eql(4); });"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-13 Sem pagamento aprovado não há nota",
+     "item": [
+      {
+       "name": "Cliente A: X-Burger na cesta",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/cesta/itens",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "cesta",
+          "itens"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 1\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: pedido no cartão, sem pagar",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.collectionVariables.set('p4', pm.response.json().id);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: situação da nota",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p4}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p4}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 404', () => pm.response.to.have.status(404));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono do Burger: emitir",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p4}}/emitir",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p4}}",
+          "emitir"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 400', () => pm.response.to.have.status(400));",
+           "pm.test('Exige pagamento aprovado', () => pm.expect(pm.response.json().detail).to.include('pagamento aprovado'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: cancela o pedido 4 (limpeza)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p4}}/cancelar",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p4}}",
+          "cancelar"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-14 Pedido cancelado cancela a NFC-e",
+     "item": [
+      {
+       "name": "Cliente A: X-Burger × 2 na cesta",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/cesta/itens",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "cesta",
+          "itens"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: criar pedido (cartao, delivery)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.collectionVariables.set('p5', pm.response.json().id);",
+           "pm.collectionVariables.set('p5_total', pm.response.json().valor_total);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: método cartao",
+       "request": {
+        "method": "PUT",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/pedidos/{{p5}}/metodo",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "pedidos",
+          "{{p5}}",
+          "metodo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"metodo\": \"cartao\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: pagar com cartão (aprovado)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/cartao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "cartao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"pedido_id\": {{p5}},\n  \"cartao\": {\"titular\": \"ANA TESTE\", \"numero\": \"5162306219378829\", \"mes_validade\": \"05\", \"ano_validade\": \"2030\", \"cvv\": \"318\"}\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.test('Pagamento aprovado', () => pm.expect(pm.response.json().status).to.eql('aprovado'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: POST /pedidos/{p5}/cancelar",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p5}}/cancelar",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p5}}",
+          "cancelar"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "cliente_a: GET /notas-fiscais/pedidos/{p5}",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p5}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p5}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const n = pm.response.json();",
+           "pm.test('Nota cancelada na SEFAZ', () => { pm.expect(n.status).to.eql('cancelada'); pm.expect(n.mensagem).to.include('Evento registrado'); });"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço fiscal: última requisição recebida",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{fiscal_url}}/capturas",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "capturas"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const cs = pm.response.json(); const c = cs[cs.length - 1];",
+           "pm.test('Cancelamento com justificativa de 15 a 255 caracteres', () => { pm.expect(c.ref).to.eql('pedido-' + pm.collectionVariables.get('p5')); pm.expect(c.cancelamento.length).to.be.within(15, 255); });"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-15 Cancelamento fora do prazo não impede o pedido",
+     "item": [
+      {
+       "name": "Cliente A: X-Burger × 2 na cesta",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/cesta/itens",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "cesta",
+          "itens"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: criar pedido (cartao, delivery)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.collectionVariables.set('p6', pm.response.json().id);",
+           "pm.collectionVariables.set('p6_total', pm.response.json().valor_total);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: método cartao",
+       "request": {
+        "method": "PUT",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/pedidos/{{p6}}/metodo",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "pedidos",
+          "{{p6}}",
+          "metodo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"metodo\": \"cartao\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: pagar com cartão (aprovado)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/cartao",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "cartao"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"pedido_id\": {{p6}},\n  \"cartao\": {\"titular\": \"ANA TESTE\", \"numero\": \"5162306219378829\", \"mes_validade\": \"05\", \"ano_validade\": \"2030\", \"cvv\": \"318\"}\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.test('Pagamento aprovado', () => pm.expect(pm.response.json().status).to.eql('aprovado'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço fiscal: modo prazo_cancelamento",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{fiscal_url}}/controle/modo",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "controle",
+          "modo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"modo\": \"prazo_cancelamento\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Modo prazo_cancelamento', () => pm.expect(pm.response.json().modo).to.eql('prazo_cancelamento'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: POST /pedidos/{p6}/cancelar",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p6}}/cancelar",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p6}}",
+          "cancelar"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Pedido cancelado', () => pm.expect(pm.response.json().status).to.eql('cancelado'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "cliente_a: GET /notas-fiscais/pedidos/{p6}",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p6}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p6}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const n = pm.response.json();",
+           "pm.test('Nota continua autorizada com o motivo registrado', () => { pm.expect(n.status).to.eql('autorizada'); pm.expect(n.mensagem).to.include('Prazo de cancelamento'); });"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço fiscal: modo autorizar",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         }
+        ],
+        "url": {
+         "raw": "{{fiscal_url}}/controle/modo",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "controle",
+          "modo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"modo\": \"autorizar\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.test('Modo autorizar', () => pm.expect(pm.response.json().modo).to.eql('autorizar'));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "CT-16 Dinheiro: nota sai na entrega",
+     "item": [
+      {
+       "name": "Cliente A: X-Burger × 2 na cesta",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/cesta/itens",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "cesta",
+          "itens"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"produto_id\": \"{{produto_id}}\",\n  \"quantidade\": 2\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: criar pedido (dinheiro, delivery)",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"delivery\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 201', () => pm.response.to.have.status(201));",
+           "pm.collectionVariables.set('p7', pm.response.json().id);",
+           "pm.collectionVariables.set('p7_total', pm.response.json().valor_total);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: método dinheiro",
+       "request": {
+        "method": "PUT",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pagamentos/pedidos/{{p7}}/metodo",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pagamentos",
+          "pedidos",
+          "{{p7}}",
+          "metodo"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"metodo\": \"dinheiro\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: situação antes da entrega",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p7}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p7}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 404', () => pm.response.to.have.status(404));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono do Burger: aceito",
+       "request": {
+        "method": "PATCH",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p7}}/status",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p7}}",
+          "status"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"status\": \"aceito\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono do Burger: em_preparacao",
+       "request": {
+        "method": "PATCH",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p7}}/status",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p7}}",
+          "status"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"status\": \"em_preparacao\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Dono do Burger: pronto_para_entrega",
+       "request": {
+        "method": "PATCH",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_dono_1}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p7}}/status",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p7}}",
+          "status"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"status\": \"pronto_para_entrega\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Entregador: em_transito",
+       "request": {
+        "method": "PATCH",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_entregador}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p7}}/status",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p7}}",
+          "status"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"status\": \"em_transito\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Cliente A: código de entrega",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p7}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p7}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "pm.collectionVariables.set('codigo_p7', pm.response.json().codigo_entrega);"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Entregador: confirma com o código",
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_entregador}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/pedidos/{{p7}}/entrega/confirmar",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "pedidos",
+          "{{p7}}",
+          "entrega",
+          "confirmar"
+         ]
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"codigo\": \"{{codigo_p7}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "cliente_a: GET /notas-fiscais/pedidos/{p7}",
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Authorization",
+          "value": "Bearer {{token_cliente_a}}"
+         }
+        ],
+        "url": {
+         "raw": "{{base_url}}/notas-fiscais/pedidos/{{p7}}",
+         "host": [
+          "{{base_url}}"
+         ],
+         "path": [
+          "notas-fiscais",
+          "pedidos",
+          "{{p7}}"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const n = pm.response.json();",
+           "pm.test('Autorizada na entrega', () => pm.expect(n.status).to.eql('autorizada'));"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "name": "Serviço fiscal: última requisição recebida",
+       "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+         "raw": "{{fiscal_url}}/capturas",
+         "host": [
+          "{{fiscal_url}}"
+         ],
+         "path": [
+          "capturas"
+         ]
+        }
+       },
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "pm.test('Status 200', () => pm.response.to.have.status(200));",
+           "const cs = pm.response.json(); const c = cs[cs.length - 1];",
+           "pm.test('Dinheiro = 01', () => pm.expect(c.corpo.formas_pagamento[0].forma_pagamento).to.eql('01'));"
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "variable": [
+  {
+   "key": "base_url",
+   "value": "http://127.0.0.1:8011"
+  },
+  {
+   "key": "fiscal_url",
+   "value": "http://127.0.0.1:8013"
+  }
+ ]
+}
