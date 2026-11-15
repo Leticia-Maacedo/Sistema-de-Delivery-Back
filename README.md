@@ -218,6 +218,8 @@ Rode a coleção logo depois de subir o script (o banco é recriado a cada vez e
 | `Teste_Consulta_Status_Cancelamento` | Consulta, mudança de status e cancelamento (Sprint 4) |
 | `Teste_Notificacoes_Push` | Envio, permissões, token inválido e dados do clique (Sprint 4) — precisa do `--push`, abaixo |
 | `Teste_Emissao_Fiscal` | NFC-e pela Focus NFe: autorização, rejeição, serviço fora do ar e reenvio, cancelamento (Sprint 4) — precisa do `--fiscal`, abaixo |
+| `Teste_Estoque` | Falta de produto, baixa no pedido, esgotado fora do cardápio e devolução no cancelamento (Sprint 4) |
+| `Teste_Sugestoes` | Sugestão de produtos: mais pedidos, pedidos juntos com a cesta, esgotado e indisponível fora (Sprint 4) |
 
 **Notificações push (Sprint 4).** Com `--push`, o servidor de teste liga o push com chaves VAPID e conta do Firebase de teste geradas na hora e sobe, na porta seguinte (8012), um serviço de push falso ([`postman/servico_push_falso.py`](postman/servico_push_falso.py)). Ele faz o papel do navegador e do Firebase: recebe e **decifra** cada notificação e guarda tudo em `GET /capturas`, que a coleção consulta. Só o transporte é trocado; cifragem, VAPID, JWT e as regras de quem recebe são o código real.
 
@@ -641,7 +643,24 @@ O campo `estoque` também é aceito em `POST`/`PUT /produtos` e `/parceiro/produ
 - Pedido **cancelado** (pelo cliente ou pelo restaurante) devolve as unidades. Como só dá para cancelar antes do preparo, nada foi produzido; um pedido nunca devolve duas vezes.
 - Estoque `0` = esgotado: o produto some do cardápio do cliente.
 
-Testes: `python -m pytest testes/teste_estoque.py -v` (15 testes).
+Testes: `python -m pytest testes/teste_estoque.py -v` (15 testes) e a coleção `Teste_Estoque` (ver [Testar com Postman](#6-testar-com-postman)).
+
+---
+
+## Endpoints da Sprint 4 — sugestão de produtos
+
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| `GET` | `/consultas/restaurantes/{id}/sugestoes?na_cesta=11&na_cesta=12&limite=5` | público | Produtos para sugerir no cardápio ou na cesta, cada um com o `motivo` em texto |
+
+**Regra** (`app/core/sugestoes.py`; contagens em `app/models/item_pedido.py`):
+
+- Só entra produto do restaurante, disponível, não esgotado e que ainda não está na cesta (`na_cesta`, opcional; repita o parâmetro para vários itens).
+- Primeiro o que costuma ser pedido **junto** com os itens da cesta (quantos pedidos tiveram os dois); depois os **mais pedidos** do restaurante (unidades vendidas); por último os itens sem venda, para completar a lista. Empate em ordem alfabética, sem considerar acento.
+- Conta só pedidos aceitos (de `aceito` até `entregue`), como os relatórios.
+- `limite` de 1 a 20 (padrão 5); restaurante inexistente ou não aprovado → `404`.
+
+Testes: `python -m pytest testes/teste_sugestoes.py -v` (9 testes) e a coleção `Teste_Sugestoes` (ver [Testar com Postman](#6-testar-com-postman)).
 
 ---
 

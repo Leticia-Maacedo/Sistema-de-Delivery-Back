@@ -1,0 +1,1157 @@
+{
+ "info": {
+  "name": "EntregaFood — Teste: estoque (falta de produto, baixa e cancelamento)",
+  "description": "Valida o estoque de ponta a ponta pela API: falta de produto (cesta e fechamento recusam mais que o estoque), baixa ao criar o pedido, produto esgotado some do cardápio, devolução quando o cliente ou o restaurante cancela, e só o dono altera o estoque. Rode em ordem contra a API local (postman/servidor_local_teste.py). Única variável a ajustar: base_url.",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ },
+ "item": [
+  {
+   "name": "0. Preparação",
+   "item": [
+    {
+     "name": "00.1 Login do dono do Teste Burger",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/auth/login",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "auth",
+        "login"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"email\": \"{{email_dono_1}}\",\n  \"senha\": \"{{senha_dono_1}}\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('dono_1 logado', () => pm.response.to.have.status(200));",
+         "pm.collectionVariables.set('token_dono', pm.response.json().access_token);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "00.2 Login do cliente A",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/auth/login",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "auth",
+        "login"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"email\": \"{{email_cliente_a}}\",\n  \"senha\": \"{{senha_cliente_a}}\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('cliente_a logado', () => pm.response.to.have.status(200));",
+         "pm.collectionVariables.set('token_cliente', pm.response.json().access_token);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "00.3 Login do cliente B",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/auth/login",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "auth",
+        "login"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"email\": \"{{email_cliente_b}}\",\n  \"senha\": \"{{senha_cliente_b}}\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('cliente_b logado', () => pm.response.to.have.status(200));",
+         "pm.collectionVariables.set('token_cliente_b', pm.response.json().access_token);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "00.4 Achar o restaurante Teste Burger",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/consultas/restaurantes?busca=Teste Burger",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "consultas",
+        "restaurantes"
+       ],
+       "query": [
+        {
+         "key": "busca",
+         "value": "Teste Burger"
+        }
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const r = pm.response.json().find(x => x.nome_fantasia === 'Teste Burger');",
+         "pm.test('Restaurante encontrado', () => pm.expect(r).to.be.an('object'));",
+         "pm.collectionVariables.set('restaurante_id', r.id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "00.5 Dono cadastra 'Lanche do Dia' com 3 unidades",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_dono}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/produtos",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"restaurante_id\": {{restaurante_id}},\n  \"nome\": \"Lanche do Dia\",\n  \"preco\": 30,\n  \"estoque\": 3\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201', () => pm.response.to.have.status(201));",
+         "pm.collectionVariables.set('lanche_id', pm.response.json().id);",
+         "pm.test('Nasce com 3 unidades', () => pm.expect(pm.response.json().estoque).to.eql(3));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "1. Falta de produto",
+   "item": [
+    {
+     "name": "CT-01 Consultar estoque (público) → 3",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/produtos/{{lanche_id}}/estoque",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos",
+        "{{lanche_id}}",
+        "estoque"
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.test('Estoque = 3', () => pm.expect(pm.response.json().estoque).to.eql(3));",
+         "pm.test('Controla estoque', () => pm.expect(pm.response.json().controla_estoque).to.eql(true));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-02 Cliente pede 4 de 3 → 400",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/cesta/itens",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "cesta",
+        "itens"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"produto_id\": {{lanche_id}},\n  \"quantidade\": 4\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('400', () => pm.response.to.have.status(400));",
+         "pm.test('Mensagem diz quantas há', () => pm.expect(pm.response.json().detail).to.include('So ha 3 unidades'));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-03 Cliente pede 3 de 3 → 201",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/cesta/itens",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "cesta",
+        "itens"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"produto_id\": {{lanche_id}},\n  \"quantidade\": 3\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201', () => pm.response.to.have.status(201));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-04 Somar mais 1 na cesta (daria 4) → 400",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/cesta/itens",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "cesta",
+        "itens"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"produto_id\": {{lanche_id}},\n  \"quantidade\": 1\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('400', () => pm.response.to.have.status(400));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "2. Baixa de estoque",
+   "item": [
+    {
+     "name": "CT-05 Cliente A fecha o pedido com 3 unidades → 201",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/pedidos",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "pedidos"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"retirada\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201 pedido criado', () => pm.response.to.have.status(201));",
+         "pm.collectionVariables.set('pedido_a', pm.response.json().id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-06 Estoque baixou para 0 (esgotado)",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/produtos/{{lanche_id}}/estoque",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos",
+        "{{lanche_id}}",
+        "estoque"
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.test('Estoque = 0', () => pm.expect(pm.response.json().estoque).to.eql(0));",
+         "pm.test('Esgotado', () => pm.expect(pm.response.json().esgotado).to.eql(true));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-07 Esgotado some do cardápio",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "consultas",
+        "restaurantes",
+        "{{restaurante_id}}",
+        "cardapio"
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.test('Lanche do Dia não aparece', () => pm.expect(pm.response.json().itens.map(i => i.id)).to.not.include(Number(v('lanche_id'))));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-08 Cliente B tenta comprar o esgotado → 400",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente_b}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/cesta/itens",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "cesta",
+        "itens"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"produto_id\": {{lanche_id}},\n  \"quantidade\": 1\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('400', () => pm.response.to.have.status(400));",
+         "pm.test('Mensagem de esgotado', () => pm.expect(pm.response.json().detail).to.include('esgotado'));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "3. Cancelamento devolve o estoque",
+   "item": [
+    {
+     "name": "CT-09 Cliente A cancela enquanto aguarda aceite → 200",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/pedidos/{{pedido_a}}/cancelar",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "pedidos",
+        "{{pedido_a}}",
+        "cancelar"
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.test('Status cancelado', () => pm.expect(pm.response.json().status).to.eql('cancelado'));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-10 Estoque voltou para 3",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/produtos/{{lanche_id}}/estoque",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos",
+        "{{lanche_id}}",
+        "estoque"
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.test('Estoque = 3', () => pm.expect(pm.response.json().estoque).to.eql(3));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-11 Cancelar de novo não devolve duas vezes → 400",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/pedidos/{{pedido_a}}/cancelar",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "pedidos",
+        "{{pedido_a}}",
+        "cancelar"
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('400', () => pm.response.to.have.status(400));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-12 Estoque continua 3",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/produtos/{{lanche_id}}/estoque",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos",
+        "{{lanche_id}}",
+        "estoque"
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.test('Estoque = 3', () => pm.expect(pm.response.json().estoque).to.eql(3));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-13 Voltou ao cardápio",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/cardapio",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "consultas",
+        "restaurantes",
+        "{{restaurante_id}}",
+        "cardapio"
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('Lanche do Dia aparece com 3', () => { const i = pm.response.json().itens.find(x => x.id === Number(v('lanche_id'))); pm.expect(i.estoque).to.eql(3); });"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-14 Cliente B coloca 2 na cesta → 201",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente_b}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/cesta/itens",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "cesta",
+        "itens"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"produto_id\": {{lanche_id}},\n  \"quantidade\": 2\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201', () => pm.response.to.have.status(201));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-15 Cliente B fecha o pedido → 201",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente_b}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/pedidos",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "pedidos"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"retirada\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201 pedido criado', () => pm.response.to.have.status(201));",
+         "pm.collectionVariables.set('pedido_b', pm.response.json().id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-16 Estoque baixou para 1",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/produtos/{{lanche_id}}/estoque",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos",
+        "{{lanche_id}}",
+        "estoque"
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.test('Estoque = 1', () => pm.expect(pm.response.json().estoque).to.eql(1));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-17 Restaurante cancela o pedido do cliente B → 200",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_dono}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/pedidos/{{pedido_b}}/status",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "pedidos",
+        "{{pedido_b}}",
+        "status"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"status\": \"cancelado\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-18 Estoque voltou para 3",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/produtos/{{lanche_id}}/estoque",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos",
+        "{{lanche_id}}",
+        "estoque"
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.test('Estoque = 3', () => pm.expect(pm.response.json().estoque).to.eql(3));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "4. Só o dono altera o estoque",
+   "item": [
+    {
+     "name": "CT-19 Dono registra entrada de 2 → 5",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_dono}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/produtos/{{lanche_id}}/estoque",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos",
+        "{{lanche_id}}",
+        "estoque"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"ajuste\": 2\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.test('Estoque = 5', () => pm.expect(pm.response.json().estoque).to.eql(5));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-20 Saída maior que o estoque → 400",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_dono}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/produtos/{{lanche_id}}/estoque",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos",
+        "{{lanche_id}}",
+        "estoque"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"ajuste\": -10\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('400', () => pm.response.to.have.status(400));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-21 Cliente tenta mudar o estoque → 403",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/produtos/{{lanche_id}}/estoque",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos",
+        "{{lanche_id}}",
+        "estoque"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"estoque\": 999\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('403', () => pm.response.to.have.status(403));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-22 Estoque final = 5",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/produtos/{{lanche_id}}/estoque",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos",
+        "{{lanche_id}}",
+        "estoque"
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.test('Estoque = 5', () => pm.expect(pm.response.json().estoque).to.eql(5));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "variable": []
+}

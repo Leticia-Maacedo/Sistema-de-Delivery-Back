@@ -7,6 +7,7 @@ distintos do CRUD de administracao em `restaurante_controller.py` e
     GET /consultas/restaurantes                  -> restaurantes aprovados (com ?busca=)
     GET /consultas/restaurantes/{id}             -> detalhe de um restaurante aprovado
     GET /consultas/restaurantes/{id}/cardapio    -> restaurante + itens disponiveis
+    GET /consultas/restaurantes/{id}/sugestoes   -> produtos sugeridos (Sprint 4)
 
 Regras de visibilidade:
     - so aparece restaurante com status_aprovacao = 'aprovado';
@@ -19,12 +20,14 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core import sugestoes
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.frete import distancia_linha_reta_km, entrega_no_raio
+from app.models.item_pedido import ItemPedido
 from app.models.produto import Produto
 from app.models.restaurante import Restaurante
-from app.schemas.consulta import CardapioOut, RestauranteConsultaOut
+from app.schemas.consulta import CardapioOut, RestauranteConsultaOut, SugestaoOut, SugestoesOut
 
 router = APIRouter(prefix="/consultas", tags=["Consultas (Cliente)"])
 
@@ -96,4 +99,63 @@ def consultar_cardapio(restaurante_id: int, db: Session = Depends(get_db)) -> Ca
         restaurante=RestauranteConsultaOut.model_validate(restaurante),
         total_itens=len(itens),
         itens=itens,
+    )
+
+
+@router.get(
+    "/restaurantes/{restaurante_id}/sugestoes",
+    response_model=SugestoesOut,
+    summary="Produtos sugeridos para o cliente",
+)
+def sugerir_produtos(
+    restaurante_id: int,
+    na_cesta: list[int] = Query(
+        default=[],
+        description="Ids dos produtos que ja estao na cesta (repita o parametro: ?na_cesta=1&na_cesta=2). "
+        "Vazio = cesta vazia: sugere os mais pedidos.",
+    ),
+    limite: int = Query(default=sugestoes.LIMITE_PADRAO, ge=1, le=sugestoes.LIMITE_MAXIMO),
+    db: Session = Depends(get_db),
+) -> SugestoesOut:
+    """Sugestoes para o cardapio ou para a cesta.
+
+    Com itens na cesta, vem primeiro o que costuma ser pedido junto com
+    eles; depois os mais pedidos do restaurante. Nunca sugere item
+    indisponivel, esgotado ou que ja esta na cesta. Publico, como o
+    cardapio (o app e o site mandam os ids da cesta que ja conhecem).
+    """
+
+    restaurante = Restaurante.buscar_aprovado_por_id(db, restaurante_id)
+    if restaurante is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Restaurante nao encontrado ou indisponivel.",
+        )
+
+    cesta = set(na_cesta)
+    lista = sugestoes.montar_sugestoes(
+        candidatos=Produto.listar_disponiveis(db, restaurante_id),
+        vendidos=ItemPedido.unidades_vendidas(db, restaurante_id),
+        juntos=ItemPedido.pedidos_junto_com(db, restaurante_id, cesta),
+        na_cesta=cesta,
+        limite=limite,
+    )
+    return SugestoesOut(
+        restaurante_id=restaurante_id,
+        regra=sugestoes.REGRA,
+        na_cesta=sorted(cesta),
+        total=len(lista),
+        sugestoes=[
+            SugestaoOut(
+                id=s.produto.id,
+                nome=s.produto.nome,
+                descricao=s.produto.descricao,
+                preco=s.produto.preco,
+                estoque=s.produto.estoque,
+                motivo=s.motivo,
+                vezes_pedido=s.vezes_pedido,
+                pedidos_juntos=s.pedidos_juntos,
+            )
+            for s in lista
+        ],
     )
