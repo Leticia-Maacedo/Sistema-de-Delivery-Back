@@ -267,7 +267,8 @@ Mudança de banco (`sql/NN_*.sql`): rode o script no Neon (SQL Editor) **antes**
 | `05` a `10` (Sprint 3) | Acompanhamento, dono/entregador, push no navegador, pagamento e NF, endereço no pedido, Portal do Parceiro | ✅ |
 | `11_sprint4_push_fcm.sql` | Tabela `push_token_fcm` (push no app) | ✅ 08/11/2026 |
 | `12_sprint4_estoque.sql` | Coluna `produto.estoque` (NULL = sem controle) | ✅ 08/11/2026 |
-| `13_sprint4_nota_fiscal.sql` | Tabela `nota_fiscal` (situação da emissão de cada pedido) | ⏳ rodar antes do deploy |
+| `13_sprint4_nota_fiscal.sql` | Tabela `nota_fiscal` (situação da emissão de cada pedido) | ✅ 14/11/2026 |
+| `14_backlog_codigo_barras.sql` | Coluna `produto.codigo_barras` (GTIN) e índice único por restaurante | ⏳ rodar **antes** do deploy |
 
 Ao criar um script novo, acrescente uma linha aqui e marque quando ele for aplicado no Neon.
 
@@ -690,6 +691,38 @@ A NFC-e sai no CNPJ do restaurante, com presença 4 (delivery) ou 1 (retirada), 
 | `FISCAL_CNPJ_INTERMEDIADOR` | (vazio) | CNPJ do EntregaFood como intermediador (NT 2020.006) |
 
 Testes: `python -m pytest testes/teste_emissao_fiscal.py -v` (27 testes) e a coleção `Teste_Emissao_Fiscal` (ver [Testar com Postman](#6-testar-com-postman)).
+
+---
+
+## Backlog — código de barras dos produtos
+
+Antes do deploy, rode `sql/14_backlog_codigo_barras.sql` no banco: o model já lê a coluna `produto.codigo_barras`.
+
+Cada item do cardápio pode guardar o código de barras da embalagem (EAN-8, UPC-A, EAN-13 ou GTIN-14). A API tira espaços e traços, confere o dígito verificador (`422` se não confere) e não deixa o mesmo código em dois itens do mesmo restaurante (`409`); restaurantes diferentes podem usar o mesmo código. Regra em `app/core/codigo_barras.py`.
+
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| `POST`/`PUT` | `/parceiro/produtos[/{id}]` e `/produtos[/{id}]` | dono ou admin | Campo `codigo_barras` (null apaga; omitir não mexe) |
+| `GET` | `/parceiro/produtos/codigo-barras/{codigo}` | restaurante | Acha o item do próprio cardápio pelo código (usado pelo leitor da tela Cardápio); `404` se não existe |
+
+No front, o leitor pela câmera (`src/components/LeitorCodigo.jsx`, biblioteca html5-qrcode) também lê o QR Code do código de entrega no painel do entregador.
+
+Testes: `python -m pytest testes/teste_codigo_barras.py -v` (14 testes).
+
+---
+
+## Backlog — SMS e WhatsApp automáticos
+
+E-mail (código e nota) e push (navegador e app) já existiam. `app/core/mensageria.py` acrescenta **SMS** (Twilio) e **WhatsApp** (WhatsApp Business Platform da Meta): a cada aviso do pedido para o **cliente** (pedido recebido, cada mudança de status, cancelamento), a mesma mensagem vai para o telefone cadastrado, no formato internacional (`+55...`). O restaurante e o entregador continuam recebendo só push.
+
+| Canal | Liga com | Requisição |
+|---|---|---|
+| SMS | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | `POST https://api.twilio.com/2010-04-01/Accounts/{SID}/Messages.json` (Basic; `To`, `From`, `Body`) |
+| WhatsApp | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_TEMPLATE` | `POST https://graph.facebook.com/v21.0/{PHONE_NUMBER_ID}/messages` (Bearer; mensagem de modelo com 2 parâmetros) |
+
+Sem as credenciais o canal fica desligado. Falha do serviço (recusa, fora do ar) só vai para o log: nunca afeta o pedido. Para ativar o WhatsApp é preciso criar e aprovar na Meta o modelo `entregafood_status_pedido` com o corpo `{{1}}: {{2}}`.
+
+Testes: `python -m pytest testes/teste_mensageria.py -v` (20 testes, com os servidores da Twilio e da Meta simulados).
 
 ---
 

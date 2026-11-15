@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core import codigo_barras
 from app.core import status_pedido
 from app.core.config import get_settings
 from app.core.database import get_db
@@ -192,6 +193,19 @@ def _meu_produto(db: Session, restaurante: Restaurante, produto_id: int) -> Prod
     return produto
 
 
+def _exigir_codigo_livre(db: Session, restaurante_id: int, codigo: str | None, produto_id: int | None = None) -> None:
+    """Backlog - codigo de barras: o mesmo codigo nao pode estar em dois itens do restaurante."""
+
+    if codigo is None:
+        return
+    outro = Produto.buscar_por_codigo_barras(db, restaurante_id, codigo)
+    if outro is not None and outro.id != produto_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"O código de barras {codigo} já está no item \"{outro.nome}\" deste restaurante.",
+        )
+
+
 @router.get("/produtos", response_model=list[ProdutoOut], summary="Meu cardápio")
 def listar_meus_produtos(
     db: Session = Depends(get_db),
@@ -210,6 +224,7 @@ def criar_meu_produto(
     usuario: Usuario = Depends(exigir_restaurante),
 ) -> Produto:
     restaurante = _meu_restaurante(db, usuario)
+    _exigir_codigo_livre(db, restaurante.id, dados.codigo_barras)
     return Produto.criar(
         db,
         restaurante_id=restaurante.id,
@@ -218,7 +233,24 @@ def criar_meu_produto(
         preco=dados.preco,
         disponivel=dados.disponivel,
         estoque=dados.estoque,
+        codigo_barras=dados.codigo_barras,
     )
+
+
+@router.get("/produtos/codigo-barras/{codigo}", response_model=ProdutoOut, summary="Achar item pelo código de barras")
+def buscar_meu_produto_por_codigo(
+    codigo: str,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_restaurante),
+) -> Produto:
+    """O leitor de código de barras da tela Cardápio usa esta rota: lê a
+    embalagem e abre o item (por exemplo, para dar entrada no estoque)."""
+
+    restaurante = _meu_restaurante(db, usuario)
+    produto = Produto.buscar_por_codigo_barras(db, restaurante.id, codigo_barras.normalizar(codigo) or "")
+    if produto is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Nenhum item do cardápio tem o código {codigo}.")
+    return produto
 
 
 @router.put("/produtos/{produto_id}", response_model=ProdutoOut, summary="Alterar item do cardápio")
@@ -234,6 +266,9 @@ def alterar_meu_produto(
         produto.descricao = (campos.pop("descricao") or "").strip() or None
     if "estoque" in campos:
         produto.estoque = campos.pop("estoque")  # null desliga o controle
+    if "codigo_barras" in campos:
+        _exigir_codigo_livre(db, produto.restaurante_id, campos["codigo_barras"], produto.id)
+        produto.codigo_barras = campos.pop("codigo_barras")  # null apaga
     return produto.atualizar(db, **campos)
 
 

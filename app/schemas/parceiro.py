@@ -2,7 +2,9 @@
 from datetime import datetime, time
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.core import codigo_barras
 
 
 def _horario_completo(abertura: time | None, fechamento: time | None) -> None:
@@ -83,6 +85,13 @@ class ProdutoParceiroIn(BaseModel):
     disponivel: bool = True
     # Sprint 4: null = sem controle de estoque.
     estoque: int | None = Field(default=None, ge=0, le=99999, examples=[20])
+    # Backlog: código de barras da embalagem (GTIN); null = sem código.
+    codigo_barras: str | None = Field(default=None, max_length=20, examples=["7894900011517"])
+
+    @field_validator("codigo_barras")
+    @classmethod
+    def _codigo_barras(cls, v):
+        return codigo_barras.validar(v)
 
 
 class ProdutoParceiroUpdate(BaseModel):
@@ -92,6 +101,13 @@ class ProdutoParceiroUpdate(BaseModel):
     disponivel: bool | None = None
     # Enviar null desliga o controle de estoque; omitir nao mexe.
     estoque: int | None = Field(default=None, ge=0, le=99999)
+    # Enviar null apaga o codigo de barras; omitir nao mexe.
+    codigo_barras: str | None = Field(default=None, max_length=20)
+
+    @field_validator("codigo_barras")
+    @classmethod
+    def _codigo_barras(cls, v):
+        return codigo_barras.validar(v)
 
 
 class ResumoParceiroOut(BaseModel):
