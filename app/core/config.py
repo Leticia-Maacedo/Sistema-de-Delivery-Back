@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     WHATSAPP_IDIOMA: str = "pt_BR"
     WHATSAPP_API_VERSAO: str = "v21.0"
     MENSAGERIA_BASE_URL: str = ""  # vazio = servidores oficiais; preenchido só nos testes
+    # Telegram (bot criado no @BotFather) - app/core/telegram.py. Vazio = desligado.
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_BASE_URL: str = ""  # vazio = https://api.telegram.org; preenchido só nos testes
 
     # Pagamento com Asaas - app/core/pagamento_asaas.py
     # Sem a chave, o pagamento usa o gateway simulado (app/core/pagamento_cartao.py).

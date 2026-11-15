@@ -63,7 +63,9 @@ def whatsapp_ativo() -> bool:
 
 
 def mensageria_ativa() -> bool:
-    return sms_ativo() or whatsapp_ativo()
+    from app.core.telegram import telegram_ativo
+
+    return sms_ativo() or whatsapp_ativo() or telegram_ativo()
 
 
 def _cliente() -> httpx.Client:
@@ -125,5 +127,16 @@ def enviar_para_telefone(telefone: str | None, titulo: str, texto: str, http: ht
 def enviar_para_usuario(db, usuario_id: int, titulo: str, texto: str, http: httpx.Client | None = None) -> list[Envio]:
     from app.models.usuario import Usuario
 
+    from app.core import telegram
+
     usuario = db.get(Usuario, usuario_id)
-    return enviar_para_telefone(usuario.telefone if usuario else None, titulo, texto, http)
+    if usuario is None:
+        return []
+    envios = enviar_para_telefone(usuario.telefone, titulo, texto, http)
+    if telegram.telegram_ativo() and usuario.telegram_chat_id:
+        ok, status = telegram.enviar_aviso(usuario.telegram_chat_id, titulo, texto)
+        envios.append(Envio("telegram", usuario.telegram_chat_id, ok, "" if ok else f"HTTP {status}"))
+        if status == 403:  # o cliente bloqueou o bot: para de tentar
+            usuario.telegram_chat_id = None
+            db.commit()
+    return envios

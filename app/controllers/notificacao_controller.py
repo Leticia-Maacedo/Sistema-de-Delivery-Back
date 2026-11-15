@@ -5,12 +5,13 @@ envia a inscricao para ca. Os avisos em si sao disparados pelo pedido
 (app/core/notificacoes_pedido.py).
 """
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.push import push_ativo
+from app.core import telegram
 from app.core.push_fcm import fcm_ativo
 from app.core.security import obter_usuario_logado
 from app.models.push_inscricao import PushInscricao
@@ -105,4 +106,55 @@ def remover_token_fcm(
     """Logout no app: o celular para de receber os avisos desta conta."""
 
     PushTokenFCM.remover(db, dados.token, usuario_logado.id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ------------------------------------------------------------------ Telegram (backlog)
+
+
+def _situacao_telegram(usuario: Usuario) -> dict:
+    return {"disponivel": telegram.telegram_ativo(), "vinculado": bool(usuario.telegram_chat_id)}
+
+
+@router.get("/telegram", summary="Situação dos avisos pelo Telegram")
+def situacao_telegram(usuario_logado: Usuario = Depends(obter_usuario_logado)) -> dict:
+    """`disponivel` = o bot está configurado; `vinculado` = esta conta recebe os avisos."""
+
+    return _situacao_telegram(usuario_logado)
+
+
+@router.post("/telegram/vincular", summary="Gerar o link para ligar a conta ao bot do Telegram")
+def vincular_telegram(db: Session = Depends(get_db), usuario_logado: Usuario = Depends(obter_usuario_logado)) -> dict:
+    """Código de uso único, válido por 15 minutos, no link https://t.me/<bot>?start=<código>.
+    Depois de tocar em Iniciar no Telegram, o site chama /telegram/confirmar."""
+
+    if not telegram.telegram_ativo():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Os avisos pelo Telegram não estão configurados.")
+    usuario = db.get(Usuario, usuario_logado.id)
+    try:
+        return telegram.iniciar_vinculo(db, usuario)
+    except telegram.TelegramErro as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram indisponível: {e}") from e
+
+
+@router.post("/telegram/confirmar", summary="Conferir se a conta já foi ligada ao bot")
+def confirmar_telegram(db: Session = Depends(get_db), usuario_logado: Usuario = Depends(obter_usuario_logado)) -> dict:
+    """Lê as mensagens novas do bot e liga quem tocou em Iniciar com um código válido."""
+
+    if not telegram.telegram_ativo():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Os avisos pelo Telegram não estão configurados.")
+    try:
+        telegram.processar_atualizacoes(db)
+    except telegram.TelegramErro as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram indisponível: {e}") from e
+    return _situacao_telegram(db.get(Usuario, usuario_logado.id))
+
+
+@router.delete("/telegram", status_code=status.HTTP_204_NO_CONTENT, summary="Parar de receber avisos pelo Telegram")
+def desvincular_telegram(db: Session = Depends(get_db), usuario_logado: Usuario = Depends(obter_usuario_logado)) -> Response:
+    usuario = db.get(Usuario, usuario_logado.id)
+    usuario.telegram_chat_id = None
+    usuario.telegram_codigo = None
+    usuario.telegram_codigo_expira = None
+    db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -36,6 +36,10 @@ class Usuario(Base):
     telefone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     tipo: Mapped[str] = mapped_column(String(20), nullable=False)
     oauth_provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Backlog - avisos pelo Telegram (sql/15): chat ligado e código do link de vínculo.
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    telegram_codigo: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
+    telegram_codigo_expira: Mapped[datetime | None] = mapped_column(nullable=True)
     criado_em: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
     )
@@ -196,6 +200,9 @@ class Usuario(Base):
             self.telefone = None
             self.senha_hash = None
             self.oauth_provider = None
+            self.telegram_chat_id = None
+            self.telegram_codigo = None
+            self.telegram_codigo_expira = None
             db.execute(update(Restaurante).where(Restaurante.usuario_id == self.id).values(ativo=False))
         else:
             db.delete(self)
