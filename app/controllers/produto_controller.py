@@ -50,6 +50,19 @@ def _buscar_produto_do_usuario(db: Session, produto_id: int, usuario: Usuario) -
     return produto
 
 
+def _exigir_codigo_livre(db: Session, restaurante_id: int, codigo: str | None, produto_id: int | None = None) -> None:
+    """Backlog - codigo de barras: o mesmo codigo nao pode estar em dois itens do restaurante."""
+
+    if codigo is None:
+        return
+    outro = Produto.buscar_por_codigo_barras(db, restaurante_id, codigo)
+    if outro is not None and outro.id != produto_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"O código de barras {codigo} já está no item \"{outro.nome}\" deste restaurante.",
+        )
+
+
 # ---------------------------------------------------------------- CREATE
 @router.post("", response_model=ProdutoOut, status_code=status.HTTP_201_CREATED, summary="Cadastrar produto")
 def criar_produto(
@@ -64,6 +77,7 @@ def criar_produto(
             detail="Restaurante informado não existe.",
         )
     _exigir_dono(restaurante, usuario_logado)
+    _exigir_codigo_livre(db, dados.restaurante_id, dados.codigo_barras)
     return Produto.criar(
         db,
         restaurante_id=dados.restaurante_id,
@@ -72,6 +86,7 @@ def criar_produto(
         preco=dados.preco,
         disponivel=dados.disponivel,
         estoque=dados.estoque,
+        codigo_barras=dados.codigo_barras,
     )
 
 
@@ -106,6 +121,9 @@ def atualizar_produto(
     campos = dados.model_dump(exclude_unset=True)
     if "estoque" in campos:
         produto.estoque = campos.pop("estoque")  # null desliga o controle
+    if "codigo_barras" in campos:
+        _exigir_codigo_livre(db, produto.restaurante_id, campos["codigo_barras"], produto.id)
+        produto.codigo_barras = campos.pop("codigo_barras")  # null apaga
     return produto.atualizar(db, **campos)
 
 

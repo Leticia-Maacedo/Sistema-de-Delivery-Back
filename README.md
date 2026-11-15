@@ -267,7 +267,8 @@ Mudança de banco (`sql/NN_*.sql`): rode o script no Neon (SQL Editor) **antes**
 | `05` a `10` (Sprint 3) | Acompanhamento, dono/entregador, push no navegador, pagamento e NF, endereço no pedido, Portal do Parceiro | ✅ |
 | `11_sprint4_push_fcm.sql` | Tabela `push_token_fcm` (push no app) | ✅ 08/11/2026 |
 | `12_sprint4_estoque.sql` | Coluna `produto.estoque` (NULL = sem controle) | ✅ 08/11/2026 |
-| `13_sprint4_nota_fiscal.sql` | Tabela `nota_fiscal` (situação da emissão de cada pedido) | ⏳ rodar antes do deploy |
+| `13_sprint4_nota_fiscal.sql` | Tabela `nota_fiscal` (situação da emissão de cada pedido) | ✅ 14/11/2026 |
+| `14_backlog_codigo_barras.sql` | Coluna `produto.codigo_barras` (GTIN) e índice único por restaurante | ⏳ rodar **antes** do deploy |
 
 Ao criar um script novo, acrescente uma linha aqui e marque quando ele for aplicado no Neon.
 
@@ -690,6 +691,23 @@ A NFC-e sai no CNPJ do restaurante, com presença 4 (delivery) ou 1 (retirada), 
 | `FISCAL_CNPJ_INTERMEDIADOR` | (vazio) | CNPJ do EntregaFood como intermediador (NT 2020.006) |
 
 Testes: `python -m pytest testes/teste_emissao_fiscal.py -v` (27 testes) e a coleção `Teste_Emissao_Fiscal` (ver [Testar com Postman](#6-testar-com-postman)).
+
+---
+
+## Backlog — código de barras dos produtos
+
+Antes do deploy, rode `sql/14_backlog_codigo_barras.sql` no banco: o model já lê a coluna `produto.codigo_barras`.
+
+Cada item do cardápio pode guardar o código de barras da embalagem (EAN-8, UPC-A, EAN-13 ou GTIN-14). A API tira espaços e traços, confere o dígito verificador (`422` se não confere) e não deixa o mesmo código em dois itens do mesmo restaurante (`409`); restaurantes diferentes podem usar o mesmo código. Regra em `app/core/codigo_barras.py`.
+
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| `POST`/`PUT` | `/parceiro/produtos[/{id}]` e `/produtos[/{id}]` | dono ou admin | Campo `codigo_barras` (null apaga; omitir não mexe) |
+| `GET` | `/parceiro/produtos/codigo-barras/{codigo}` | restaurante | Acha o item do próprio cardápio pelo código (usado pelo leitor da tela Cardápio); `404` se não existe |
+
+No front, o leitor pela câmera (`src/components/LeitorCodigo.jsx`, biblioteca html5-qrcode) também lê o QR Code do código de entrega no painel do entregador.
+
+Testes: `python -m pytest testes/teste_codigo_barras.py -v` (14 testes).
 
 ---
 
