@@ -45,7 +45,7 @@ AMBIENTE = PASTA / "ambiente_local.postman_environment.json"
 BANCO.unlink(missing_ok=True)
 
 # Precisa vir antes de importar o app: o config le essas variaveis na importacao
-os.environ.update({"DATABASE_URL": f"sqlite:///{BANCO.as_posix()}", "CORS_ORIGINS": "http://localhost:5173",
+os.environ.update({"DATABASE_URL": f"sqlite:///{BANCO.as_posix()}", "CORS_ORIGINS": "http://localhost:5173,http://localhost:5174",
                    "ASAAS_API_KEY": "", "SMTP_HOST": "", "VAPID_PUBLIC_KEY": "", "VAPID_PRIVATE_KEY": "",
                    "JWT_SECRET": secrets.token_urlsafe(32), "JWT_EXPIRE_MINUTES": "120",
                    "FIREBASE_CREDENCIAIS": ""})
