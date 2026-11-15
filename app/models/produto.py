@@ -7,10 +7,13 @@ positivo). E o CRUD que esta entrega pede pra demonstrar.
 Estoque (Sprint 4, sql/12): `estoque` NULL = sem controle (vende sem
 limite); numero = unidades disponiveis. A baixa acontece quando o pedido
 e criado e a devolucao quando ele e cancelado (app/models/pedido.py).
+
+Codigo de barras (Backlog, sql/14): GTIN da embalagem, unico dentro do
+restaurante; NULL = item sem codigo. Regras em app/core/codigo_barras.py.
 """
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, Numeric, String, or_, select, update
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, Numeric, String, or_, select, update
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.core.database import Base
@@ -31,6 +34,7 @@ class Produto(Base):
     __tablename__ = "produto"
     __table_args__ = (
         CheckConstraint("estoque IS NULL OR estoque >= 0", name="ck_produto_estoque_nao_negativo"),
+        Index("uq_produto_restaurante_codigo_barras", "restaurante_id", "codigo_barras", unique=True),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -40,6 +44,7 @@ class Produto(Base):
     preco: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
     disponivel: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     estoque: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    codigo_barras: Mapped[str | None] = mapped_column(String(14), nullable=True, default=None)
 
     def __repr__(self) -> str:
         return f"<Produto id={self.id} nome={self.nome!r} restaurante_id={self.restaurante_id}>"
@@ -175,6 +180,7 @@ class Produto(Base):
         descricao: str | None = None,
         disponivel: bool = True,
         estoque: int | None = None,
+        codigo_barras: str | None = None,
     ) -> "Produto":
         produto = cls(
             restaurante_id=restaurante_id,
@@ -183,11 +189,18 @@ class Produto(Base):
             preco=preco,
             disponivel=disponivel,
             estoque=estoque,
+            codigo_barras=codigo_barras,
         )
         db.add(produto)
         db.commit()
         db.refresh(produto)
         return produto
+
+    @staticmethod
+    def buscar_por_codigo_barras(db: Session, restaurante_id: int, codigo: str) -> "Produto | None":
+        return db.execute(
+            select(Produto).where(Produto.restaurante_id == restaurante_id, Produto.codigo_barras == codigo)
+        ).scalar_one_or_none()
 
     def atualizar(self, db: Session, **campos) -> "Produto":
         for campo, valor in campos.items():
