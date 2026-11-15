@@ -61,3 +61,26 @@ class CardapioOut(BaseModel):
     restaurante: RestauranteConsultaOut
     total_itens: int
     itens: list[ItemCardapioOut]
+
+
+class SugestaoOut(BaseModel):
+    """Um produto sugerido, com o motivo para mostrar ao cliente."""
+
+    id: int
+    nome: str
+    descricao: str | None
+    preco: Decimal
+    estoque: int | None = None
+    motivo: str
+    vezes_pedido: int
+    pedidos_juntos: int
+
+
+class SugestoesOut(BaseModel):
+    """Resposta de GET /consultas/restaurantes/{id}/sugestoes."""
+
+    restaurante_id: int
+    regra: str
+    na_cesta: list[int]
+    total: int
+    sugestoes: list[SugestaoOut]

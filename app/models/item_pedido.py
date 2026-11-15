@@ -8,7 +8,7 @@ pedido continua com o valor que foi cobrado.
 
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Integer, Numeric, select
+from sqlalchemy import ForeignKey, Integer, Numeric, distinct, func, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.core.database import Base
@@ -58,3 +58,57 @@ class ItemPedido(Base):
         )
 
         return list(db.execute(consulta).scalars())
+
+    # ------------------------------------------------------------------
+    # Sugestao de produtos (Sprint 4)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _pedidos_aceitos(restaurante_id: int):
+        """Filtro comum: pedidos do restaurante que ele aceitou."""
+
+        from app.core.status_pedido import AGUARDANDO_ACEITE, CANCELADO
+        from app.models.pedido import Pedido
+
+        return (
+            Pedido.restaurante_id == restaurante_id,
+            Pedido.status.not_in([AGUARDANDO_ACEITE, CANCELADO]),
+        )
+
+    @staticmethod
+    def unidades_vendidas(db: Session, restaurante_id: int) -> dict[int, int]:
+        """produto_id -> unidades vendidas em pedidos aceitos do restaurante."""
+
+        from app.models.pedido import Pedido
+
+        consulta = (
+            select(ItemPedido.produto_id, func.sum(ItemPedido.quantidade))
+            .join(Pedido, Pedido.id == ItemPedido.pedido_id)
+            .where(*ItemPedido._pedidos_aceitos(restaurante_id))
+            .group_by(ItemPedido.produto_id)
+        )
+        return {produto_id: int(total) for produto_id, total in db.execute(consulta)}
+
+    @staticmethod
+    def pedidos_junto_com(db: Session, restaurante_id: int, produto_ids: set[int]) -> dict[int, int]:
+        """produto_id -> em quantos pedidos aceitos ele saiu junto com algum
+        dos `produto_ids` (os itens da cesta). Os proprios itens da cesta
+        nao entram no resultado."""
+
+        if not produto_ids:
+            return {}
+
+        from app.models.pedido import Pedido
+
+        pedidos_com_a_cesta = select(ItemPedido.pedido_id).where(ItemPedido.produto_id.in_(produto_ids))
+        consulta = (
+            select(ItemPedido.produto_id, func.count(distinct(ItemPedido.pedido_id)))
+            .join(Pedido, Pedido.id == ItemPedido.pedido_id)
+            .where(
+                *ItemPedido._pedidos_aceitos(restaurante_id),
+                ItemPedido.pedido_id.in_(pedidos_com_a_cesta),
+                ItemPedido.produto_id.not_in(produto_ids),
+            )
+            .group_by(ItemPedido.produto_id)
+        )
+        return {produto_id: int(total) for produto_id, total in db.execute(consulta)}
