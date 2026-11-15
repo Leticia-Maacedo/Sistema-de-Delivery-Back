@@ -726,6 +726,25 @@ Testes: `python -m pytest testes/teste_mensageria.py -v` (20 testes, com os serv
 
 ---
 
+## Backlog — avisos pelo Telegram
+
+Antes do deploy, rode `sql/15_backlog_telegram.sql` no banco (colunas `usuario.telegram_chat_id`, `telegram_codigo` e `telegram_codigo_expira`).
+
+Canal gratuito e sem restrição de país (`app/core/telegram.py`): um bot do Telegram manda ao **cliente** os mesmos avisos do push a cada etapa do pedido. Configuração: crie o bot no **@BotFather** e coloque o token em `TELEGRAM_BOT_TOKEN` (vazio = desligado).
+
+| Método | Rota | O que faz |
+|---|---|---|
+| `GET` | `/notificacoes/telegram` | `disponivel` (bot configurado) e `vinculado` (esta conta recebe) |
+| `POST` | `/notificacoes/telegram/vincular` | Gera o link `https://t.me/<bot>?start=<código>` (código de uso único, 15 min) |
+| `POST` | `/notificacoes/telegram/confirmar` | Lê as mensagens novas do bot (`getUpdates`) e liga quem tocou em Iniciar com um código válido |
+| `DELETE` | `/notificacoes/telegram` | Para de receber |
+
+Não precisa de webhook: o site chama `/confirmar` enquanto a pessoa toca em Iniciar. Se o cliente bloquear o bot, o vínculo é desligado sozinho. Na tela **Minha conta** do cliente aparece "Receber avisos no Telegram" quando o bot está configurado.
+
+Testes: `python -m pytest testes/teste_telegram.py -v` (9 testes, Telegram simulado).
+
+---
+
 ## Casos de teste cobertos
 
 | ID | Caso | Verificação |
