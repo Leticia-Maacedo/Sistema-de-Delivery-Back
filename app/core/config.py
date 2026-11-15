@@ -49,6 +49,18 @@ class Settings(BaseSettings):
     # JSON da conta de servico do Firebase (uma linha ou base64). Vazio = sem FCM.
     FIREBASE_CREDENCIAIS: str = ""
 
+    # SMS e WhatsApp ao cliente a cada etapa do pedido - app/core/mensageria.py
+    # Cada canal só liga com as próprias credenciais (vazias = desligado).
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_FROM: str = ""  # número da Twilio que envia o SMS, ex.: +15005550006
+    WHATSAPP_TOKEN: str = ""  # token de acesso da WhatsApp Business Platform (Meta)
+    WHATSAPP_PHONE_NUMBER_ID: str = ""
+    WHATSAPP_TEMPLATE: str = "entregafood_status_pedido"  # modelo aprovado com 2 parâmetros: título e texto
+    WHATSAPP_IDIOMA: str = "pt_BR"
+    WHATSAPP_API_VERSAO: str = "v21.0"
+    MENSAGERIA_BASE_URL: str = ""  # vazio = servidores oficiais; preenchido só nos testes
+
     # Pagamento com Asaas - app/core/pagamento_asaas.py
     # Sem a chave, o pagamento usa o gateway simulado (app/core/pagamento_cartao.py).
     ASAAS_API_KEY: str = ""

@@ -711,6 +711,21 @@ Testes: `python -m pytest testes/teste_codigo_barras.py -v` (14 testes).
 
 ---
 
+## Backlog — SMS e WhatsApp automáticos
+
+E-mail (código e nota) e push (navegador e app) já existiam. `app/core/mensageria.py` acrescenta **SMS** (Twilio) e **WhatsApp** (WhatsApp Business Platform da Meta): a cada aviso do pedido para o **cliente** (pedido recebido, cada mudança de status, cancelamento), a mesma mensagem vai para o telefone cadastrado, no formato internacional (`+55...`). O restaurante e o entregador continuam recebendo só push.
+
+| Canal | Liga com | Requisição |
+|---|---|---|
+| SMS | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | `POST https://api.twilio.com/2010-04-01/Accounts/{SID}/Messages.json` (Basic; `To`, `From`, `Body`) |
+| WhatsApp | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_TEMPLATE` | `POST https://graph.facebook.com/v21.0/{PHONE_NUMBER_ID}/messages` (Bearer; mensagem de modelo com 2 parâmetros) |
+
+Sem as credenciais o canal fica desligado. Falha do serviço (recusa, fora do ar) só vai para o log: nunca afeta o pedido. Para ativar o WhatsApp é preciso criar e aprovar na Meta o modelo `entregafood_status_pedido` com o corpo `{{1}}: {{2}}`.
+
+Testes: `python -m pytest testes/teste_mensageria.py -v` (20 testes, com os servidores da Twilio e da Meta simulados).
+
+---
+
 ## Casos de teste cobertos
 
 | ID | Caso | Verificação |
