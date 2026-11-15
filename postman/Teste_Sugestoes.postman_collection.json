@@ -1,0 +1,1244 @@
+{
+ "info": {
+  "name": "EntregaFood — Teste: sugestão de produtos",
+  "description": "Valida GET /consultas/restaurantes/{id}/sugestoes: com a cesta vazia vêm os mais pedidos; com itens na cesta vem primeiro o que costuma ser pedido junto; esgotado, indisponível e o que já está na cesta nunca aparecem; pedidos não aceitos não contam. Rode em ordem contra a API local (postman/servidor_local_teste.py). Única variável a ajustar: base_url.",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ },
+ "item": [
+  {
+   "name": "0. Preparação: cardápio e histórico de pedidos",
+   "item": [
+    {
+     "name": "00.1 Login do dono do Teste Burger",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/auth/login",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "auth",
+        "login"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"email\": \"{{email_dono_1}}\",\n  \"senha\": \"{{senha_dono_1}}\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('dono_1 logado', () => pm.response.to.have.status(200));",
+         "pm.collectionVariables.set('token_dono', pm.response.json().access_token);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "00.2 Login do cliente A",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/auth/login",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "auth",
+        "login"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"email\": \"{{email_cliente_a}}\",\n  \"senha\": \"{{senha_cliente_a}}\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('cliente_a logado', () => pm.response.to.have.status(200));",
+         "pm.collectionVariables.set('token_cliente', pm.response.json().access_token);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "00.4 Achar o restaurante Teste Burger",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/consultas/restaurantes?busca=Teste Burger",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "consultas",
+        "restaurantes"
+       ],
+       "query": [
+        {
+         "key": "busca",
+         "value": "Teste Burger"
+        }
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const r = pm.response.json().find(x => x.nome_fantasia === 'Teste Burger');",
+         "pm.test('Restaurante encontrado', () => pm.expect(r).to.be.an('object'));",
+         "pm.collectionVariables.set('restaurante_id', r.id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "00.5 Produto Hambúrguer",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_dono}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/produtos",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"restaurante_id\": {{restaurante_id}},\n  \"nome\": \"Hambúrguer\",\n  \"preco\": 28\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201', () => pm.response.to.have.status(201));",
+         "pm.collectionVariables.set('hamburguer_id', pm.response.json().id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "00.6 Produto Batata",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_dono}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/produtos",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"restaurante_id\": {{restaurante_id}},\n  \"nome\": \"Batata\",\n  \"preco\": 15\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201', () => pm.response.to.have.status(201));",
+         "pm.collectionVariables.set('batata_id', pm.response.json().id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "00.7 Produto Refrigerante",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_dono}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/produtos",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"restaurante_id\": {{restaurante_id}},\n  \"nome\": \"Refrigerante\",\n  \"preco\": 7\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201', () => pm.response.to.have.status(201));",
+         "pm.collectionVariables.set('refri_id', pm.response.json().id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "00.8 Produto Sorvete",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_dono}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/produtos",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"restaurante_id\": {{restaurante_id}},\n  \"nome\": \"Sorvete\",\n  \"preco\": 12\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201', () => pm.response.to.have.status(201));",
+         "pm.collectionVariables.set('sorvete_id', pm.response.json().id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "01.1 Pedido 1: Hambúrguer",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/cesta/itens",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "cesta",
+        "itens"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"produto_id\": {{hamburguer_id}},\n  \"quantidade\": 1\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201', () => pm.response.to.have.status(201));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "01.2 Pedido 1: Batata",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/cesta/itens",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "cesta",
+        "itens"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"produto_id\": {{batata_id}},\n  \"quantidade\": 1\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201', () => pm.response.to.have.status(201));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "01.3 Pedido 1 fechado",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/pedidos",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "pedidos"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"retirada\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201 pedido criado', () => pm.response.to.have.status(201));",
+         "pm.collectionVariables.set('pedido_1', pm.response.json().id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "01.4 Cliente escolhe pagar em dinheiro",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/pagamentos/pedidos/{{pedido_1}}/metodo",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "pagamentos",
+        "pedidos",
+        "{{pedido_1}}",
+        "metodo"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"metodo\": \"dinheiro\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200 dinheiro na entrega', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "01.5 Restaurante aceita o pedido 1",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_dono}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/pedidos/{{pedido_1}}/status",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "pedidos",
+        "{{pedido_1}}",
+        "status"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"status\": \"aceito\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200 aceito', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "02.1 Pedido 2: 4 Refrigerantes",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/cesta/itens",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "cesta",
+        "itens"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"produto_id\": {{refri_id}},\n  \"quantidade\": 4\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201', () => pm.response.to.have.status(201));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "02.2 Pedido 2 fechado",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/pedidos",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "pedidos"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"retirada\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201 pedido criado', () => pm.response.to.have.status(201));",
+         "pm.collectionVariables.set('pedido_2', pm.response.json().id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "02.3 Cliente escolhe pagar em dinheiro",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/pagamentos/pedidos/{{pedido_2}}/metodo",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "pagamentos",
+        "pedidos",
+        "{{pedido_2}}",
+        "metodo"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"metodo\": \"dinheiro\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200 dinheiro na entrega', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "02.4 Restaurante aceita o pedido 2",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_dono}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/pedidos/{{pedido_2}}/status",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "pedidos",
+        "{{pedido_2}}",
+        "status"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"status\": \"aceito\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200 aceito', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "03.1 Pedido 3: 9 Sorvetes (não será aceito)",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/cesta/itens",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "cesta",
+        "itens"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"produto_id\": {{sorvete_id}},\n  \"quantidade\": 9\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201', () => pm.response.to.have.status(201));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "03.2 Pedido 3 fechado e fica aguardando aceite",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_cliente}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/pedidos",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "pedidos"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"retirada\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('201 pedido criado', () => pm.response.to.have.status(201));",
+         "pm.collectionVariables.set('pedido_3', pm.response.json().id);"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "1. Sugestões",
+   "item": [
+    {
+     "name": "CT-01 Cesta vazia → mais pedidos primeiro",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/sugestoes?limite=10",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "consultas",
+        "restaurantes",
+        "{{restaurante_id}}",
+        "sugestoes"
+       ],
+       "query": [
+        {
+         "key": "limite",
+         "value": "10"
+        }
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const s = pm.response.json().sugestoes;",
+         "pm.test('Refrigerante (4 vendidos) em 1º', () => pm.expect(s[0].id).to.eql(Number(v('refri_id'))));",
+         "pm.test('Motivo: mais pedidos', () => pm.expect(s[0].motivo).to.include('mais pedidos'));",
+         "pm.test('Sorvete não conta o pedido não aceito', () => pm.expect(s.find(x => x.id === Number(v('sorvete_id'))).vezes_pedido).to.eql(0));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-02 Hambúrguer na cesta → Batata (pedida junto) em 1º",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/sugestoes?na_cesta={{hamburguer_id}}",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "consultas",
+        "restaurantes",
+        "{{restaurante_id}}",
+        "sugestoes"
+       ],
+       "query": [
+        {
+         "key": "na_cesta",
+         "value": "{{hamburguer_id}}"
+        }
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const c = pm.response.json();",
+         "pm.test('Batata em 1º', () => pm.expect(c.sugestoes[0].id).to.eql(Number(v('batata_id'))));",
+         "pm.test('Motivo: pedido junto', () => pm.expect(c.sugestoes[0].motivo).to.include('junto'));",
+         "pm.test('Hambúrguer não volta', () => pm.expect(c.sugestoes.map(x => x.id)).to.not.include(Number(v('hamburguer_id'))));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-03 Limite de 2 sugestões",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/sugestoes?limite=2",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "consultas",
+        "restaurantes",
+        "{{restaurante_id}}",
+        "sugestoes"
+       ],
+       "query": [
+        {
+         "key": "limite",
+         "value": "2"
+        }
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('Total 2', () => pm.expect(pm.response.json().total).to.eql(2));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-04 Dono zera o estoque do Refrigerante",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_dono}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/produtos/{{refri_id}}/estoque",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos",
+        "{{refri_id}}",
+        "estoque"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"estoque\": 0\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-05 Esgotado não é sugerido",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/sugestoes?limite=20",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "consultas",
+        "restaurantes",
+        "{{restaurante_id}}",
+        "sugestoes"
+       ],
+       "query": [
+        {
+         "key": "limite",
+         "value": "20"
+        }
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('Refrigerante fora', () => pm.expect(pm.response.json().sugestoes.map(x => x.id)).to.not.include(Number(v('refri_id'))));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-06 Dono pausa a Batata (indisponível)",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token_dono}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/produtos/{{batata_id}}",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "produtos",
+        "{{batata_id}}"
+       ]
+      },
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"disponivel\": false\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-07 Indisponível não é sugerido",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/sugestoes?na_cesta={{hamburguer_id}}&limite=20",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "consultas",
+        "restaurantes",
+        "{{restaurante_id}}",
+        "sugestoes"
+       ],
+       "query": [
+        {
+         "key": "na_cesta",
+         "value": "{{hamburguer_id}}"
+        },
+        {
+         "key": "limite",
+         "value": "20"
+        }
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('Batata fora', () => pm.expect(pm.response.json().sugestoes.map(x => x.id)).to.not.include(Number(v('batata_id'))));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-08 Limite fora da faixa → 422",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/consultas/restaurantes/{{restaurante_id}}/sugestoes?limite=50",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "consultas",
+        "restaurantes",
+        "{{restaurante_id}}",
+        "sugestoes"
+       ],
+       "query": [
+        {
+         "key": "limite",
+         "value": "50"
+        }
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('422', () => pm.response.to.have.status(422));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "CT-09 Restaurante inexistente → 404",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/consultas/restaurantes/99999/sugestoes",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "consultas",
+        "restaurantes",
+        "99999",
+        "sugestoes"
+       ]
+      },
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const v = (k) => pm.collectionVariables.get(k);",
+         "pm.test('404', () => pm.response.to.have.status(404));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "variable": []
+}
