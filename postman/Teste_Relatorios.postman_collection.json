@@ -1,0 +1,2235 @@
+{
+  "info": {
+    "name": "Teste_Relatorios",
+    "description": "Valida os relatórios de vendas (GET /relatorios/receita-por-restaurante, /pedidos-por-restaurante e /pagamentos-por-tipo): cálculos conferidos com o valor_total de cada pedido criado na coleção, pedidos aguardando aceite e cancelados fora das somas, totais e percentuais, ordenação, filtros de período (inclusive sem pedidos e período inválido) e quem pode ver. Rode em ordem contra a API local recém-iniciada (postman/servidor_local_teste.py). Única variável a ajustar: base_url.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Preparação",
+      "item": [
+        {
+          "name": "Login do administrador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_admin}}\",\n  \"senha\": \"{{senha_admin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_admin', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login do dono do Teste Burger",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_dono_1}}\",\n  \"senha\": \"{{senha_dono_1}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_dono_1', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login do dono da Teste Pizzaria",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_dono_2}}\",\n  \"senha\": \"{{senha_dono_2}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_dono_2', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login do cliente A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_cliente_a}}\",\n  \"senha\": \"{{senha_cliente_a}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_cliente_a', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login do cliente B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_cliente_b}}\",\n  \"senha\": \"{{senha_cliente_b}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_cliente_b', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login do entregador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email_entregador}}\",\n  \"senha\": \"{{senha_entregador}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_entregador', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Achar o Teste Burger e o produto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes?busca=Teste Burger",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes"
+              ],
+              "query": [
+                {
+                  "key": "busca",
+                  "value": "Teste Burger"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json()[0];",
+                  "pm.collectionVariables.set('burger_id', r.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cardápio do Teste Burger",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes/{{burger_id}}/cardapio",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes",
+                "{{burger_id}}",
+                "cardapio"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('burger_prod', pm.response.json().itens[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Achar a Teste Pizzaria",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes?busca=Teste Pizzaria",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes"
+              ],
+              "query": [
+                {
+                  "key": "busca",
+                  "value": "Teste Pizzaria"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('pizza_id', pm.response.json()[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cardápio da Teste Pizzaria",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/consultas/restaurantes/{{pizza_id}}/cardapio",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "restaurantes",
+                "{{pizza_id}}",
+                "cardapio"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('pizza_prod', pm.response.json().itens[0].id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Sem pedidos",
+      "item": [
+        {
+          "name": "CT-01 Receita sem pedidos → zero e lista vazia",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/receita-por-restaurante",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "receita-por-restaurante"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('Total geral 0', () => pm.expect(Number(j.total_geral)).to.eql(0));",
+                  "pm.test('Nenhum restaurante', () => pm.expect(j.restaurantes).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-02 Pedidos sem pedidos → totais zerados",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/pedidos-por-restaurante",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "pedidos-por-restaurante"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('0 pedidos, R$ 0, ticket 0', () => { pm.expect(j.total_pedidos).to.eql(0); pm.expect(Number(j.total_faturamento)).to.eql(0); pm.expect(Number(j.ticket_medio_geral)).to.eql(0); });",
+                  "pm.test('Lista vazia', () => pm.expect(j.restaurantes).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-03 Pagamentos sem pedidos → três formas com zero",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/pagamentos-por-tipo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "pagamentos-por-tipo"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('Total 0', () => { pm.expect(j.total_quantidade).to.eql(0); pm.expect(Number(j.total_valor)).to.eql(0); });",
+                  "pm.test('Cartão, PIX e dinheiro aparecem zerados', () => { pm.expect(j.metodos.map(m => m.forma_pagamento).sort()).to.eql(['cartao','dinheiro','pix']); j.metodos.forEach(m => { pm.expect(m.quantidade).to.eql(0); pm.expect(Number(m.percentual_valor)).to.eql(0); }); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Pedidos do teste",
+      "item": [
+        {
+          "name": "P1: cliente a põe 2 na cesta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_a}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{burger_prod}},\n  \"quantidade\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P1: fecha o pedido (cartao)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_a}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pedidos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pedidos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"forma_pagamento\": \"cartao\",\n  \"tipo_entrega\": \"delivery\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('p1', j.id); pm.collectionVariables.set('v1', j.valor_total);",
+                  "pm.test('Pedido do restaurante certo', () => pm.expect(j.restaurante_id).to.eql(Number(pm.collectionVariables.get('burger_id'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P1: escolhe cartao",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_a}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pagamentos/pedidos/{{p1}}/metodo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pagamentos",
+                "pedidos",
+                "{{p1}}",
+                "metodo"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodo\": \"cartao\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P1: paga com cartão",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_a}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pagamentos/cartao",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pagamentos",
+                "cartao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": {{p1}},\n  \"cartao\": {\"titular\": \"ANA TESTE\", \"numero\": \"5162306219378829\", \"mes_validade\": \"05\", \"ano_validade\": \"2030\", \"cvv\": \"318\"}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Pagamento aprovado', () => pm.expect(pm.response.json().status).to.eql('aprovado'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P1: restaurante aceita",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_dono_1}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pedidos/{{p1}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pedidos",
+                "{{p1}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"aceito\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P2: cliente b põe 1 na cesta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_b}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{burger_prod}},\n  \"quantidade\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P2: fecha o pedido (pix)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_b}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pedidos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pedidos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"forma_pagamento\": \"pix\",\n  \"tipo_entrega\": \"delivery\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('p2', j.id); pm.collectionVariables.set('v2', j.valor_total);",
+                  "pm.test('Pedido do restaurante certo', () => pm.expect(j.restaurante_id).to.eql(Number(pm.collectionVariables.get('burger_id'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P2: escolhe pix",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_b}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pagamentos/pedidos/{{p2}}/metodo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pagamentos",
+                "pedidos",
+                "{{p2}}",
+                "metodo"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodo\": \"pix\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P2: gera o PIX",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_b}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pagamentos/pix",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pagamentos",
+                "pix"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": {{p2}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P2: banco confirma o PIX (sandbox)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_b}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pagamentos/pedidos/{{p2}}/pix/simular-pagamento",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pagamentos",
+                "pedidos",
+                "{{p2}}",
+                "pix",
+                "simular-pagamento"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PIX aprovado', () => pm.expect(pm.response.json().status).to.eql('aprovado'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P2: restaurante aceita",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_dono_1}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pedidos/{{p2}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pedidos",
+                "{{p2}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"aceito\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P3: cliente a põe 1 na cesta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_a}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{pizza_prod}},\n  \"quantidade\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P3: fecha o pedido (dinheiro)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_a}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pedidos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pedidos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"delivery\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('p3', j.id); pm.collectionVariables.set('v3', j.valor_total);",
+                  "pm.test('Pedido do restaurante certo', () => pm.expect(j.restaurante_id).to.eql(Number(pm.collectionVariables.get('pizza_id'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P3: escolhe dinheiro",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_a}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pagamentos/pedidos/{{p3}}/metodo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pagamentos",
+                "pedidos",
+                "{{p3}}",
+                "metodo"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodo\": \"dinheiro\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P3: restaurante aceita",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_dono_2}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pedidos/{{p3}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pedidos",
+                "{{p3}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"aceito\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P4: cliente b põe 3 na cesta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_b}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{burger_prod}},\n  \"quantidade\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P4: fecha o pedido (dinheiro)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_b}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pedidos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pedidos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"delivery\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('p4', j.id); pm.collectionVariables.set('v4', j.valor_total);",
+                  "pm.test('Pedido do restaurante certo', () => pm.expect(j.restaurante_id).to.eql(Number(pm.collectionVariables.get('burger_id'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P4: escolhe dinheiro",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_b}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pagamentos/pedidos/{{p4}}/metodo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pagamentos",
+                "pedidos",
+                "{{p4}}",
+                "metodo"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodo\": \"dinheiro\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P5: cliente a põe 2 na cesta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_a}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cesta/itens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cesta",
+                "itens"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produto_id\": {{pizza_prod}},\n  \"quantidade\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P5: fecha o pedido (dinheiro)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_a}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pedidos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pedidos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"forma_pagamento\": \"dinheiro\",\n  \"tipo_entrega\": \"delivery\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('p5', j.id); pm.collectionVariables.set('v5', j.valor_total);",
+                  "pm.test('Pedido do restaurante certo', () => pm.expect(j.restaurante_id).to.eql(Number(pm.collectionVariables.get('pizza_id'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P5: escolhe dinheiro",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_a}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pagamentos/pedidos/{{p5}}/metodo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pagamentos",
+                "pedidos",
+                "{{p5}}",
+                "metodo"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodo\": \"dinheiro\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P5: cliente cancela",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_a}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/pedidos/{{p5}}/cancelar",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pedidos",
+                "{{p5}}",
+                "cancelar"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "P1 cartão e P2 PIX no Teste Burger e P3 dinheiro na Teste Pizzaria, todos aceitos. P4 fica aguardando aceite e P5 é cancelado: os dois não podem entrar nas somas."
+    },
+    {
+      "name": "3. Cálculos (administrador)",
+      "item": [
+        {
+          "name": "CT-04 Receita bruta e participação por restaurante",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/receita-por-restaurante",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "receita-por-restaurante"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const c = v => Math.round(Number(v) * 100);",
+                  "const v = k => Number(pm.collectionVariables.get(k));",
+                  "const pct = (parte, total) => total ? Math.round(parte * 10000 / total) / 100 : 0;",
+                  "const j = pm.response.json();",
+                  "const burger = c(v('v1')) + c(v('v2')), pizza = c(v('v3')), total = burger + pizza;",
+                  "const b = j.restaurantes.find(r => r.restaurante_id === v('burger_id')), p = j.restaurantes.find(r => r.restaurante_id === v('pizza_id'));",
+                  "pm.test('Total geral = P1 + P2 + P3 (sem P4 e P5)', () => pm.expect(c(j.total_geral)).to.eql(total));",
+                  "pm.test('Teste Burger = P1 + P2', () => pm.expect(c(b.receita_bruta)).to.eql(burger));",
+                  "pm.test('Teste Pizzaria = P3', () => pm.expect(c(p.receita_bruta)).to.eql(pizza));",
+                  "pm.test('Participação = receita / total × 100 (2 casas)', () => { pm.expect(Number(b.participacao_percentual)).to.be.closeTo(pct(burger, total), 0.011); pm.expect(Number(p.participacao_percentual)).to.be.closeTo(pct(pizza, total), 0.011); });",
+                  "pm.test('Participações somam 100%', () => pm.expect(j.restaurantes.reduce((s, r) => s + Number(r.participacao_percentual), 0)).to.be.closeTo(100, 0.011));",
+                  "pm.test('Maior receita primeiro', () => pm.expect(c(j.restaurantes[0].receita_bruta)).to.be.at.least(c(j.restaurantes[1].receita_bruta)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-05 Pedidos, faturamento e ticket médio",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/pedidos-por-restaurante",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "pedidos-por-restaurante"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const c = v => Math.round(Number(v) * 100);",
+                  "const v = k => Number(pm.collectionVariables.get(k));",
+                  "const pct = (parte, total) => total ? Math.round(parte * 10000 / total) / 100 : 0;",
+                  "const j = pm.response.json();",
+                  "const b = j.restaurantes.find(r => r.restaurante_id === v('burger_id')), p = j.restaurantes.find(r => r.restaurante_id === v('pizza_id'));",
+                  "const burger = c(v('v1')) + c(v('v2')), pizza = c(v('v3'));",
+                  "pm.test('Teste Burger: 2 pedidos (P4 aguardando não conta)', () => pm.expect(b.quantidade_pedidos).to.eql(2));",
+                  "pm.test('Teste Pizzaria: 1 pedido (P5 cancelado não conta)', () => pm.expect(p.quantidade_pedidos).to.eql(1));",
+                  "pm.test('Faturamento por restaurante', () => { pm.expect(c(b.faturamento)).to.eql(burger); pm.expect(c(p.faturamento)).to.eql(pizza); });",
+                  "pm.test('Ticket médio = faturamento / pedidos', () => { pm.expect(c(b.ticket_medio)).to.be.closeTo(Math.round(burger / 2), 1); pm.expect(c(p.ticket_medio)).to.eql(pizza); });",
+                  "pm.test('Totais gerais: 3 pedidos e ticket geral', () => { pm.expect(j.total_pedidos).to.eql(3); pm.expect(c(j.total_faturamento)).to.eql(burger + pizza); pm.expect(c(j.ticket_medio_geral)).to.be.closeTo(Math.round((burger + pizza) / 3), 1); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-06 Ordenação por quantidade, crescente",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/pedidos-por-restaurante?ordenar_por=quantidade_pedidos&ordem=asc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "pedidos-por-restaurante"
+              ],
+              "query": [
+                {
+                  "key": "ordenar_por",
+                  "value": "quantidade_pedidos"
+                },
+                {
+                  "key": "ordem",
+                  "value": "asc"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json().restaurantes;",
+                  "pm.test('Menor quantidade primeiro', () => pm.expect(r.map(x => x.quantidade_pedidos)).to.eql([1, 2]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-07 Ordenação por nome, decrescente",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/pedidos-por-restaurante?ordenar_por=restaurante_nome&ordem=desc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "pedidos-por-restaurante"
+              ],
+              "query": [
+                {
+                  "key": "ordenar_por",
+                  "value": "restaurante_nome"
+                },
+                {
+                  "key": "ordem",
+                  "value": "desc"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json().restaurantes;",
+                  "pm.test('Teste Pizzaria antes de Teste Burger', () => pm.expect(r.map(x => x.restaurante_nome)).to.eql(['Teste Pizzaria', 'Teste Burger']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-08 Formas de pagamento: quantidade e valor",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/pagamentos-por-tipo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "pagamentos-por-tipo"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const c = v => Math.round(Number(v) * 100);",
+                  "const v = k => Number(pm.collectionVariables.get(k));",
+                  "const pct = (parte, total) => total ? Math.round(parte * 10000 / total) / 100 : 0;",
+                  "const j = pm.response.json(); const m = f => j.metodos.find(x => x.forma_pagamento === f);",
+                  "const total = c(v('v1')) + c(v('v2')) + c(v('v3'));",
+                  "pm.test('Cartão = P1, PIX = P2, dinheiro = P3', () => { pm.expect([m('cartao').quantidade, m('pix').quantidade, m('dinheiro').quantidade]).to.eql([1, 1, 1]); pm.expect(c(m('cartao').valor)).to.eql(c(v('v1'))); pm.expect(c(m('pix').valor)).to.eql(c(v('v2'))); pm.expect(c(m('dinheiro').valor)).to.eql(c(v('v3'))); });",
+                  "pm.test('Totais: 3 pedidos e a soma dos valores', () => { pm.expect(j.total_quantidade).to.eql(3); pm.expect(c(j.total_valor)).to.eql(total); });",
+                  "pm.test('% por valor confere e soma 100', () => { ['cartao','pix','dinheiro'].forEach((f, i) => pm.expect(Number(m(f).percentual_valor)).to.be.closeTo(pct(c(v('v' + (i + 1))), total), 0.011)); pm.expect(j.metodos.reduce((s, x) => s + Number(x.percentual_valor), 0)).to.be.closeTo(100, 0.02); });",
+                  "pm.test('% por quantidade = 33,33 cada', () => j.metodos.forEach(x => pm.expect(Number(x.percentual_quantidade)).to.be.closeTo(33.33, 0.011)));",
+                  "pm.test('Rótulos para o gráfico', () => pm.expect(m('cartao').rotulo).to.eql('Cartão de crédito'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Filtros de período",
+      "item": [
+        {
+          "name": "CT-09 Período de hoje inclui os pedidos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/receita-por-restaurante?data_inicio={{hoje}}&data_fim={{hoje}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "receita-por-restaurante"
+              ],
+              "query": [
+                {
+                  "key": "data_inicio",
+                  "value": "{{hoje}}"
+                },
+                {
+                  "key": "data_fim",
+                  "value": "{{hoje}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date(); const z = n => String(n).padStart(2, '0');",
+                  "pm.collectionVariables.set('hoje', `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const c = v => Math.round(Number(v) * 100);",
+                  "const v = k => Number(pm.collectionVariables.get(k));",
+                  "const pct = (parte, total) => total ? Math.round(parte * 10000 / total) / 100 : 0;",
+                  "const j = pm.response.json();",
+                  "pm.test('Mesmo total de sem filtro', () => pm.expect(c(j.total_geral)).to.eql(c(v('v1')) + c(v('v2')) + c(v('v3'))));",
+                  "pm.test('Período devolvido', () => { pm.expect(j.periodo.data_inicio).to.eql(pm.collectionVariables.get('hoje')); pm.expect(j.periodo.data_fim).to.eql(pm.collectionVariables.get('hoje')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-10 Período passado: sem pedidos → zero",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/pedidos-por-restaurante?data_inicio=2020-01-01&data_fim=2020-12-31",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "pedidos-por-restaurante"
+              ],
+              "query": [
+                {
+                  "key": "data_inicio",
+                  "value": "2020-01-01"
+                },
+                {
+                  "key": "data_fim",
+                  "value": "2020-12-31"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('Nada no período', () => { pm.expect(j.total_pedidos).to.eql(0); pm.expect(Number(j.total_faturamento)).to.eql(0); pm.expect(j.restaurantes).to.eql([]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-11 Só data inicial no futuro → zero",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/pagamentos-por-tipo?data_inicio=2099-01-01",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "pagamentos-por-tipo"
+              ],
+              "query": [
+                {
+                  "key": "data_inicio",
+                  "value": "2099-01-01"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('Total 0 e formas zeradas', () => { pm.expect(j.total_quantidade).to.eql(0); j.metodos.forEach(x => pm.expect(x.quantidade).to.eql(0)); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-12 Só data final (até hoje) inclui tudo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/pagamentos-por-tipo?data_fim={{hoje}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "pagamentos-por-tipo"
+              ],
+              "query": [
+                {
+                  "key": "data_fim",
+                  "value": "{{hoje}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('3 pedidos', () => pm.expect(pm.response.json().total_quantidade).to.eql(3));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-13 Data final antes da inicial → 400",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/receita-por-restaurante?data_inicio=2026-11-10&data_fim=2026-11-01",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "receita-por-restaurante"
+              ],
+              "query": [
+                {
+                  "key": "data_inicio",
+                  "value": "2026-11-10"
+                },
+                {
+                  "key": "data_fim",
+                  "value": "2026-11-01"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensagem do período', () => pm.expect(pm.response.json().detail).to.include('data inicial'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-14 Data inválida → 422",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/receita-por-restaurante?data_inicio=31-12-2026",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "receita-por-restaurante"
+              ],
+              "query": [
+                {
+                  "key": "data_inicio",
+                  "value": "31-12-2026"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Quem vê",
+      "item": [
+        {
+          "name": "CT-15 Restaurante vê só o dele",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_dono_1}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/receita-por-restaurante",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "receita-por-restaurante"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const c = v => Math.round(Number(v) * 100);",
+                  "const v = k => Number(pm.collectionVariables.get(k));",
+                  "const pct = (parte, total) => total ? Math.round(parte * 10000 / total) / 100 : 0;",
+                  "const j = pm.response.json();",
+                  "pm.test('Só o Teste Burger', () => pm.expect(j.restaurantes.map(r => r.restaurante_id)).to.eql([v('burger_id')]));",
+                  "pm.test('Total = P1 + P2 e participação 100%', () => { pm.expect(c(j.total_geral)).to.eql(c(v('v1')) + c(v('v2'))); pm.expect(Number(j.restaurantes[0].participacao_percentual)).to.eql(100); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-16 Outro restaurante vê só os números dele",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_dono_2}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/pagamentos-por-tipo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "pagamentos-por-tipo"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const c = v => Math.round(Number(v) * 100);",
+                  "const v = k => Number(pm.collectionVariables.get(k));",
+                  "const pct = (parte, total) => total ? Math.round(parte * 10000 / total) / 100 : 0;",
+                  "const j = pm.response.json();",
+                  "pm.test('Só P3 (dinheiro)', () => { pm.expect(j.total_quantidade).to.eql(1); pm.expect(c(j.total_valor)).to.eql(c(v('v3'))); pm.expect(j.metodos.find(x => x.forma_pagamento === 'dinheiro').quantidade).to.eql(1); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-17 Cliente não vê relatórios → 403",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_a}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/receita-por-restaurante",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "receita-por-restaurante"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-18 Entregador não vê relatórios → 403",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_entregador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/relatorios/pedidos-por-restaurante",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "pedidos-por-restaurante"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CT-19 Sem login → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/relatorios/pagamentos-por-tipo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "relatorios",
+                "pagamentos-por-tipo"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "hoje",
+      "value": ""
+    },
+    {
+      "key": "burger_id",
+      "value": ""
+    },
+    {
+      "key": "burger_prod",
+      "value": ""
+    },
+    {
+      "key": "pizza_id",
+      "value": ""
+    },
+    {
+      "key": "pizza_prod",
+      "value": ""
+    }
+  ]
+}

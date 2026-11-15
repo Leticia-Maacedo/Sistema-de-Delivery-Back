@@ -220,6 +220,7 @@ Rode a coleção logo depois de subir o script (o banco é recriado a cada vez e
 | `Teste_Emissao_Fiscal` | NFC-e pela Focus NFe: autorização, rejeição, serviço fora do ar e reenvio, cancelamento (Sprint 4) — precisa do `--fiscal`, abaixo |
 | `Teste_Estoque` | Falta de produto, baixa no pedido, esgotado fora do cardápio e devolução no cancelamento (Sprint 4) |
 | `Teste_Sugestoes` | Sugestão de produtos: mais pedidos, pedidos juntos com a cesta, esgotado e indisponível fora (Sprint 4) |
+| `Teste_Relatorios` | Relatórios de vendas: cálculos conferidos com os pedidos, totais, ordenação, filtros de período, sem pedidos e quem vê (Sprint 4) |
 
 **Notificações push (Sprint 4).** Com `--push`, o servidor de teste liga o push com chaves VAPID e conta do Firebase de teste geradas na hora e sobe, na porta seguinte (8012), um serviço de push falso ([`postman/servico_push_falso.py`](postman/servico_push_falso.py)). Ele faz o papel do navegador e do Firebase: recebe e **decifra** cada notificação e guarda tudo em `GET /capturas`, que a coleção consulta. Só o transporte é trocado; cifragem, VAPID, JWT e as regras de quem recebe são o código real.
 
@@ -619,7 +620,7 @@ Exemplo — `GET /relatorios/receita-por-restaurante?data_inicio=2026-11-01&data
 }
 ```
 
-MVC: a leitura do banco fica no Model (`Pedido.listar_vendas`), os cálculos em `app/core/relatorios.py`, o formato da resposta nos schemas (`app/schemas/relatorio.py`) e as rotas em `app/controllers/relatorio_controller.py`. Testes: `python -m pytest testes/teste_relatorios.py`.
+MVC: a leitura do banco fica no Model (`Pedido.listar_vendas`), os cálculos em `app/core/relatorios.py`, o formato da resposta nos schemas (`app/schemas/relatorio.py`) e as rotas em `app/controllers/relatorio_controller.py`. Testes: `python -m pytest testes/teste_relatorios.py` (16 testes) e a coleção `Teste_Relatorios` (rodar com a API de teste recém-iniciada: ela começa conferindo os relatórios sem nenhum pedido).
 
 ---
 
