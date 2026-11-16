@@ -5,12 +5,24 @@ API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115
 **Sprint 1** — CRUD de Usuário e autenticação por e-mail/senha com JWT.
 **Sprint 2** — Consulta de Restaurante e Cardápio pelo cliente.
 **Sprint 3** — Cesta, fechamento do pedido, taxa de entrega pela distância, pagamento (cartão, PIX e dinheiro), nota fiscal simulada, acompanhamento da entrega, notificações push no navegador, Portal do Parceiro e minha conta.
-**Sprint 4** — Cancelamento pelo cliente, push no app mobile (Firebase), relatórios de vendas e estoque dos produtos.
+**Sprint 4** — Cancelamento pelo cliente, push no app mobile (Firebase), relatórios de vendas, estoque dos produtos, emissão fiscal (NFC-e pela Focus NFe) e sugestão de produtos.
+**Backlog final** — Código de barras dos produtos, avisos do pedido pelo Telegram e envio por SMS/WhatsApp (pronto, ligado com credenciais); no front, painel de chamada, QR Code da entrega, rota otimizada e compartilhamento nas redes sociais.
 **Extra** — CRUD de Restaurante, Produto e Local (endereço, pré-requisito da cadeia).
 **Grupo:** Amigos do Gilberto · Turma A · Faculdade Impacta
 **Produção:** API em `https://entregafood-api.onrender.com` (Render) com banco no Neon — ver [Publicar a API no Render](#publicar-a-api-no-render).
 
-**📚 Documentação detalhada:** [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) (padrão MVC, ciclo de vida da requisição, autenticação, débitos técnicos) · [`docs/BANCO_DE_DADOS.md`](docs/BANCO_DE_DADOS.md) (schema completo, diagrama ER) · [`docs/API.md`](docs/API.md) (todos os endpoints e métodos de Model por trás de cada um).
+**Repositórios do projeto:**
+
+| Repositório | O que é |
+|---|---|
+| [Sistema-de-Delivery-Back](https://github.com/Leticia-Maacedo/Sistema-de-Delivery-Back) (este) | API do sistema web (FastAPI, MVC) |
+| [Sistema-de-Delivery-Front](https://github.com/Leticia-Maacedo/Sistema-de-Delivery-Front) | Site React + Vite (cliente, parceiro, entregador e admin) — `https://entregafood-front.onrender.com` |
+| [EntregaFood-Mobile](https://github.com/annahigaf/EntregaFood-Mobile) | Aplicativo Android (Kotlin + Jetpack Compose), com os quatro perfis |
+| [entregafood-api](https://github.com/annahigaf/entregafood-api) | API do aplicativo Android (Node.js + Express + PostgreSQL próprio) |
+
+> O aplicativo Android usa **a sua própria API** (`entregafood-api`, Node.js) e um banco separado — não esta API FastAPI. As duas seguem as mesmas regras (JWT, valores recalculados no servidor), mas contas e pedidos não são compartilhados. Detalhes no Capítulo 12 do Documento do Projeto (v6).
+
+**📚 Documentação detalhada:** [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) (padrão MVC, ciclo de vida da requisição, autenticação, débitos técnicos) · [`docs/BANCO_DE_DADOS.md`](docs/BANCO_DE_DADOS.md) (schema completo, diagrama ER) · [`docs/API.md`](docs/API.md) (endpoints e métodos de Model por trás de cada um). Esses três arquivos estão atualizados até 26/10/2026; o que veio depois (nota fiscal, sugestões, código de barras, SMS/WhatsApp, Telegram) está neste README, no Swagger (`/docs`) e no Documento do Projeto v6.
 
 ---
 
@@ -39,11 +51,15 @@ API REST da plataforma EntregaFood, construída em **Python 3.12 + FastAPI 0.115
 | 19 | Portal do Parceiro: o dono gerencia o restaurante (horário, pausa, raio) e o cardápio | `/parceiro` | ✅ |
 | 20 | Minha conta: dados, senha e endereços; o pedido guarda uma cópia do endereço | `/usuarios/{id}`, `/locais` | ✅ |
 | 21 | Cancelamento pelo cliente enquanto aguarda o aceite, com estorno no Asaas (RN04) | `POST /pedidos/{id}/cancelar` | ✅ Sprint 4 |
-| 22 | Push no app mobile pelo Firebase Cloud Messaging | `/notificacoes/fcm` | ✅ Sprint 4 (o app ainda não registra o token) |
+| 22 | Push no app mobile pelo Firebase Cloud Messaging | `/notificacoes/fcm` | ✅ Sprint 4 (o app Android atual usa a própria API e ainda não registra o token) |
 | 23 | Relatórios de receita, pedidos e formas de pagamento por período | `/relatorios` | ✅ Sprint 4 |
 | 24 | Estoque dos produtos: validação na cesta, baixa no pedido e devolução no cancelamento | `/produtos/{id}/estoque` | ✅ Sprint 4 |
-| 25 | Emissão fiscal real (NFC-e) | — | ❌ não implementado (nota simulada em PDF) |
-| 26 | Avaliação | — | ❌ não implementado (só tabela no `sql/`) |
+| 25 | Emissão fiscal: NFC-e pela Focus NFe (rejeição, reenvio e cancelamento) ou nota simulada em PDF (padrão) | `/notas-fiscais` | ✅ Sprint 4 (NFC-e testada no formato da homologação) |
+| 26 | Sugestão de produtos no cardápio e na cesta | `GET /consultas/restaurantes/{id}/sugestoes` | ✅ Sprint 4 |
+| 27 | Código de barras (GTIN) dos produtos e busca pela embalagem | `/parceiro/produtos/codigo-barras/{codigo}` | ✅ Backlog |
+| 28 | Avisos do pedido pelo Telegram (cliente liga a conta em Minha conta) | `/notificacoes/telegram` | ✅ Backlog |
+| 29 | SMS (Twilio) e WhatsApp (Meta) a cada etapa do pedido | `app/core/mensageria.py` | ⚙️ pronto e testado; desligado sem credenciais |
+| 30 | Avaliação | — | ❌ não implementado (só tabela no `sql/`) |
 
 Essa tabela é o inventário de referência: toda vez que uma funcionalidade nova entrar no backend, adicione uma linha aqui.
 
@@ -91,6 +107,9 @@ app/
     ├── pagamento_regras.py, pagamento_gateway.py, pagamento_asaas.py, pagamento_cartao.py
     ├── nota_fiscal.py, email.py, otp_envio.py
     ├── push.py, push_fcm.py, notificacoes_pedido.py (quem recebe cada aviso)
+    ├── mensageria.py, telegram.py (SMS, WhatsApp e Telegram ao cliente)
+    ├── fiscal/                 (NFC-e pela Focus NFe ou nota simulada: emissão, rejeição, reenvio, cancelamento)
+    ├── codigo_barras.py, sugestoes.py (GTIN com dígito verificador; sugestão de produtos)
     └── relatorios.py           (cálculos dos relatórios)
 ```
 
@@ -251,6 +270,7 @@ A API roda no Render (plano gratuito, Docker) e o banco no **Neon** (PostgreSQL)
    - `ASAAS_API_KEY`: chave do Asaas sandbox (vazia = pagamento simulado).
    - `SMTP_HOST`, `SMTP_USUARIO`, `SMTP_SENHA`, `SMTP_REMETENTE`: e-mail da nota (Brevo: `smtp-relay.brevo.com`, porta 2525). Vazio = a nota não é enviada.
    - `GOOGLE_*` e `FACEBOOK_*`: opcionais; sem eles só o login social fica desligado.
+   - Opcionais: `TELEGRAM_BOT_TOKEN` (avisos pelo Telegram), `FIREBASE_CREDENCIAIS` (push no app), `FISCAL_PROVEDOR`/`FOCUSNFE_*` (NFC-e), `TWILIO_*` e `WHATSAPP_*` (SMS e WhatsApp). Sem eles, cada canal fica desligado e o resto funciona.
 3. Espere o primeiro deploy ficar **Live** e abra `https://entregafood-api.onrender.com/` (`{"status":"ok"}`).
 4. No front, troque `VITE_API_URL` no `render.yaml` do front para a URL nova.
 5. Login social: cadastre `https://entregafood-api.onrender.com/auth/google/callback` no Google Cloud e `.../auth/facebook/callback` no Meta for Developers.
@@ -268,7 +288,8 @@ Mudança de banco (`sql/NN_*.sql`): rode o script no Neon (SQL Editor) **antes**
 | `11_sprint4_push_fcm.sql` | Tabela `push_token_fcm` (push no app) | ✅ 08/11/2026 |
 | `12_sprint4_estoque.sql` | Coluna `produto.estoque` (NULL = sem controle) | ✅ 08/11/2026 |
 | `13_sprint4_nota_fiscal.sql` | Tabela `nota_fiscal` (situação da emissão de cada pedido) | ✅ 14/11/2026 |
-| `14_backlog_codigo_barras.sql` | Coluna `produto.codigo_barras` (GTIN) e índice único por restaurante | ⏳ rodar **antes** do deploy |
+| `14_backlog_codigo_barras.sql` | Coluna `produto.codigo_barras` (GTIN) e índice único por restaurante | ✅ 15/11/2026 |
+| `15_backlog_telegram.sql` | Colunas `usuario.telegram_chat_id`, `telegram_codigo` e `telegram_codigo_expira` | ✅ 15/11/2026 |
 
 Ao criar um script novo, acrescente uma linha aqui e marque quando ele for aplicado no Neon.
 
@@ -773,13 +794,13 @@ A consulta da Sprint 2 tem a bateria `teste_consulta_cardapio.py` — monta um r
 python testes/teste_consulta_cardapio.py
 ```
 
-As baterias das Sprints 3 e 4 (cesta, fechamento, status, pagamento, cancelamento, push, Portal do Parceiro, conta, relatórios e estoque) usam **SQLite em memória** e não precisam de banco. Para rodar todas de uma vez (precisa do `pytest`):
+As baterias pytest (cesta, fechamento, status, pagamento, cancelamento, push, Portal do Parceiro, conta, relatórios, estoque, nota fiscal, sugestões, código de barras, SMS/WhatsApp e Telegram — 19 arquivos, 317 testes) usam **SQLite em memória** e serviços externos simulados, sem precisar de banco. Para rodar todas de uma vez (precisa do `pytest`):
 
 ```bash
-python -m pytest testes/teste_*.py -q
+python -m pytest testes -o python_files="teste_*.py" -q
 ```
 
-Sem Python 3.12 instalado, dá para rodar no container do back: `docker run --rm -v "%cd%:/app" -w /app entregafood-backend sh -c "pip install -q -r requirements.txt pytest && python -m pytest testes/teste_*.py -q"`. (`python -m pytest testes` sozinho não acha nada: os arquivos começam com `teste_`, não `test_`.)
+O `-o python_files=...` é necessário porque os arquivos começam com `teste_`, não `test_` — sem ele, `python -m pytest testes` não acha nada. Sem Python 3.12 instalado, dá para rodar no container do back: `docker run --rm -v "%cd%:/app" -w /app entregafood-backend sh -c "pip install -q -r requirements.txt pytest && python -m pytest testes -o python_files='teste_*.py' -q"`.
 
 ---
 
@@ -800,8 +821,9 @@ Sem Python 3.12 instalado, dá para rodar no container do back: `docker run --rm
 - **Código de validação (OTP)**: no login e no cadastro por telefone (`/auth/telefone/*`) o código de 6 dígitos é enviado **por e-mail** pelo mesmo SMTP da nota fiscal (`app/core/otp_envio.py`): no login vai para o e-mail da conta; no cadastro, para o e-mail informado na tela. A resposta mostra o e-mail mascarado e não traz mais o código. Sem `SMTP_HOST` (rodando local, testes) o código volta em `codigo_dev`, como antes; `OTP_MOSTRAR_CODIGO=true` devolve o código mesmo com o e-mail enviado (só para demonstração). Conta antiga sem e-mail entra com telefone e senha. SMS de verdade não foi feito: o Twilio trial e o SMS do Brevo exigem pagamento. Testes: `testes/teste_otp_email.py`.
 - **Pagamento**: cartão e PIX vão para o Asaas **sandbox** (sem dinheiro de verdade). Não há webhook (o status do PIX é atualizado na consulta). O cancelamento de pedido pago pede o estorno ao gateway (`estorno_pendente` se ele falhar). Débito, parcelamento e Mercado Pago ficaram de fora.
 - **Nota fiscal**: o padrão continua sendo a nota simulada em PDF. A integração real com a Focus NFe (NFC-e) está pronta e testada contra um serviço no formato da homologação da Focus; a homologação oficial exige um restaurante com CNPJ, inscrição estadual credenciada, certificado A1 e CSC. O CPF do cliente ainda não vai na nota (o pedido não guarda CPF).
-- **Estoque**: opcional por produto (`NULL` = sem controle). Não há tela no front ainda: o dono ajusta pelo Swagger/Postman ou pelo campo `estoque` do Portal do Parceiro na API.
-- **Push no app mobile**: a API está pronta e testada, mas o app ainda não chama `POST /notificacoes/fcm`.
+- **Estoque**: opcional por produto (`NULL` = sem controle). O dono controla pela tela Cardápio do Portal do Parceiro (entrada e saída de unidades, também pelo código de barras).
+- **Push no app mobile**: a API está pronta e testada, mas o app Android atual usa a própria API (`entregafood-api`) e notificações locais; ele ainda não chama `POST /notificacoes/fcm`.
+- **SMS e WhatsApp**: implementados e testados com os serviços simulados, mas desligados no ar: o teste gratuito da Twilio terminou (precisa de conta paga) e o número de teste do WhatsApp da Meta não entrega no Brasil sem a verificação da empresa. Os avisos fora do site chegam pelo **Telegram**, que é gratuito.
 - **Avaliação**: tabela só no `sql/`, sem model/controller/endpoint.
 
 ---
