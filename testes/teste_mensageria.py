@@ -31,7 +31,8 @@ META = {"WHATSAPP_TOKEN": "token-meta", "WHATSAPP_PHONE_NUMBER_ID": "1098765", "
 
 
 def configurar(monkeypatch, **valores):
-    for k in list(TWILIO) + list(META) + ["MENSAGERIA_BASE_URL"]:
+    # O Telegram também conta como canal: sem limpar, um TELEGRAM_BOT_TOKEN no .env local liga a mensageria.
+    for k in list(TWILIO) + list(META) + ["MENSAGERIA_BASE_URL", "TELEGRAM_BOT_TOKEN"]:
         monkeypatch.setenv(k, valores.get(k, ""))
     if "WHATSAPP_TEMPLATE" not in valores:
         monkeypatch.setenv("WHATSAPP_TEMPLATE", "")
