@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import select
 
-from app.core import status_pedido
+from app.core import mensageria, status_pedido
 from app.core.database import SessionLocal
 from app.core.push import enviar_para_usuario, push_ativo
 from app.core.push_fcm import enviar_para_usuario_fcm, fcm_ativo
@@ -70,10 +70,11 @@ def _destinatarios(db, pedido, para: str) -> list[int]:
 
 
 def _enviar(pedido_id: int, gerar) -> None:
-    """Manda cada aviso pelos dois canais: navegador (Web Push) e app (FCM)."""
+    """Manda cada aviso pelo navegador (Web Push) e pelo app (FCM); ao cliente,
+    também por SMS e WhatsApp quando esses canais estão configurados (backlog)."""
 
-    web, app_mobile = push_ativo(), fcm_ativo()
-    if not web and not app_mobile:
+    web, app_mobile, telefone = push_ativo(), fcm_ativo(), mensageria.mensageria_ativa()
+    if not web and not app_mobile and not telefone:
         return
     from app.models.pedido import Pedido
 
@@ -93,6 +94,8 @@ def _enviar(pedido_id: int, gerar) -> None:
                     enviar_para_usuario_fcm(db, usuario_id, titulo=aviso.titulo, corpo=aviso.corpo,
                                             dados={"pedido_id": pedido_id, "status": pedido.status,
                                                    "destino": aviso.para})
+                if telefone and aviso.para == "cliente":
+                    mensageria.enviar_para_usuario(db, usuario_id, aviso.titulo, aviso.corpo)
     finally:
         db.close()
 
